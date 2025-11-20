@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Restaurant Availability Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Animated background pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+            animation: pulse 4s ease-in-out infinite;
+            z-index: -1;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+        
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            color: #3b82f6;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            color: #9ca3af;
+            font-size: 16px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .control-panel {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 15, 15, 0.8);
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: rgba(15, 15, 15, 0.95);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .form-control option {
+            background: #1f2937;
+            color: #ffffff;
+        }
+
+        .form-control optgroup {
+            background: #374151;
+            color: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .checkbox-wrapper input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+        
+        .checkbox-wrapper label {
+            color: #9ca3af;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-clear {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+        
+        .btn-clear:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .status-section {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .status-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-running {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        
+        .status-completed {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(75, 85, 99, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .status-text {
+            color: #e5e7eb;
+            font-size: 14px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #9ca3af;
+            text-transform: uppercase;
+        }
+        
+        .data-section {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+        }
+        
+        .data-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .data-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+        }
+        
+        .data-table th {
+            background: rgba(15, 15, 15, 0.8);
+            color: #3b82f6;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+        
+        .data-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        .status-available {
+            color: #22c55e;
+            font-weight: 600;
+        }
+        
+        .status-few-left {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+        
+        .status-unavailable {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        
+        .price-cell {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        
+        .website-cell {
+            color: #10b981;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .new-row {
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .auto-scroll {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .auto-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .auto-scroll::-webkit-scrollbar-track {
+            background: rgba(75, 85, 99, 0.2);
+            border-radius: 4px;
+        }
+        
+        .auto-scroll::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 4px;
+        }
+        
+        .auto-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.7);
+        }
+        
+        .website-info {
+            background: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .website-info h3 {
+            color: #3b82f6;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .website-info p {
+            color: #9ca3af;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .form-group {
+                min-width: 100%;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .data-table {
+                font-size: 12px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🍽️ Real-time Restaurant Availability Dashboard</h1>
+        <p>Monitor live availability data from multiple restaurants</p>
+    </div>
+
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <form id="scraperForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="website">Select Website</label>
+                        <select id="website" class="form-control" required>
+                            <optgroup label="🗽 NEW YORK CITY">
+                                <option value="swingers_nyc">Swingers</option>
+                                <option value="electric_shuffle_nyc">Electric Shuffle</option>
+                                <option value="lawn_club_nyc">Lawn Club NYC</option>
+                                <option value="spin_nyc">SPIN</option>
+                                <option value="five_iron_golf_nyc">Five Iron Golf</option>
+                                <option value="lucky_strike_nyc">Lucky Strike Chelsea Piers</option>
+                                <option value="easybowl_nyc">Easybowl</option>
+                            </optgroup>
+                            <optgroup label="🇬🇧 LONDON">
+                                <option value="swingers_london">Swingers</option>
+                                <option value="electric_shuffle_london">Electric Shuffle</option>
+                                <option value="fair_game_canary_wharf">Fair Game (Canary Wharf)</option>
+                                <option value="fair_game_city">Fair Game (City)</option>
+                                <option value="clays_bar">Clays Bar</option>
+                                <option value="puttshack">Puttshack</option>
+                                <option value="flight_club_darts">Flight Club Darts</option>
+                                <option value="flight_club_darts_angel">Flight Club Darts (Angel)</option>
+                                <option value="flight_club_darts_shoreditch">Flight Club Darts (Shoreditch)</option>
+                                <option value="flight_club_darts_victoria">Flight Club Darts (Victoria)</option>
+                                <option value="f1_arcade">F1 Arcade</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="guests">Number of Guests</label>
+                        <input type="number" id="guests" class="form-control" placeholder="Enter guests" min="1" value="2" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="targetDate">Target Date</label>
+                        <input type="date" id="targetDate" class="form-control" disabled>
+                    </div>
+                    
+                    <div class="form-group" id="lawnClubOptions" style="display: none;">
+                        <label for="lawnClubOption">Lawn Club Option</label>
+                        <select id="lawnClubOption" class="form-control">
+                            <option value="Terrace Gaming Lawns">Terrace Gaming Lawns</option>
+                            <option value="Indoor Gaming Lawns">Indoor Gaming Lawns</option>
+                            <option value="Croquet Lawns">Croquet Lawns</option>
+                            <option value="Cobblestone Court Lawns">Cobblestone Court Lawns</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="claysLocationOptions" style="display: none;">
+                        <label for="claysLocation">Clays Bar Location</label>
+                        <select id="claysLocation" class="form-control">
+                            <option value="Canary Wharf">Canary Wharf</option>
+                            <option value="The City">The City</option>
+                            <option value="Birmingham">Birmingham</option>
+                            <option value="Soho">Soho</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="puttshackLocationOptions" style="display: none;">
+                        <label for="puttshackLocation">Puttshack Location</label>
+                        <select id="puttshackLocation" class="form-control">
+                            <option value="Bank">Bank</option>
+                            <option value="Lakeside">Lakeside</option>
+                            <option value="White City">White City</option>
+                            <option value="Watford">Watford</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div style="height: 20px;"></div>
+                        <button type="submit" class="btn" id="runBtn">
+                            <span>▶</span> Start Scraping
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div style="height: 20px;"></div>
+                        <button type="button" class="btn btn-clear" id="clearBtn">
+                            <span>🗑️</span> Clear Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="targetDateEnabled">
+                    <label for="targetDateEnabled" id="targetDateLabel">Scrape specific date only (optional for Swingers)</label>
+                </div>
+                
+                <div class="website-info" id="websiteInfo">
+                    <h3>Swingers (NYC)</h3>
+                    <p>Golf club and restaurant offering crazy golf, cocktails, and street food. Can scrape multiple dates if no specific date is selected.</p>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- Status Section -->
+        <div class="status-section">
+            <div class="status-header">
+                <div class="status-title">Scraping Status</div>
+                <div id="statusBadge" class="status-badge">Ready</div>
+            </div>
+            
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            
+            <div id="statusText" class="status-text">Ready to start scraping...</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="totalSlots" class="stat-value">0</div>
+                    <div class="stat-label">Total Slots Found</div>
+                </div>
+                <div class="stat-card">
+                    <div id="currentDate" class="stat-value">-</div>
+                    <div class="stat-label">Current Date</div>
+                </div>
+                <div class="stat-card">
+                    <div id="availableSlots" class="stat-value">0</div>
+                    <div class="stat-label">Available Slots</div>
+                </div>
+                <div class="stat-card">
+                    <div id="currentWebsite" class="stat-value">-</div>
+                    <div class="stat-label">Current Website</div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Data Section -->
+        <div class="data-section">
+            <div class="data-header">
+                <div class="data-title">Live Availability Data</div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="autoRefresh" checked> Auto-refresh
+                    </label>
+                </div>
+            </div>
+            
+            <div class="auto-scroll">
+                <table class="data-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Website</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Price/Length</th>
+                            <th>Status</th>
+                            <th>Found At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                        <tr>
+                            <td colspan="6" class="no-data">No data available. Start scraping to see live results.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const form = document.getElementById('scraperForm');
+        const runBtn = document.getElementById('runBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
+        const progressFill = document.getElementById('progressFill');
+        const websiteSelect = document.getElementById('website');
+        const targetDateCheckbox = document.getElementById('targetDateEnabled');
+        const targetDateInput = document.getElementById('targetDate');
+        const targetDateLabel = document.getElementById('targetDateLabel');
+        const websiteInfo = document.getElementById('websiteInfo');
+        const autoRefreshCheckbox = document.getElementById('autoRefresh');
+        const dataTableBody = document.getElementById('dataTableBody');
+        const lawnClubOptions = document.getElementById('lawnClubOptions');
+        const lawnClubOption = document.getElementById('lawnClubOption');
+        const claysLocationOptions = document.getElementById('claysLocationOptions');
+        const claysLocation = document.getElementById('claysLocation');
+        const puttshackLocationOptions = document.getElementById('puttshackLocationOptions');
+        const puttshackLocation = document.getElementById('puttshackLocation');
+        
+        // Stats elements
+        const totalSlotsEl = document.getElementById('totalSlots');
+        const currentDateEl = document.getElementById('currentDate');
+        const availableSlotsEl = document.getElementById('availableSlots');
+        const currentWebsiteEl = document.getElementById('currentWebsite');
+        
+        let statusCheckInterval;
+        let dataCheckInterval;
+        let lastDataLength = 0;
+        
+        // Website information
+        const websiteInfoData = {
+            'swingers_nyc': {
+                name: 'Swingers (NYC)',
+                description: 'Golf club and restaurant offering crazy golf, cocktails, and street food in New York City. Can scrape multiple dates if no specific date is selected.',
+                requiresDate: false
+            },
+            'swingers_london': {
+                name: 'Swingers (London)',
+                description: 'Golf club and restaurant offering crazy golf, cocktails, and street food in London. Can scrape multiple dates if no specific date is selected.',
+                requiresDate: false
+            },
+            'electric_shuffle_nyc': {
+                name: 'Electric Shuffle (NYC)',
+                description: 'Social gaming venue with shuffleboard, cocktails, and food in New York City. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'electric_shuffle_london': {
+                name: 'Electric Shuffle (London)',
+                description: 'Social gaming venue with shuffleboard, cocktails, and food in London. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'lawn_club_nyc': {
+                name: 'Lawn Club NYC',
+                description: 'Outdoor gaming venue with lawn games, terrace dining, and cocktails in New York City. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'spin_nyc': {
+                name: 'SPIN NYC',
+                description: 'Premium ping pong social club with cocktails and Asian-inspired cuisine in New York City. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'five_iron_golf_nyc': {
+                name: 'Five Iron Golf NYC',
+                description: 'Indoor golf simulator and sports bar in NYC Flatiron. Offers golf simulators and food/drinks. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'lucky_strike_nyc': {
+                name: 'Lucky Strike NYC',
+                description: 'Bowling alley and entertainment venue at Chelsea Piers in New York City. Features bowling lanes, arcade games, and dining. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'easybowl_nyc': {
+                name: 'Easybowl NYC',
+                description: 'Bowling alley with food and drinks in New York City. Features multiple bowling sessions and packages. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'fair_game_canary_wharf': {
+                name: 'Fair Game (Canary Wharf)',
+                description: 'Gaming venue in London\'s Canary Wharf featuring competitive socializing, food, and drinks. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'fair_game_city': {
+                name: 'Fair Game (City)',
+                description: 'Gaming venue in London\'s City district featuring competitive socializing, food, and drinks. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'clays_bar': {
+                name: 'Clays Bar',
+                description: 'Clay pigeon shooting experiences with food and drinks across multiple London locations. Requires a specific target date and location selection.',
+                requiresDate: true
+            },
+            'puttshack': {
+                name: 'Puttshack',
+                description: 'Technology-enhanced mini golf experience with food and drinks across London locations. Requires a specific target date and location selection.',
+                requiresDate: true
+            },
+            'flight_club_darts': {
+                name: 'Flight Club Darts',
+                description: 'Social darts experience with food and drinks in London. Features multiplayer dart games at the main location. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'flight_club_darts_angel': {
+                name: 'Flight Club Darts (Angel)',
+                description: 'Social darts experience with food and drinks at the Angel location in London. Features multiplayer dart games. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'flight_club_darts_shoreditch': {
+                name: 'Flight Club Darts (Shoreditch)',
+                description: 'Social darts experience with food and drinks at the Shoreditch location in London. Features multiplayer dart games. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'flight_club_darts_victoria': {
+                name: 'Flight Club Darts (Victoria)',
+                description: 'Social darts experience with food and drinks at the Victoria location in London. Features multiplayer dart games. Requires a specific target date for scraping.',
+                requiresDate: true
+            },
+            'f1_arcade': {
+                name: 'F1 Arcade',
+                description: 'Formula 1 racing simulators with food and drinks in London. Features immersive F1 racing experiences. Requires a specific target date for scraping.',
+                requiresDate: true
+            }
+        };
+        
+        // Update website info when selection changes
+        websiteSelect.addEventListener('change', function() {
+            const selectedWebsite = this.value;
+            const info = websiteInfoData[selectedWebsite];
+            
+            websiteInfo.innerHTML = `
+                <h3>${info.name}</h3>
+                <p>${info.description}</p>
+            `;
+            
+            // Show/hide options based on website
+            lawnClubOptions.style.display = selectedWebsite === 'lawn_club_nyc' ? 'block' : 'none';
+            claysLocationOptions.style.display = selectedWebsite === 'clays_bar' ? 'block' : 'none';
+            puttshackLocationOptions.style.display = selectedWebsite === 'puttshack' ? 'block' : 'none';
+            
+            // Update target date requirements
+            if (info.requiresDate) {
+                targetDateCheckbox.checked = true;
+                targetDateCheckbox.disabled = true;
+                targetDateInput.disabled = false;
+                targetDateLabel.textContent = `Target Date (required for ${info.name})`;
+                targetDateLabel.style.color = '#ef4444';
+            } else {
+                targetDateCheckbox.disabled = false;
+                targetDateLabel.textContent = 'Scrape specific date only (optional for Swingers)';
+                targetDateLabel.style.color = '#9ca3af';
+                if (!targetDateCheckbox.checked) {
+                    targetDateInput.disabled = true;
+                }
+            }
+        });
+        
+        // Toggle target date input
+        targetDateCheckbox.addEventListener('change', function() {
+            const selectedWebsite = websiteSelect.value;
+            const info = websiteInfoData[selectedWebsite];
+            
+            if (!info.requiresDate) {
+                targetDateInput.disabled = !this.checked;
+                if (!this.checked) {
+                    targetDateInput.value = '';
+                }
+            }
+        });
+        
+        // Form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const website = websiteSelect.value;
+            const guests = document.getElementById('guests').value;
+            const targetDate = targetDateCheckbox.checked ? targetDateInput.value : null;
+            const lawnClubOptionValue = lawnClubOption.value;
+            const claysLocationValue = claysLocation.value;
+            const puttshackLocationValue = puttshackLocation.value;
+            const info = websiteInfoData[website];
+            
+            if (!guests) {
+                alert('Please enter number of guests');
+                return;
+            }
+            
+            if (info.requiresDate && !targetDate) {
+                alert(`${info.name} requires a specific target date`);
+                return;
+            }
+            
+            const requestData = {
+                website: website,
+                guests: parseInt(guests),
+                target_date: targetDate
+            };
+            
+            // Add options based on website
+            if (website === 'lawn_club_nyc') {
+                requestData.lawn_club_option = lawnClubOptionValue;
+            }
+            if (website === 'clays_bar') {
+                requestData.clays_location = claysLocationValue;
+            }
+            if (website === 'puttshack') {
+                requestData.puttshack_location = puttshackLocationValue;
+            }
+            
+            try {
+                const response = await fetch('/run_scraper', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error);
+                }
+                
+                startMonitoring();
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        });
+        
+        // Clear data
+        clearBtn.addEventListener('click', async function() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                try {
+                    await fetch('/clear_data', { method: 'POST' });
+                    clearTable();
+                    resetStats();
+                    lastDataLength = 0;
+                } catch (error) {
+                    alert(`Error clearing data: ${error.message}`);
+                }
+            }
+        });
+        
+        function startMonitoring() {
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<span>⏳</span> Scraping...';
+            
+            // Monitor status
+            statusCheckInterval = setInterval(checkStatus, 1000);
+            
+            // Monitor data if auto-refresh is enabled
+            if (autoRefreshCheckbox.checked) {
+                dataCheckInterval = setInterval(checkData, 2000);
+            }
+        }
+        
+        function stopMonitoring() {
+            clearInterval(statusCheckInterval);
+            clearInterval(dataCheckInterval);
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<span>▶</span> Start Scraping';
+        }
+        
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const status = await response.json();
+                
+                updateStatus(status);
+                
+                if (!status.running && (status.completed || status.error)) {
+                    stopMonitoring();
+                }
+                
+            } catch (error) {
+                console.error('Failed to get status:', error);
+            }
+        }
+        
+        async function checkData() {
+            try {
+                const response = await fetch('/data');
+                const result = await response.json();
+                
+                if (result.data.length > lastDataLength) {
+                    updateTable(result.data.slice(lastDataLength));
+                    lastDataLength = result.data.length;
+                }
+                
+                updateStats(result.data);
+                
+            } catch (error) {
+                console.error('Failed to get data:', error);
+            }
+        }
+        
+        function updateStatus(status) {
+            statusText.textContent = status.progress || 'Processing...';
+            
+            if (status.running) {
+                statusBadge.textContent = 'Running';
+                statusBadge.className = 'status-badge status-running';
+                progressFill.style.width = '100%';
+            } else if (status.completed) {
+                statusBadge.textContent = 'Completed';
+                statusBadge.className = 'status-badge status-completed';
+                progressFill.style.width = '100%';
+            } else if (status.error) {
+                statusBadge.textContent = 'Error';
+                statusBadge.className = 'status-badge status-error';
+                progressFill.style.width = '0%';
+                alert(`Error: ${status.error}`);
+            } else {
+                statusBadge.textContent = 'Ready';
+                statusBadge.className = 'status-badge';
+                progressFill.style.width = '0%';
+            }
+            
+            // Update current date
+            if (status.current_date) {
+                currentDateEl.textContent = status.current_date;
+            }
+            
+            // Update total slots
+            if (status.total_slots_found !== undefined) {
+                totalSlotsEl.textContent = status.total_slots_found;
+            }
+            
+            // Update current website
+            if (status.website) {
+                const websiteName = status.website.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                currentWebsiteEl.textContent = websiteName;
+            }
+        }
+        
+        function updateTable(newData) {
+            // Remove "no data" message if it exists
+            if (dataTableBody.children.length === 1 && dataTableBody.children[0].children.length === 1 && dataTableBody.children[0].children[0].colSpan === 6) {
+                dataTableBody.innerHTML = '';
+            }
+            
+            newData.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'new-row';
+                
+                // Format date
+                const date = new Date(item.date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                
+                // Format timestamp
+                const timestamp = new Date(item.timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                // Status class
+                let statusClass = 'status-available';
+                if (item.status.toLowerCase().includes('few')) {
+                    statusClass = 'status-few-left';
+                } else if (item.status.toLowerCase().includes('unavailable') || item.status.toLowerCase().includes('full')) {
+                    statusClass = 'status-unavailable';
+                }
+                
+                row.innerHTML = `
+                    <td class="website-cell">${item.website}</td>
+                    <td>${date}</td>
+                    <td>${item.time}</td>
+                    <td class="price-cell">${item.price}</td>
+                    <td class="${statusClass}">${item.status}</td>
+                    <td>${timestamp}</td>
+                `;
+                
+                dataTableBody.appendChild(row);
+            });
+            
+            // Auto-scroll to bottom to show new data
+            const scrollContainer = document.querySelector('.auto-scroll');
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
+        
+        function updateStats(data) {
+            const availableCount = data.filter(item => 
+                item.status.toLowerCase() === 'available'
+            ).length;
+            
+            availableSlotsEl.textContent = availableCount;
+        }
+        
+        function clearTable() {
+            dataTableBody.innerHTML = '<tr><td colspan="6" class="no-data">No data available. Start scraping to see live results.</td></tr>';
+        }
+        
+        function resetStats() {
+            totalSlotsEl.textContent = '0';
+            currentDateEl.textContent = '-';
+            availableSlotsEl.textContent = '0';
+            currentWebsiteEl.textContent = '-';
+        }
+        
+        // Auto-refresh toggle
+        autoRefreshCheckbox.addEventListener('change', function() {
+            if (this.checked && statusBadge.textContent === 'Running') {
+                dataCheckInterval = setInterval(checkData, 2000);
+            } else {
+                clearInterval(dataCheckInterval);
+            }
+        });
+        
+        // Load existing data on page load
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('/data');
+                const result = await response.json();
+                
+                if (result.data.length > 0) {
+                    updateTable(result.data);
+                    updateStats(result.data);
+                    lastDataLength = result.data.length;
+                }
+            } catch (error) {
+                console.error('Failed to load existing data:', error);
+            }
+        });
+        
+        // Initialize website info on page load
+        websiteSelect.dispatchEvent(new Event('change'));
+    </script>
+</body>
+</html>
