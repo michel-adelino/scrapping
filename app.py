@@ -1396,48 +1396,171 @@ def scrape_easybowl(guests, target_date):
             driver.sleep(2)
             
             soup = BeautifulSoup(driver.page_source, "html.parser")
-            slots = soup.find_all("div",{"class":"prodBox"})
             
-            if len(slots) == 0:
-                break
+            # Check if there's another layer of product groups (like PARTY PACKAGES)
+            nested_groups = soup.find_all("div", {"class": "prodBox prodGroup"})
             
-            for slot in slots:
-                # Status
-                status_el = slot.select_one("div.prodHeadline")
-                if status_el:
-                    status = status_el.get_text(strip=True)
-                else:
-                    status = "Available"
+            if len(nested_groups) > 0:
+                # This is a nested product group page (e.g., PARTY PACKAGES)
+                # Need to click through each nested product group
+                nested_selects = driver.find_elements("xpath", "//div[@class='button prodGroupButton']")
                 
-                # Time
-                try:
-                    time = slot.find("table",{"class":"tableEventDetails"}).get_text().strip()
-                except:
-                    time = "None"
+                for k in range(len(nested_selects)):
+                    nested_selects = driver.find_elements("xpath", "//div[@class='button prodGroupButton']")
+                    nested_selects[k].click()
+                    driver.sleep(2)
                     
-                # Price
-                try:
-                    price = slot.find("table",{"class":"tablePriceBox"}).get_text().strip()
-                except:
-                    price = "None"
+                    soup = BeautifulSoup(driver.page_source, "html.parser")
+                    slots = soup.find_all("div", {"class": "prodBox"})
+                    
+                    # Filter out product groups (only get actual products)
+                    actual_products = []
+                    for slot in slots:
+                        # Product groups have class "prodBox prodGroup", actual products just have "prodBox"
+                        if "prodGroup" not in slot.get("class", []):
+                            actual_products.append(slot)
+                    
+                    for slot in actual_products:
+                        # Extract product name
+                        name_el = slot.select_one("div.prodHeadline")
+                        if name_el:
+                            name = name_el.get_text(strip=True)
+                        else:
+                            name = "Unknown"
+                        
+                        # Extract time from event details
+                        try:
+                            event_table = slot.find("table", {"class": "tableEventDetails"})
+                            if event_table:
+                                time_rows = event_table.find_all("tr")
+                                time_info = []
+                                for row in time_rows:
+                                    cells = row.find_all("td")
+                                    if len(cells) >= 4:
+                                        event_name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                                        start_time = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                        end_time = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                        if start_time and end_time:
+                                            time_info.append(f"{event_name}: {start_time} - {end_time}")
+                                time = " | ".join(time_info) if time_info else event_table.get_text(strip=True)
+                            else:
+                                time = "None"
+                        except:
+                            time = "None"
+                        
+                        # Extract price
+                        try:
+                            price_table = slot.find("table", {"class": "tablePriceBox"})
+                            if price_table:
+                                price_rows = price_table.find_all("tr")
+                                price_info = []
+                                for row in price_rows:
+                                    cells = row.find_all("td")
+                                    if len(cells) >= 3:
+                                        label = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                                        value = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                        if label and value:
+                                            price_info.append(f"{label}: {value}")
+                                price = " | ".join(price_info) if price_info else price_table.get_text(strip=True)
+                            else:
+                                price = "None"
+                        except:
+                            price = "None"
+                        
+                        # Store data in memory
+                        slot_data = {
+                            'date': target_date,
+                            'time': time,
+                            'price': price,
+                            'status': name,
+                            'timestamp': datetime.now().isoformat(),
+                            'website': 'Easybowl (NYC)'
+                        }
+                        
+                        scraped_data.append(slot_data)
+                        scraping_status['total_slots_found'] = len(scraped_data)
+                        
+                        print([target_date, name, time, price])
+                    
+                    # Go back to nested product group page
+                    driver.back()
+                    driver.sleep(1)
+            else:
+                # Direct products page (no nested groups)
+                slots = soup.find_all("div", {"class": "prodBox"})
                 
-                # Store data in memory
-                slot_data = {
-                    'date': target_date,
-                    'time': time,
-                    'price': price,
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': 'Easybowl (NYC)'
-                }
+                # Filter out product groups (only get actual products)
+                actual_products = []
+                for slot in slots:
+                    # Product groups have class "prodBox prodGroup", actual products just have "prodBox"
+                    if "prodGroup" not in slot.get("class", []):
+                        actual_products.append(slot)
                 
-                scraped_data.append(slot_data)
-                scraping_status['total_slots_found'] = len(scraped_data)
-                
-                print([target_date, time, price, status])
+                for slot in actual_products:
+                    # Extract product name
+                    name_el = slot.select_one("div.prodHeadline")
+                    if name_el:
+                        name = name_el.get_text(strip=True)
+                    else:
+                        name = "Unknown"
+                    
+                    # Extract time from event details
+                    try:
+                        event_table = slot.find("table", {"class": "tableEventDetails"})
+                        if event_table:
+                            time_rows = event_table.find_all("tr")
+                            time_info = []
+                            for row in time_rows:
+                                cells = row.find_all("td")
+                                if len(cells) >= 4:
+                                    event_name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                                    start_time = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    end_time = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                    if start_time and end_time:
+                                        time_info.append(f"{event_name}: {start_time} - {end_time}")
+                            time = " | ".join(time_info) if time_info else event_table.get_text(strip=True)
+                        else:
+                            time = "None"
+                    except:
+                        time = "None"
+                    
+                    # Extract price
+                    try:
+                        price_table = slot.find("table", {"class": "tablePriceBox"})
+                        if price_table:
+                            price_rows = price_table.find_all("tr")
+                            price_info = []
+                            for row in price_rows:
+                                cells = row.find_all("td")
+                                if len(cells) >= 3:
+                                    label = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                                    value = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    if label and value:
+                                        price_info.append(f"{label}: {value}")
+                            price = " | ".join(price_info) if price_info else price_table.get_text(strip=True)
+                        else:
+                            price = "None"
+                    except:
+                        price = "None"
+                    
+                    # Store data in memory
+                    slot_data = {
+                        'date': target_date,
+                        'time': time,
+                        'price': price,
+                        'status': name,
+                        'timestamp': datetime.now().isoformat(),
+                        'website': 'Easybowl (NYC)'
+                    }
+                    
+                    scraped_data.append(slot_data)
+                    scraping_status['total_slots_found'] = len(scraped_data)
+                    
+                    print([target_date, name, time, price])
             
             # Reset to original page for next iteration
             driver.back()
+            driver.sleep(1)
         scraping_status['progress'] = f'Found {len(scraped_data)} total slots on Easybowl'
         
         driver.quit()
@@ -2347,8 +2470,8 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
         raise e
 
 
-def scrape_f1_arcade(guests, target_date):
-    """F1 Arcade (London) scraper"""
+def scrape_f1_arcade(guests, target_date, f1_experience):
+    """F1 Arcade (London) scraper with correct click order"""
     global scraping_status, scraped_data
 
     try:
@@ -2357,38 +2480,67 @@ def scrape_f1_arcade(guests, target_date):
 
         driver.sleep(4)
 
-        scraping_status['progress'] = "Setting guest count..."
-        driver.type('input[id="adults-group-size"]', str(guests))
+        # ----------------------------------------
+        # 1️⃣ SET GUEST COUNT
+        # ----------------------------------------
+        scraping_status['progress'] = "Setting driver count..."
+        size_box = driver.find_element("id", "adults-group-size")
+        size_box.clear()
+        size_box.send_keys(str(guests))
 
-        # Continue button
-        continu = driver.find_elements("xpath", '//button[@id="game-continue"]')[1]
-        driver.execute_script("arguments[0].click();", continu)
+        driver.sleep(1)
+
+        # ----------------------------------------
+        # 2️⃣ SELECT EXPERIENCE (based on frontend)
+        # ----------------------------------------
+        scraping_status['progress'] = f"Selecting experience: {f1_experience}"
+
+        experience_xpath = {
+            "Team Racing": "//h2[contains(text(),'Team Racing')]",
+            "Christmas Racing": "//h2[contains(text(),'Christmas Racing')]",
+            "Head to Head": "//h2[contains(text(),'Head to Head')]"
+        }
+
+        xp = experience_xpath.get(f1_experience)
+
+        if xp:
+            try:
+                exp_el = driver.find_element("xpath", xp)
+                driver.execute_script("arguments[0].scrollIntoView(true);", exp_el)
+                driver.sleep(1)
+                driver.execute_script("arguments[0].click();", exp_el)
+            except:
+                print('not clicked')
+                scraping_status['progress'] = f"Could not click {f1_experience}"
+        else:
+            scraping_status['progress'] = f"No matching experience for: {f1_experience}"
+
+        driver.sleep(2)
+
+        # ----------------------------------------
+        # 3️⃣ CLICK CONTINUE after experience
+        # ----------------------------------------
+        scraping_status['progress'] = "Clicking Continue..."
+        try:
+            continue_btn = driver.find_element("id", "game-continue")
+            driver.execute_script("arguments[0].click();", continue_btn)
+        except:
+            scraping_status['progress'] = "Continue button not found!"
+            driver.quit()
+            return
 
         driver.sleep(4)
 
-        # -------------------------
-        # SELECT FIRST EXPERIENCE
-        # -------------------------
-        scraping_status['progress'] = "Selecting experience..."
-
-        try:
-            exp = driver.find_element("xpath", "(//button[contains(@class,'experience')])[1]")
-            driver.execute_script("arguments[0].click();", exp)
-        except:
-            pass
-
-        driver.sleep(3)
-
-        # -------------------------
-        # CALENDAR NAVIGATION
-        # -------------------------
+        # ----------------------------------------
+        # 4️⃣ CALENDAR – SELECT DATE
+        # ----------------------------------------
         dt = datetime.strptime(target_date, "%Y-%m-%d")
         target_month = dt.strftime("%b %Y")
         day = str(dt.day)
 
-        scraping_status['progress'] = f"Opening calendar for {target_month}..."
+        scraping_status['progress'] = f"Finding month {target_month}..."
 
-        # Click back several months to start
+        # Reset calendar back a few months
         for _ in range(6):
             try:
                 back = driver.find_element("id", "prev-month-btn")
@@ -2398,49 +2550,41 @@ def scrape_f1_arcade(guests, target_date):
             except:
                 break
 
-        # Move forward until month matches
+        # Move forward until target month appears
         while True:
-            header = driver.find_element(
-                "xpath", "//div[@id='date-picker']//h2"
-            ).text.strip()
-
+            header = driver.find_element("xpath", "//div[@id='date-picker']//h2").text.strip()
             if header == target_month:
                 break
-
             next_btn = driver.find_element("id", "next-month-btn")
             driver.execute_script("arguments[0].click();", next_btn)
-            driver.sleep(4)
+            driver.sleep(0.4)
 
-        # -------------------------
-        # SELECT DAY
-        # -------------------------
+        # Select the day
         scraping_status['progress'] = f"Selecting day {day}..."
-
-        # Buttons containing days:
         buttons = driver.find_elements("xpath", "//button[@data-target='date-picker-day']")
 
-        clicked = False
+        day_clicked = False
         for btn in buttons:
             try:
                 t = btn.find_element("tag name", "time").text.strip()
                 if t == day and btn.is_enabled():
                     driver.execute_script("arguments[0].click();", btn)
-                    clicked = True
+                    day_clicked = True
                     break
             except:
-                continue
+                pass
 
-        if not clicked:
-            scraping_status['progress'] = f"Day {day} is not selectable"
+        if not day_clicked:
+            scraping_status['progress'] = f"Day {day} is not available"
             driver.quit()
             return
 
         driver.sleep(5)
 
-        # -------------------------
-        # READ TIME SLOTS
-        # -------------------------
-        scraping_status['progress'] = "Reading available slots..."
+        # ----------------------------------------
+        # 5️⃣ READ TIME SLOTS
+        # ----------------------------------------
+        scraping_status['progress'] = "Fetching available times..."
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
         slots = soup.find_all("div", {"data-target": "time-picker-option"})
@@ -2465,8 +2609,6 @@ def scrape_f1_arcade(guests, target_date):
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
 
-            print([target_date, time_text, slot_data["price"], "Available"])
-
         driver.quit()
 
     except Exception as e:
@@ -2474,7 +2616,7 @@ def scrape_f1_arcade(guests, target_date):
             driver.quit()
         raise e
 
-def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None):
+def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
     """Main scraper function that calls appropriate scraper based on website"""
     global scraping_status, scraped_data
     
@@ -2559,7 +2701,8 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
         elif website == 'f1_arcade':
             if not target_date:
                 raise ValueError("F1 Arcade requires a specific target date")
-            scrape_f1_arcade(guests, target_date)
+            experience = f1_experience or "Team Racing"
+            scrape_f1_arcade(guests, target_date, experience)
         else:
             raise ValueError(f"Unknown website: {website}")
         
@@ -2599,7 +2742,8 @@ def run_scraper():
     spin_time = data.get('spin_time')
     clays_location = data.get('clays_location')
     puttshack_location = data.get('puttshack_location')
-    
+    f1_experience = data.get("f1_experience")
+ 
     # Validate and normalize target_date format (YYYY-MM-DD) to avoid timezone issues
     if target_date:
         try:
@@ -2645,20 +2789,7 @@ def run_scraper():
         return jsonify({'error': f'{website_names[website]} requires a specific target date'}), 400
     
     # Start scraping in a separate thread
-    thread = threading.Thread(
-        target=scrape_restaurants,
-        args=(
-            guests,
-            target_date,
-            website,
-            lawn_club_option,
-            lawn_club_time,
-            lawn_club_duration,
-            spin_time,
-            clays_location,
-            puttshack_location
-        )
-    )
+    thread = threading.Thread(target=scrape_restaurants, args=(guests, target_date, website, lawn_club_option, lawn_club_time, lawn_club_duration, spin_time, clays_location, puttshack_location, f1_experience))
     thread.daemon = True
     thread.start()
     
