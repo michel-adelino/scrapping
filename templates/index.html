@@ -715,8 +715,7 @@
                     <div class="option-card" id="f1ExperienceOptions" style="display: none;">
                         <label for="f1Experience">F1 Arcade Experience</label>
                         <select id="f1Experience" class="form-control" style="border:1px solid var(--border); background:#fff; border-radius:var(--radius); padding:10px 12px;">
-                            <option value="Team Racing">Team Racing</option>
-                            <option value="Christmas Racing">Christmas Racing</option>
+                            <!-- Options will be dynamically populated based on guest count -->
                         </select>
                     </div>
                 </div>
@@ -846,6 +845,52 @@
         let searchTerm = '';
         const runBtnDefaultMarkup = runBtn.innerHTML;
         
+        // F1 Arcade Experience Logic
+        function updateF1ExperienceOptions() {
+            const guests = parseInt(guestInput.value || "0", 10);
+            const expSelect = document.getElementById("f1Experience");
+
+            // Clear old options
+            expSelect.innerHTML = "";
+
+            if (!guests || guests < 4) {
+                // < 4 guests → Head to Head only
+                const opt = document.createElement("option");
+                opt.value = "Head to Head";
+                opt.textContent = "Head to Head";
+                expSelect.appendChild(opt);
+            } else {
+                // ≥ 4 guests → Team Racing + Christmas Racing
+                const opt1 = document.createElement("option");
+                opt1.value = "Team Racing";
+                opt1.textContent = "Team Racing";
+                expSelect.appendChild(opt1);
+
+                const opt2 = document.createElement("option");
+                opt2.value = "Christmas Racing";
+                opt2.textContent = "Christmas Racing";
+                expSelect.appendChild(opt2);
+            }
+        }
+
+        // Show/hide the F1 experience dropdown when website changes
+        function handleF1WebsiteChange() {
+            if (websiteSelect.value === "f1_arcade") {
+                f1ExperienceOptions.style.display = "block";
+                updateF1ExperienceOptions();
+            } else {
+                f1ExperienceOptions.style.display = "none";
+                f1Experience.innerHTML = "";
+            }
+        }
+
+        // When guests change (only matters if F1 Arcade is selected)
+        function handleGuestChangeForF1() {
+            if (websiteSelect.value === "f1_arcade") {
+                updateF1ExperienceOptions();
+            }
+        }
+        
         function setActiveChip(container, value) {
             if (!container) return;
             const normalized = value || '';
@@ -908,6 +953,7 @@
             const current = parseInt(guestInput.value, 10) || 1;
             guestInput.value = current + 1;
             updateGuestButtons();
+            handleGuestChangeForF1();
         });
         
         guestDecrement.addEventListener('click', () => {
@@ -915,6 +961,7 @@
             if (current > 1) {
                 guestInput.value = current - 1;
                 updateGuestButtons();
+                handleGuestChangeForF1();
             }
         });
         
@@ -1050,10 +1097,9 @@
             
             claysLocationOptions.style.display = selectedWebsite === 'clays_bar' ? 'block' : 'none';
             puttshackLocationOptions.style.display = selectedWebsite === 'puttshack' ? 'block' : 'none';
-            f1ExperienceOptions.style.display = selectedWebsite === 'f1_arcade' ? 'block' : 'none';
-            if (selectedWebsite !== 'f1_arcade') {
-                f1Experience.value = 'Team Racing';
-            }
+            
+            // Handle F1 Arcade options
+            handleF1WebsiteChange();
             
             // Update target date requirements
             if (info.requiresDate) {
