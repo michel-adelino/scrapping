@@ -2143,51 +2143,74 @@ def scrape_f1_arcade(guests, target_date, f1_experience):
         driver.sleep(13)
 
         # ========================================
-        # ⭐ UPDATED PART: FULL PRICE EXTRACTION ⭐
+        # ⭐️ UPDATED PRICE + SLOT EXTRACTION ⭐️
         # ========================================
-        scraping_status['progress'] = "Extracting prices..."
+        scraping_status['progress'] = "Extracting pricing & slot details..."
 
-        offpeak_price = None
-        standard_price = None
-        peak_price = None   # NEW
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        # --------- PRICE HEADER EXTRACTION ----------
+        price_headers = soup.select(".flex.grow.justify-center")
+        price_map = {}   # {"Offpeak": "19.95", "Standard": "22.95", "Peak": "24.95"}
 
-        # Retry loop until price appears
-        for _ in range(15):
-            soup = BeautifulSoup(driver.page_source, "html.parser")
-            price_blocks = soup.select(".flex.grow.justify-center")
-            if price_blocks:
-                break
-            driver.sleep(0.5)
+        for block in price_headers:
+            label_div = block.find("div", class_="-mt-1")
+            if not label_div:
+                continue
 
-        # Parse price blocks
-        for block in price_blocks:
-            label = block.get_text(" ", strip=True)
+            label = label_div.find("div").get_text(strip=True)
+            price_div = label_div.find("div", class_="text-xxs")
 
-            price_tag = block.find("div", class_="text-xxs")
-            price_text = (
-                price_tag.get_text(strip=True).replace("from £", "")
-                if price_tag else None
-            )
+            if price_div:
+                price_value = price_div.get_text(strip=True).replace("from £", "")
+                price_map[label] = price_value  # e.g. "Offpeak": "19.95"
 
-            if "Offpeak" in label and price_text:
-                offpeak_price = price_text
+        # -------------------------------------------
+        # TIME SLOT EXTRACTION WITH COLOR-BASED PRICE
+        # -------------------------------------------
+        slot_divs = soup.find_all("div", {"data-target": "time-picker-option"})
 
-            if "Standard" in label and price_text:
-                standard_price = price_text
+        COLOR_PRICE_CLASS = {
+            "bg-light-grey": "Offpeak",
+            "bg-electric-violet-light": "Standard",
+            "bg-brand-primary": "Peak"
+        }
 
-            if "Peak" in label and price_text:   # NEW
-                peak_price = price_text
+        for slot in slot_divs:
+            time_text = slot.get_text(strip=True)
 
-        # Build final price string
-        price_parts = []
-        if offpeak_price:
-            price_parts.append(f"Offpeak from £{offpeak_price}")
-        if standard_price:
-            price_parts.append(f"Standard from £{standard_price}")
-        if peak_price:
-            price_parts.append(f"Peak from £{peak_price}")
+            # Find class of inner DIV (contains bg-color)
+            inner = slot.find("div", class_="animate")
+            if not inner:
+                continue
 
-        final_price = ", ".join(price_parts) if price_parts else "Price not available"
+            box = inner.find("div")  # the actual colored box
+            if not box:
+                continue
+
+            classes = box.get("class", [])
+
+            price_type = None
+            for c in classes:
+                if c in COLOR_PRICE_CLASS:
+                    price_type = COLOR_PRICE_CLASS[c]
+                    break
+
+            if not price_type:
+                price_type = "Unknown"
+
+            final_price = f"{price_type} from £{price_map.get(price_type, 'N/A')}"
+
+            scraped_data.append({
+                "date": target_date,
+                "time": time_text,
+                "price": final_price,
+                "status": "Available",
+                "timestamp": datetime.now().isoformat(),
+                "website": "F1 Arcade"
+            })
+
+            scraping_status['total_slots_found'] = len(scraped_data)
+
 
         # ----------------------------------------
         # 5️⃣ READ TIME SLOTS
@@ -2221,7 +2244,6 @@ def scrape_f1_arcade(guests, target_date, f1_experience):
         if "driver" in locals():
             driver.quit()
         raise e
-
 
 def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
     """Main scraper function that calls appropriate scraper based on website"""
