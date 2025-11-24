@@ -50,6 +50,63 @@ LAWN_CLUB_DURATION_OPTIONS = [
 ]
 
 
+def normalize_time_value(raw_value):
+    """Convert user-provided time to SevenRooms label format."""
+    if not raw_value:
+        return None
+    cleaned = re.sub(r'\s+', ' ', raw_value.strip()).upper()
+    if cleaned.startswith("0"):
+        cleaned = cleaned[1:]
+    return cleaned
+
+
+def normalize_duration_value(raw_value):
+    """Normalize duration labels for comparison."""
+    if not raw_value:
+        return None
+    return re.sub(r'\s+', ' ', raw_value.strip().lower())
+
+
+def adjust_picker(driver, value_selector, increment_selector, decrement_selector, valid_values, target_value, normalize_fn=None):
+    """Use picker arrows to land on requested value."""
+    normalizer = normalize_fn or (lambda v: v)
+    normalized_target = normalizer(target_value)
+
+    normalized_values = [normalizer(val) for val in valid_values]
+    if normalized_target not in normalized_values:
+        raise ValueError(f"Unsupported value '{target_value}' for picker")
+    
+    max_attempts = len(valid_values) * 2
+    for _ in range(max_attempts):
+        temp = BeautifulSoup(driver.page_source, "html.parser")
+        button = temp.select_one(value_selector)
+        if not button:
+            break
+        
+        value_container = button.find("div")
+        current_value = value_container.get_text(strip=True) if value_container else None
+        normalized_current = normalizer(current_value) if current_value else None
+
+        if normalized_current == normalized_target:
+            return True
+        
+        if normalized_current in normalized_values:
+            current_idx = normalized_values.index(normalized_current)
+            target_idx = normalized_values.index(normalized_target)
+            click_selector = increment_selector if target_idx > current_idx else decrement_selector
+        else:
+            click_selector = increment_selector
+        
+        try:
+            driver.click(click_selector)
+        except Exception:
+            pass
+        
+        driver.sleep(0.25)
+    
+    return False
+
+
 def scrape_swingers(guests, target_date):
     """Original Swingers scraper function"""
     print ('guest--->>',guests)
@@ -529,57 +586,6 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
     """Lawn Club NYC scraper function"""
     global scraping_status, scraped_data
     
-    def normalize_time_value(raw_value):
-        if not raw_value:
-            return None
-        cleaned = re.sub(r'\s+', ' ', raw_value.strip()).upper()
-        if cleaned.startswith("0"):
-            cleaned = cleaned[1:]
-        return cleaned
-
-    def normalize_duration_value(raw_value):
-        if not raw_value:
-            return None
-        return re.sub(r'\s+', ' ', raw_value.strip().lower())
-
-    def adjust_picker(value_selector, increment_selector, decrement_selector, valid_values, target_value, normalize_fn=None):
-        normalizer = normalize_fn or (lambda v: v)
-        normalized_target = normalizer(target_value)
-
-        normalized_values = [normalizer(val) for val in valid_values]
-        if normalized_target not in normalized_values:
-            raise ValueError(f"Unsupported value '{target_value}' for Lawn Club picker")
-        
-        max_attempts = len(valid_values) * 2
-        for _ in range(max_attempts):
-            temp = BeautifulSoup(driver.page_source, "html.parser")
-            button = temp.select_one(value_selector)
-            if not button:
-                break
-            
-            value_container = button.find("div")
-            current_value = value_container.get_text(strip=True) if value_container else None
-            normalized_current = normalizer(current_value) if current_value else None
-
-            if normalized_current == normalized_target:
-                return True
-            
-            if normalized_current in normalized_values:
-                current_idx = normalized_values.index(normalized_current)
-                target_idx = normalized_values.index(normalized_target)
-                click_selector = increment_selector if target_idx > current_idx else decrement_selector
-            else:
-                click_selector = increment_selector
-            
-            try:
-                driver.click(click_selector)
-            except Exception:
-                pass
-            
-            driver.sleep(0.25)
-        
-        return False
-    
     try:
         date_str = target_date
         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
@@ -646,6 +652,7 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
         if normalized_time:
             scraping_status['progress'] = f'Selecting Lawn Club time {normalized_time}...'
             if not adjust_picker(
+                driver,
                 'button[data-test="sr-time-button"]',
                 'button[aria-label="increment Time"]',
                 'button[aria-label="decrement Time"]',
@@ -660,6 +667,7 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
         if normalized_duration:
             scraping_status['progress'] = f'Selecting Lawn Club duration {normalized_duration}...'
             if not adjust_picker(
+                driver,
                 'button[data-test="sr-duration-picker"]',
                 'button[aria-label="increment duration"]',
                 'button[aria-label="decrement duration"]',
@@ -903,7 +911,7 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
 #             driver.quit()
 #         raise e
 
-def scrape_spin(guests, target_date):
+def scrape_spin(guests, target_date, selected_time=None):
     """SPIN NYC scraper function"""
     global scraping_status, scraped_data
     
@@ -975,6 +983,21 @@ def scrape_spin(guests, target_date):
                     driver.click('button[aria-label="increment Guest"]')
             except:
                 break
+        
+        normalized_time = normalize_time_value(selected_time)
+        if normalized_time:
+            scraping_status['progress'] = f'Selecting SPIN time {normalized_time}...'
+            if not adjust_picker(
+                driver,
+                'button[data-test="sr-time-button"]',
+                'button[aria-label="increment Time"]',
+                'button[aria-label="decrement Time"]',
+                LAWN_CLUB_TIME_OPTIONS,
+                normalized_time,
+                normalize_time_value
+            ):
+                raise RuntimeError(f"Could not set SPIN time to {normalized_time}")
+            driver.sleep(0.3)
         
         # Search for availability
         driver.click('button[data-test="sr-search-button"]')
@@ -2451,7 +2474,7 @@ def scrape_f1_arcade(guests, target_date):
             driver.quit()
         raise e
 
-def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, clays_location=None, puttshack_location=None):
+def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None):
     """Main scraper function that calls appropriate scraper based on website"""
     global scraping_status, scraped_data
     
@@ -2486,7 +2509,7 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
         elif website == 'spin_nyc':
             if not target_date:
                 raise ValueError("SPIN NYC requires a specific target date")
-            scrape_spin(guests, target_date)
+            scrape_spin(guests, target_date, spin_time)
         elif website == 'five_iron_golf_nyc':
             if not target_date:
                 raise ValueError("Five Iron Golf NYC requires a specific target date")
@@ -2573,6 +2596,7 @@ def run_scraper():
     lawn_club_option = data.get('lawn_club_option')
     lawn_club_time = data.get('lawn_club_time')
     lawn_club_duration = data.get('lawn_club_duration')
+    spin_time = data.get('spin_time')
     clays_location = data.get('clays_location')
     puttshack_location = data.get('puttshack_location')
     
@@ -2630,6 +2654,7 @@ def run_scraper():
             lawn_club_option,
             lawn_club_time,
             lawn_club_duration,
+            spin_time,
             clays_location,
             puttshack_location
         )

@@ -515,6 +515,13 @@
                         </select>
                     </div>
                     
+                    <div class="form-group" id="spinTimeGroup" style="display: none;">
+                        <label for="spinTime">Preferred SPIN Time</label>
+                        <select id="spinTime" class="form-control">
+                            <option value="">Use default time</option>
+                        </select>
+                    </div>
+                    
                     <div class="form-group" id="claysLocationOptions" style="display: none;">
                         <label for="claysLocation">Clays Bar Location</label>
                         <select id="claysLocation" class="form-control">
@@ -651,6 +658,8 @@
         const lawnClubTime = document.getElementById('lawnClubTime');
         const lawnClubDurationGroup = document.getElementById('lawnClubDurationGroup');
         const lawnClubDuration = document.getElementById('lawnClubDuration');
+        const spinTimeGroup = document.getElementById('spinTimeGroup');
+        const spinTime = document.getElementById('spinTime');
         const claysLocationOptions = document.getElementById('claysLocationOptions');
         const claysLocation = document.getElementById('claysLocation');
         const puttshackLocationOptions = document.getElementById('puttshackLocationOptions');
@@ -669,16 +678,17 @@
         let dataCheckInterval;
         let lastDataLength = 0;
         
-        function populateLawnClubSelectors() {
-            if (lawnClubTime) {
-                lawnClubTime.innerHTML = '<option value="">Use default time</option>';
+        function populateTimeAndDurationSelectors() {
+            const timeSelects = [lawnClubTime, spinTime].filter(Boolean);
+            timeSelects.forEach(select => {
+                select.innerHTML = '<option value="">Use default time</option>';
                 lawnClubTimes.forEach(time => {
                     const option = document.createElement('option');
                     option.value = time;
                     option.textContent = time;
-                    lawnClubTime.appendChild(option);
+                    select.appendChild(option);
                 });
-            }
+            });
             
             if (lawnClubDuration) {
                 lawnClubDuration.innerHTML = '<option value="">Use default duration</option>';
@@ -691,7 +701,7 @@
             }
         }
         
-        populateLawnClubSelectors();
+        populateTimeAndDurationSelectors();
         
         // Website information
         const websiteInfoData = {
@@ -807,6 +817,12 @@
                 lawnClubDuration.value = '';
             }
             
+            const showSpinFields = selectedWebsite === 'spin_nyc';
+            spinTimeGroup.style.display = showSpinFields ? 'block' : 'none';
+            if (!showSpinFields) {
+                spinTime.value = '';
+            }
+            
             claysLocationOptions.style.display = selectedWebsite === 'clays_bar' ? 'block' : 'none';
             puttshackLocationOptions.style.display = selectedWebsite === 'puttshack' ? 'block' : 'none';
             
@@ -850,6 +866,7 @@
             const lawnClubOptionValue = lawnClubOption.value;
             const lawnClubTimeValue = lawnClubTime.value;
             const lawnClubDurationValue = lawnClubDuration.value;
+            const spinTimeValue = spinTime.value;
             const claysLocationValue = claysLocation.value;
             const puttshackLocationValue = puttshackLocation.value;
             const info = websiteInfoData[website];
@@ -886,6 +903,9 @@
                 if (lawnClubDurationValue) {
                     requestData.lawn_club_duration = lawnClubDurationValue;
                 }
+            }
+            if (website === 'spin_nyc' && spinTimeValue) {
+                requestData.spin_time = spinTimeValue;
             }
             if (website === 'clays_bar') {
                 requestData.clays_location = claysLocationValue;
