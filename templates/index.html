@@ -494,10 +494,24 @@
                     <div class="form-group" id="lawnClubOptions" style="display: none;">
                         <label for="lawnClubOption">Lawn Club Option</label>
                         <select id="lawnClubOption" class="form-control">
-                            <option value="Terrace Gaming Lawns">Terrace Gaming Lawns</option>
+                            <option value="Curling Lawns & Cabins">Curling Lawns & Cabins</option>
                             <option value="Indoor Gaming Lawns">Indoor Gaming Lawns</option>
                             <option value="Croquet Lawns">Croquet Lawns</option>
-                            <option value="Cobblestone Court Lawns">Cobblestone Court Lawns</option>
+                            
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="lawnClubTimeGroup" style="display: none;">
+                        <label for="lawnClubTime">Preferred Time</label>
+                        <select id="lawnClubTime" class="form-control">
+                            <option value="">Use default time</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="lawnClubDurationGroup" style="display: none;">
+                        <label for="lawnClubDuration">Session Duration</label>
+                        <select id="lawnClubDuration" class="form-control">
+                            <option value="">Use default duration</option>
                         </select>
                     </div>
                     
@@ -633,10 +647,17 @@
         const dataTableBody = document.getElementById('dataTableBody');
         const lawnClubOptions = document.getElementById('lawnClubOptions');
         const lawnClubOption = document.getElementById('lawnClubOption');
+        const lawnClubTimeGroup = document.getElementById('lawnClubTimeGroup');
+        const lawnClubTime = document.getElementById('lawnClubTime');
+        const lawnClubDurationGroup = document.getElementById('lawnClubDurationGroup');
+        const lawnClubDuration = document.getElementById('lawnClubDuration');
         const claysLocationOptions = document.getElementById('claysLocationOptions');
         const claysLocation = document.getElementById('claysLocation');
         const puttshackLocationOptions = document.getElementById('puttshackLocationOptions');
         const puttshackLocation = document.getElementById('puttshackLocation');
+        
+        const lawnClubTimes = {{ lawn_club_times | tojson }};
+        const lawnClubDurations = {{ lawn_club_durations | tojson }};
         
         // Stats elements
         const totalSlotsEl = document.getElementById('totalSlots');
@@ -647,6 +668,30 @@
         let statusCheckInterval;
         let dataCheckInterval;
         let lastDataLength = 0;
+        
+        function populateLawnClubSelectors() {
+            if (lawnClubTime) {
+                lawnClubTime.innerHTML = '<option value="">Use default time</option>';
+                lawnClubTimes.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    lawnClubTime.appendChild(option);
+                });
+            }
+            
+            if (lawnClubDuration) {
+                lawnClubDuration.innerHTML = '<option value="">Use default duration</option>';
+                lawnClubDurations.forEach(duration => {
+                    const option = document.createElement('option');
+                    option.value = duration;
+                    option.textContent = duration;
+                    lawnClubDuration.appendChild(option);
+                });
+            }
+        }
+        
+        populateLawnClubSelectors();
         
         // Website information
         const websiteInfoData = {
@@ -753,7 +798,15 @@
             `;
             
             // Show/hide options based on website
-            lawnClubOptions.style.display = selectedWebsite === 'lawn_club_nyc' ? 'block' : 'none';
+            const showLawnClubFields = selectedWebsite === 'lawn_club_nyc';
+            lawnClubOptions.style.display = showLawnClubFields ? 'block' : 'none';
+            lawnClubTimeGroup.style.display = showLawnClubFields ? 'block' : 'none';
+            lawnClubDurationGroup.style.display = showLawnClubFields ? 'block' : 'none';
+            if (!showLawnClubFields) {
+                lawnClubTime.value = '';
+                lawnClubDuration.value = '';
+            }
+            
             claysLocationOptions.style.display = selectedWebsite === 'clays_bar' ? 'block' : 'none';
             puttshackLocationOptions.style.display = selectedWebsite === 'puttshack' ? 'block' : 'none';
             
@@ -793,8 +846,10 @@
             
             const website = websiteSelect.value;
             const guests = document.getElementById('guests').value;
-            const targetDate = targetDateCheckbox.checked ? targetDateInput.value : null;
+            let targetDate = targetDateCheckbox.checked ? targetDateInput.value : null;
             const lawnClubOptionValue = lawnClubOption.value;
+            const lawnClubTimeValue = lawnClubTime.value;
+            const lawnClubDurationValue = lawnClubDuration.value;
             const claysLocationValue = claysLocation.value;
             const puttshackLocationValue = puttshackLocation.value;
             const info = websiteInfoData[website];
@@ -809,6 +864,13 @@
                 return;
             }
             
+            // Normalize targetDate to YYYY-MM-DD format (remove any time/timezone info)
+            if (targetDate) {
+                // Extract just the date part (YYYY-MM-DD) to avoid timezone issues
+                targetDate = targetDate.split('T')[0].split(' ')[0];
+                console.log('Sending target_date:', targetDate);
+            }
+            
             const requestData = {
                 website: website,
                 guests: parseInt(guests),
@@ -818,6 +880,12 @@
             // Add options based on website
             if (website === 'lawn_club_nyc') {
                 requestData.lawn_club_option = lawnClubOptionValue;
+                if (lawnClubTimeValue) {
+                    requestData.lawn_club_time = lawnClubTimeValue;
+                }
+                if (lawnClubDurationValue) {
+                    requestData.lawn_club_duration = lawnClubDurationValue;
+                }
             }
             if (website === 'clays_bar') {
                 requestData.clays_location = claysLocationValue;
@@ -963,19 +1031,26 @@
                 const row = document.createElement('tr');
                 row.className = 'new-row';
                 
-                // Format date
-                const date = new Date(item.date).toLocaleDateString('en-US', {
+                // Format date - parse as local date to avoid timezone issues
+                const dateParts = item.date.split('-');
+                const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric'
                 });
                 
-                // Format timestamp
-                const timestamp = new Date(item.timestamp).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                // Format timestamp - handle ISO timestamp
+                let timestamp;
+                if (item.timestamp) {
+                    const ts = new Date(item.timestamp);
+                    timestamp = ts.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } else {
+                    timestamp = 'N/A';
+                }
                 
                 // Status class
                 let statusClass = 'status-available';

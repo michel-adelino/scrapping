@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from bs4 import BeautifulSoup
 from seleniumbase import Driver
 from time import sleep
@@ -25,29 +25,6 @@ scraping_status = {
 
 # Store scraped data in memory
 scraped_data = []
-
-
-def _generate_lawn_club_time_options():
-    """Build ordered list of valid Lawn Club time labels (15-min increments)."""
-    times = []
-    current = datetime.strptime("06:00 AM", "%I:%M %p")
-
-    for _ in range(96):  # 6:00 AM through 5:45 AM next day
-        label = current.strftime("%I:%M %p").lstrip("0")
-        times.append(label)
-        current += timedelta(minutes=15)
-
-    return times
-
-
-LAWN_CLUB_TIME_OPTIONS = _generate_lawn_club_time_options()
-LAWN_CLUB_DURATION_OPTIONS = [
-    "1 hr",
-    "1 hr 30 min",
-    "2 hr",
-    "2 hr 30 min",
-    "3 hr"
-]
 
 
 def scrape_swingers(guests, target_date):
@@ -390,6 +367,7 @@ def scrape_electric_shuffle_london(guests, target_date):
 
         # Form sections
         holders = soup.select("form.es_booking__availability__form")
+        print(holders, "@@@@")  # debug print
 
         if not holders:
             scraping_status['progress'] = "No venue sections found on Electric Shuffle London"
@@ -415,95 +393,20 @@ def scrape_electric_shuffle_london(guests, target_date):
             for slot in slots:
                 date_str = target_date
 
-                # extract time (radio button "name")
+                # Time attribute
                 try:
-                    time = slot.select_one("div.es_booking__availability__table-cell")["name"]
+                    time = slot.select_one(
+                        "div.es_booking__availability__table-cell"
+                    )["name"]
                 except:
                     time = "None"
 
-                # ----------- Extract Time Wrapper -------------
-                wrapper = slot.select_one("div.es_booking__time_wrapper")
+                # Text inside time wrapper
+                try:
+                    desc = slot.select_one("div.es_booking__time_wrapper").get_text(strip=True)
+                except:
+                    desc = "None"
 
-                desc_parts = []
-
-                if wrapper:
-                    # Get all input elements inside wrapper (both disabled + enabled)
-                    inputs = wrapper.select("input.es_booking__availability__time-slot")
-
-                    for inp in inputs:
-                        label = inp.find_next("label")
-
-                        # Extract duration
-                        dur_el = label.select_one(".es_booking__availability__duration")
-                        duration = dur_el.get_text(strip=True) if dur_el else None
-                        if duration:
-                            duration = duration.replace("mins", "min").strip()
-
-                        # Extract price
-                        price_el = label.select_one(".es_booking__availability__price-per-person")
-                        price_text = price_el.get_text(strip=True) if price_el else None
-
-                        # CASE 1 — DISABLED SLOT
-                        if inp.has_attr("disabled"):
-                            desc_parts.append("unavailable")
-
-                        # CASE 2 — ENABLED SLOT
-                        else:
-                            if duration and price_text:
-                                desc_parts.append(f"{duration} {price_text}")
-                            elif duration:
-                                desc_parts.append(duration)
-                            else:
-                                desc_parts.append("available")
-                                
-                # Final text
-                desc = ", ".join(desc_parts) if desc_parts else "unavailable"
-
-
-                # wrapper = slot.select_one("div.es_booking__time_wrapper")
-
-                # desc_parts = []
-
-                # if wrapper:
-
-                #     # Get all input elements inside wrapper (both disabled and enabled)
-                #     inputs = wrapper.select("input.es_booking__availability__time-slot")
-
-                #     for inp in inputs:
-                #         label = inp.find_next("label")
-
-                #         # Extract duration text
-                #         dur_el = label.select_one(".es_booking__availability__duration")
-                #         duration = dur_el.get_text(strip=True) if dur_el else None
-                #         if duration:
-                #             duration = duration.replace("mins", "min").replace("min", "min").strip()
-
-                #         # Extract price text
-                #         price_el = label.select_one(".es_booking__availability__price-per-person")
-                #         price_pp = None
-                #         if price_el:
-                #             p = price_el.get_text(strip=True)
-                #             p = p.replace("£", "").replace("pp", "").strip()
-                #             try:
-                #                 price_pp = float(p)
-                #             except:
-                #                 price_pp = None
-
-                #         # CASE 1 — DISABLED → unavailable
-                #         if inp.has_attr("disabled"):
-                #             desc_parts.append("unavailable")
-
-                #         # CASE 2 — ENABLED → duration + price
-                #         else:
-                #             if duration and price_pp:
-                #                 total_price = price_pp * int(guests)
-                #                 dollar_price = round(total_price * 1.66)
-                #                 desc_parts.append(f"{duration} ${dollar_price}")
-
-                # # Build final description
-                # desc = ", ".join(desc_parts) if desc_parts else "unavailable"
-
-                # ------------ Save Data ----------------------------
                 slot_data = {
                     "date": date_str,
                     "time": time,
@@ -525,60 +428,9 @@ def scrape_electric_shuffle_london(guests, target_date):
             driver.quit()
         raise e
 
-def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selected_time=None, selected_duration=None):
+def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins"):
     """Lawn Club NYC scraper function"""
     global scraping_status, scraped_data
-    
-    def normalize_time_value(raw_value):
-        if not raw_value:
-            return None
-        cleaned = re.sub(r'\s+', ' ', raw_value.strip()).upper()
-        if cleaned.startswith("0"):
-            cleaned = cleaned[1:]
-        return cleaned
-
-    def normalize_duration_value(raw_value):
-        if not raw_value:
-            return None
-        return re.sub(r'\s+', ' ', raw_value.strip().lower())
-
-    def adjust_picker(value_selector, increment_selector, decrement_selector, valid_values, target_value, normalize_fn=None):
-        normalizer = normalize_fn or (lambda v: v)
-        normalized_target = normalizer(target_value)
-
-        normalized_values = [normalizer(val) for val in valid_values]
-        if normalized_target not in normalized_values:
-            raise ValueError(f"Unsupported value '{target_value}' for Lawn Club picker")
-        
-        max_attempts = len(valid_values) * 2
-        for _ in range(max_attempts):
-            temp = BeautifulSoup(driver.page_source, "html.parser")
-            button = temp.select_one(value_selector)
-            if not button:
-                break
-            
-            value_container = button.find("div")
-            current_value = value_container.get_text(strip=True) if value_container else None
-            normalized_current = normalizer(current_value) if current_value else None
-
-            if normalized_current == normalized_target:
-                return True
-            
-            if normalized_current in normalized_values:
-                current_idx = normalized_values.index(normalized_current)
-                target_idx = normalized_values.index(normalized_target)
-                click_selector = increment_selector if target_idx > current_idx else decrement_selector
-            else:
-                click_selector = increment_selector
-            
-            try:
-                driver.click(click_selector)
-            except Exception:
-                pass
-            
-            driver.sleep(0.25)
-        
-        return False
     
     try:
         date_str = target_date
@@ -642,34 +494,6 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
             except:
                 break
         
-        normalized_time = normalize_time_value(selected_time)
-        if normalized_time:
-            scraping_status['progress'] = f'Selecting Lawn Club time {normalized_time}...'
-            if not adjust_picker(
-                'button[data-test="sr-time-button"]',
-                'button[aria-label="increment Time"]',
-                'button[aria-label="decrement Time"]',
-                LAWN_CLUB_TIME_OPTIONS,
-                normalized_time,
-                normalize_time_value
-            ):
-                raise RuntimeError(f"Could not set Lawn Club time to {normalized_time}")
-            driver.sleep(0.3)
-        
-        normalized_duration = normalize_duration_value(selected_duration)
-        if normalized_duration:
-            scraping_status['progress'] = f'Selecting Lawn Club duration {normalized_duration}...'
-            if not adjust_picker(
-                'button[data-test="sr-duration-picker"]',
-                'button[aria-label="increment duration"]',
-                'button[aria-label="decrement duration"]',
-                LAWN_CLUB_DURATION_OPTIONS,
-                normalized_duration,
-                normalize_duration_value
-            ):
-                raise RuntimeError(f"Could not set Lawn Club duration to {normalized_duration}")
-            driver.sleep(0.3)
-        
         # Search for availability
         try:
             driver.click('button[data-test="sr-search-button"]')
@@ -730,179 +554,6 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
         raise e
 
 
-# def scrape_spin(guests, target_date):
-#     """SPIN NYC scraper function"""
-#     global scraping_status, scraped_data
-    
-#     try:
-#         date_str = target_date
-#         driver = Driver(uc=True, headless2=False, no_sandbox=True, disable_gpu=True)
-
-#         # Open reservation page
-#         driver.get(
-#             "https://wearespin.com/location/new-york-flatiron/table-reservations/"
-#             "#elementor-action%3Aaction%3Doff_canvas%3Aopen"
-#             "%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D"
-#         )
-        
-#         scraping_status['progress'] = f'Navigating to SPIN NYC reservation system...'
-#         scraping_status['current_date'] = target_date
-        
-#         # Click the booking button
-#         driver.click(
-#             'div.elementor-element.elementor-element-16e99e3.elementor-align-justify'
-#         )
-#         driver.sleep(3)
-
-#         # -----------------------------
-#         #   DETECT SevenRooms IFRAME
-#         # -----------------------------
-#         iframe = None
-
-#         for _ in range(60):  # wait up to 30 seconds
-#             iframes = driver.find_elements("css selector", "iframe")
-
-#             for f in iframes:
-#                 src = f.get_attribute("src") or f.get_attribute("data-src")
-#                 if src and "sevenrooms.com" in src:
-#                     iframe = f
-#                     break
-
-#             if iframe:
-#                 break
-
-#             driver.sleep(0.5)
-
-#         if not iframe:
-#             scraping_status['progress'] = "SevenRooms iframe not found"
-#             driver.quit()
-#             return
-
-#         # -----------------------------
-#         #   FIX: correct Selenium syntax
-#         # -----------------------------
-#         driver.switch_to.frame(iframe)
-#         print("✔ Switched to SevenRooms iframe")
-
-#         scraping_status['progress'] = 'Accessing SPIN booking system...'
-        
-#         # Wait for date buttons
-#         try:
-#             driver.wait_for_element('button[data-test="sr-calendar-date-button"]', timeout=30)
-#         except:
-#             scraping_status['progress'] = 'Page did not load properly for SPIN'
-#             driver.quit()
-#             return
-        
-#         # -----------------------------
-#         #   Set the date
-#         # -----------------------------
-#         dt = datetime.strptime(date_str, "%Y-%m-%d")
-#         formatted = dt.strftime("%a, %b ") + str(dt.day)
-
-#         scraping_status['progress'] = f'Setting date to {target_date}...'
-
-#         while True:
-#             temp = BeautifulSoup(driver.page_source, "html.parser")
-#             current_date_button = temp.find("button", {"data-test": "sr-calendar-date-button"})
-#             if not current_date_button:
-#                 break
-
-#             current_date = current_date_button.find_all("div")[0].get_text()
-
-#             if str(formatted) == current_date:
-#                 break
-            
-#             try:
-#                 driver.click('button[aria-label="increment Date"]')
-#             except:
-#                 break
-        
-#         # -----------------------------
-#         #   Set guest count
-#         # -----------------------------
-#         while True:
-#             try:
-#                 driver.click('button[aria-label="decrement Guests"]')
-#             except:
-#                 break
-        
-#         scraping_status['progress'] = f'Setting guests to {guests}...'
-        
-#         while True:
-#             temp = BeautifulSoup(driver.page_source, "html.parser")
-#             guest_button = temp.find("button", {"data-test": "sr-guest-count-button"})
-#             if not guest_button:
-#                 break
-
-#             current_guests = guest_button.find_all("div")[0].get_text().strip()
-            
-#             if str(guests) == current_guests:
-#                 break
-
-#             try:
-#                 try:
-#                     driver.click('button[aria-label="increment Guests"]')
-#                 except:
-#                     driver.click('button[aria-label="increment Guest"]')
-#             except:
-#                 break
-        
-#         # -----------------------------
-#         #   Search availability
-#         # -----------------------------
-#         driver.click('button[data-test="sr-search-button"]')
-#         driver.sleep(4)
-        
-#         scraping_status['progress'] = 'Searching for available slots on SPIN...'
-        
-#         soup = BeautifulSoup(driver.page_source, "html.parser")
-#         slots = soup.select('button[data-test="sr-timeslot-button"]')
-        
-#         scraping_status['progress'] = f'Found {len(slots)} available slots on SPIN'
-        
-#         if len(slots) == 0:
-#             scraping_status['progress'] = 'No slots available on SPIN'
-#             driver.quit()
-#             return
-        
-#         # -----------------------------
-#         #   Extract slots
-#         # -----------------------------
-#         for slot in slots:
-#             status = "Available"
-            
-#             try:
-#                 time = slot.find_all("div")[0].get_text().strip()
-#             except:
-#                 time = "None"
-                
-#             try:
-#                 desc = slot.find_all("div")[1].get_text().strip()
-#             except:
-#                 desc = "None"
-            
-#             slot_data = {
-#                 'date': date_str,
-#                 'time': time,
-#                 'price': desc,
-#                 'status': status,
-#                 'timestamp': datetime.now().isoformat(),
-#                 'website': 'SPIN (NYC)'
-#             }
-            
-#             scraped_data.append(slot_data)
-#             scraping_status['total_slots_found'] = len(scraped_data)
-            
-#             print([date_str, time, desc, status])
-        
-#         driver.quit()
-        
-#     except Exception as e:
-#         if 'driver' in locals():
-#             driver.quit()
-#         raise e
-
 def scrape_spin(guests, target_date):
     """SPIN NYC scraper function"""
     global scraping_status, scraped_data
@@ -910,53 +561,96 @@ def scrape_spin(guests, target_date):
     try:
         date_str = target_date
         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
-        driver.get("https://wearespin.com/location/new-york-flatiron/table-reservations/#elementor-action%3Aaction%3Doff_canvas%3Aopen%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D")
+
+        # Open reservation page
+        driver.get(
+            "https://wearespin.com/location/new-york-flatiron/table-reservations/"
+            "#elementor-action%3Aaction%3Doff_canvas%3Aopen"
+            "%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D"
+        )
         
         scraping_status['progress'] = f'Navigating to SPIN NYC reservation system...'
         scraping_status['current_date'] = target_date
         
-        driver.click('div[class="elementor-element elementor-element-16e99e3 elementor-align-justify elementor-widget elementor-widget-button"]')
-        driver.sleep(4)
-        
-        iframe = driver.find_element("xpath", '//iframe[@nitro-lazy-src="https://www.sevenrooms.com/reservations/spinyc?duration-picker=false&defaultDuration=60"]')
+        # Click the booking button
+        driver.click(
+            'div.elementor-element.elementor-element-16e99e3.elementor-align-justify'
+        )
+        driver.sleep(3)
+
+        # -----------------------------
+        #   DETECT SevenRooms IFRAME
+        # -----------------------------
+        iframe = None
+
+        for _ in range(60):  # wait up to 30 seconds
+            iframes = driver.find_elements("css selector", "iframe")
+
+            for f in iframes:
+                src = f.get_attribute("src") or f.get_attribute("data-src")
+                if src and "sevenrooms.com" in src:
+                    iframe = f
+                    break
+
+            if iframe:
+                break
+
+            driver.sleep(0.5)
+
+        if not iframe:
+            scraping_status['progress'] = "SevenRooms iframe not found"
+            driver.quit()
+            return
+
+        # -----------------------------
+        #   FIX: correct Selenium syntax
+        # -----------------------------
         driver.switch_to.frame(iframe)
-        
+        print("✔ Switched to SevenRooms iframe")
+
         scraping_status['progress'] = 'Accessing SPIN booking system...'
         
+        # Wait for date buttons
         try:
             driver.wait_for_element('button[data-test="sr-calendar-date-button"]', timeout=30)
-        except Exception as e:
+        except:
             scraping_status['progress'] = 'Page did not load properly for SPIN'
             driver.quit()
             return
         
-        # Navigate to target date
+        # -----------------------------
+        #   Set the date
+        # -----------------------------
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         formatted = dt.strftime("%a, %b ") + str(dt.day)
-        
+
         scraping_status['progress'] = f'Setting date to {target_date}...'
-        
+
         while True:
             temp = BeautifulSoup(driver.page_source, "html.parser")
             current_date_button = temp.find("button", {"data-test": "sr-calendar-date-button"})
             if not current_date_button:
                 break
+
             current_date = current_date_button.find_all("div")[0].get_text()
+
             if str(formatted) == current_date:
                 break
+            
             try:
                 driver.click('button[aria-label="increment Date"]')
             except:
                 break
         
-        # Set guest count - first decrement to minimum
+        # -----------------------------
+        #   Set guest count
+        # -----------------------------
         while True:
             try:
                 driver.click('button[aria-label="decrement Guests"]')
             except:
                 break
         
-        # Then increment to desired count
         scraping_status['progress'] = f'Setting guests to {guests}...'
         
         while True:
@@ -964,10 +658,12 @@ def scrape_spin(guests, target_date):
             guest_button = temp.find("button", {"data-test": "sr-guest-count-button"})
             if not guest_button:
                 break
+
             current_guests = guest_button.find_all("div")[0].get_text().strip()
+            
             if str(guests) == current_guests:
                 break
-            
+
             try:
                 try:
                     driver.click('button[aria-label="increment Guests"]')
@@ -976,14 +672,16 @@ def scrape_spin(guests, target_date):
             except:
                 break
         
-        # Search for availability
+        # -----------------------------
+        #   Search availability
+        # -----------------------------
         driver.click('button[data-test="sr-search-button"]')
         driver.sleep(4)
         
         scraping_status['progress'] = 'Searching for available slots on SPIN...'
         
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.select('div.sc-huFNyZ.kQvFZy button[data-test="sr-timeslot-button"]')
+        slots = soup.select('button[data-test="sr-timeslot-button"]')
         
         scraping_status['progress'] = f'Found {len(slots)} available slots on SPIN'
         
@@ -992,23 +690,22 @@ def scrape_spin(guests, target_date):
             driver.quit()
             return
         
+        # -----------------------------
+        #   Extract slots
+        # -----------------------------
         for slot in slots:
-            # Status
             status = "Available"
             
-            # Time
             try:
                 time = slot.find_all("div")[0].get_text().strip()
             except:
                 time = "None"
                 
-            # Description
             try:
                 desc = slot.find_all("div")[1].get_text().strip()
             except:
                 desc = "None"
             
-            # Store data in memory
             slot_data = {
                 'date': date_str,
                 'time': time,
@@ -1031,117 +728,6 @@ def scrape_spin(guests, target_date):
         raise e
 
 
-# def scrape_five_iron_golf(guests, target_date):
-#     """Five Iron Golf NYC scraper function"""
-#     global scraping_status, scraped_data
-    
-#     try:
-#         date_str = target_date
-#         dt = datetime.strptime(date_str, "%Y-%m-%d")
-#         formatted_date = dt.strftime("%m/%d/%Y")
-        
-#         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
-#         driver.set_page_load_timeout(20)
-
-#         try:
-#             driver.get("https://booking.fiveirongolf.com/session-length")
-#         except Exception:
-#             scraping_status["progress"] = "Page load timeout. Continuing..."
-        
-#         scraping_status['progress'] = f'Navigating to Five Iron Golf NYC...'
-#         scraping_status['current_date'] = target_date
-        
-#         try:
-#             driver.wait_for_element('div[role="combobox"][id="location-select"]', timeout=30)
-#         except Exception:
-#             scraping_status['progress'] = 'Page did not load properly for Five Iron Golf'
-#             driver.quit()
-#             return
-        
-#         # Select location
-#         driver.click('div[role="combobox"][id="location-select"]')
-#         driver.sleep(3)
-#         driver.js_click('//li[normalize-space()="NYC - FiDi"]')
-        
-#         scraping_status['progress'] = f'Setting date to {target_date}...'
-        
-#         # Set date
-#         date_input = driver.find_element("css selector", 'input[placeholder="mm/dd/yyyy"]')
-#         date_input.send_keys(Keys.CONTROL, "a")
-#         date_input.send_keys(Keys.DELETE)
-#         driver.type('input[placeholder="mm/dd/yyyy"]', formatted_date)
-        
-#         # Set party size
-#         scraping_status['progress'] = f'Setting party size to {guests}...'
-        
-#         driver.click('div[role="combobox"][id="party_size_select"]')
-#         driver.js_click(f'//li[normalize-space()="{guests}"]')
-        
-#         driver.sleep(7)
-        
-#         scraping_status['progress'] = 'Searching for available slots on Five Iron Golf...'
-        
-#         soup = BeautifulSoup(driver.page_source, "html.parser")
-#         slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
-        
-#         scraping_status['progress'] = f'Found {len(slots)} available slots on Five Iron Golf'
-        
-#         if len(slots) == 0:
-#             scraping_status['progress'] = 'No slots available on Five Iron Golf'
-#             driver.quit()
-#             return
-        
-#         for slot in slots:
-#             status = "Available"
-            
-#             # Extract time
-#             try:
-#                 time = slot.find_previous_sibling("h5").get_text(strip=True)
-#             except:
-#                 time = "None"
-            
-#             # =============================
-#             #   ✔ CORRECT PRICE EXTRACTION
-#             # =============================
-            
-#             buttons = slot.select("button.MuiToggleButton-root")
-#             price_parts = []
-            
-#             for btn in buttons:
-#                 # duration ("1.5 hours", "2 hours")
-#                 duration = btn.contents[0].strip()
-                
-#                 # price inside <p>
-#                 price_el = btn.select_one("p")
-#                 price = price_el.get_text(strip=True) if price_el else ""
-                
-#                 price_parts.append(f"{duration} {price}")
-            
-#             desc = ", ".join(price_parts)
-            
-#             # Store data
-#             slot_data = {
-#                 'date': date_str,
-#                 'time': time,
-#                 'price': desc,
-#                 'status': status,
-#                 'timestamp': datetime.now().isoformat(),
-#                 'website': 'Five Iron Golf (NYC)'
-#             }
-            
-#             scraped_data.append(slot_data)
-#             scraping_status['total_slots_found'] = len(scraped_data)
-            
-#             print([date_str, time, desc, status])
-        
-#         driver.quit()
-        
-#     except Exception as e:
-#         if 'driver' in locals():
-#             driver.quit()
-#         raise e
-
-
 def scrape_five_iron_golf(guests, target_date):
     """Five Iron Golf NYC scraper function"""
     global scraping_status, scraped_data
@@ -1152,8 +738,10 @@ def scrape_five_iron_golf(guests, target_date):
         formatted_date = dt.strftime("%m/%d/%Y")
         
         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        # Set 20-second page load timeout
         driver.set_page_load_timeout(20)
 
+        
         try:
             driver.get("https://booking.fiveirongolf.com/session-length")
         except Exception:
@@ -1164,7 +752,7 @@ def scrape_five_iron_golf(guests, target_date):
         
         try:
             driver.wait_for_element('div[role="combobox"][id="location-select"]', timeout=30)
-        except Exception:
+        except Exception as e:
             scraping_status['progress'] = 'Page did not load properly for Five Iron Golf'
             driver.quit()
             return
@@ -1172,7 +760,7 @@ def scrape_five_iron_golf(guests, target_date):
         # Select location
         driver.click('div[role="combobox"][id="location-select"]')
         driver.sleep(3)
-        driver.js_click('//li[normalize-space()="NYC - FiDi"]')
+        driver.js_click('//li[normalize-space()="NYC - Flatiron"]')
         
         scraping_status['progress'] = f'Setting date to {target_date}...'
         
@@ -1184,11 +772,19 @@ def scrape_five_iron_golf(guests, target_date):
         
         # Set party size
         scraping_status['progress'] = f'Setting party size to {guests}...'
-        
+        # Price
+        desc = "$70 per hour"
+        if 7 <= int(guests) <= 12:
+            guests = "7-12"
+            # Price
+            desc = "$140 per hour"
+        elif int(guests) > 13:
+            guests = "13+"
+            
         driver.click('div[role="combobox"][id="party_size_select"]')
         driver.js_click(f'//li[normalize-space()="{guests}"]')
         
-        driver.sleep(7)
+        driver.sleep(4)
         
         scraping_status['progress'] = 'Searching for available slots on Five Iron Golf...'
         
@@ -1203,51 +799,31 @@ def scrape_five_iron_golf(guests, target_date):
             return
         
         for slot in slots:
+            # Status
             status = "Available"
             
-            # Extract time
+            # Time
             try:
-                time = slot.find_previous_sibling("h5").get_text(strip=True)
+                time = slot.find_previous_sibling("h5").get_text().strip()
             except:
                 time = "None"
-            
-            # Extract each duration + price separately
-            buttons = slot.select("button.MuiToggleButton-root")
-            
-            for btn in buttons:
-                try:
-                    duration = btn.contents[0].strip()      # "2 hours"
-                except:
-                    duration = "None"
                 
-                price_el = btn.select_one("p")
-                price = price_el.get_text(strip=True) if price_el else ""
-
-                # ❗ Skip rows where price is missing
-                if not price:
-                    continue
-
-                # Convert "2 hours" → "2h"
-                dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
-
-                # Final format: "2h : $58"
-                desc = f"{dur_clean} : {price}"
-
-                slot_data = {
-                    'date': date_str,
-                    'time': time,
-                    'price': desc,
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': 'Five Iron Golf (NYC)'
-                }
-
-                scraped_data.append(slot_data)
-                scraping_status['total_slots_found'] = len(scraped_data)
-
-                print([date_str, time, desc, status])
-
-
+            
+            
+            # Store data in memory
+            slot_data = {
+                'date': date_str,
+                'time': time,
+                'price': desc,
+                'status': status,
+                'timestamp': datetime.now().isoformat(),
+                'website': 'Five Iron Golf (NYC)'
+            }
+            
+            scraped_data.append(slot_data)
+            scraping_status['total_slots_found'] = len(scraped_data)
+            
+            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -1373,48 +949,171 @@ def scrape_easybowl(guests, target_date):
             driver.sleep(2)
             
             soup = BeautifulSoup(driver.page_source, "html.parser")
-            slots = soup.find_all("div",{"class":"prodBox"})
             
-            if len(slots) == 0:
-                break
+            # Check if there's another layer of product groups (like PARTY PACKAGES)
+            nested_groups = soup.find_all("div", {"class": "prodBox prodGroup"})
             
-            for slot in slots:
-                # Status
-                status_el = slot.select_one("div.prodHeadline")
-                if status_el:
-                    status = status_el.get_text(strip=True)
-                else:
-                    status = "Available"
+            if len(nested_groups) > 0:
+                # This is a nested product group page (e.g., PARTY PACKAGES)
+                # Need to click through each nested product group
+                nested_selects = driver.find_elements("xpath", "//div[@class='button prodGroupButton']")
                 
-                # Time
-                try:
-                    time = slot.find("table",{"class":"tableEventDetails"}).get_text().strip()
-                except:
-                    time = "None"
+                for k in range(len(nested_selects)):
+                    nested_selects = driver.find_elements("xpath", "//div[@class='button prodGroupButton']")
+                    nested_selects[k].click()
+                    driver.sleep(2)
                     
-                # Price
-                try:
-                    price = slot.find("table",{"class":"tablePriceBox"}).get_text().strip()
-                except:
-                    price = "None"
+                    soup = BeautifulSoup(driver.page_source, "html.parser")
+                    slots = soup.find_all("div", {"class": "prodBox"})
+                    
+                    # Filter out product groups (only get actual products)
+                    actual_products = []
+                    for slot in slots:
+                        # Product groups have class "prodBox prodGroup", actual products just have "prodBox"
+                        if "prodGroup" not in slot.get("class", []):
+                            actual_products.append(slot)
+                    
+                    for slot in actual_products:
+                        # Extract product name
+                        name_el = slot.select_one("div.prodHeadline")
+                        if name_el:
+                            name = name_el.get_text(strip=True)
+                        else:
+                            name = "Unknown"
+                        
+                        # Extract time from event details
+                        try:
+                            event_table = slot.find("table", {"class": "tableEventDetails"})
+                            if event_table:
+                                time_rows = event_table.find_all("tr")
+                                time_info = []
+                                for row in time_rows:
+                                    cells = row.find_all("td")
+                                    if len(cells) >= 4:
+                                        event_name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                                        start_time = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                        end_time = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                        if start_time and end_time:
+                                            time_info.append(f"{event_name}: {start_time} - {end_time}")
+                                time = " | ".join(time_info) if time_info else event_table.get_text(strip=True)
+                            else:
+                                time = "None"
+                        except:
+                            time = "None"
+                        
+                        # Extract price
+                        try:
+                            price_table = slot.find("table", {"class": "tablePriceBox"})
+                            if price_table:
+                                price_rows = price_table.find_all("tr")
+                                price_info = []
+                                for row in price_rows:
+                                    cells = row.find_all("td")
+                                    if len(cells) >= 3:
+                                        label = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                                        value = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                        if label and value:
+                                            price_info.append(f"{label}: {value}")
+                                price = " | ".join(price_info) if price_info else price_table.get_text(strip=True)
+                            else:
+                                price = "None"
+                        except:
+                            price = "None"
+                        
+                        # Store data in memory
+                        slot_data = {
+                            'date': target_date,
+                            'time': time,
+                            'price': price,
+                            'status': name,
+                            'timestamp': datetime.now().isoformat(),
+                            'website': 'Easybowl (NYC)'
+                        }
+                        
+                        scraped_data.append(slot_data)
+                        scraping_status['total_slots_found'] = len(scraped_data)
+                        
+                        print([target_date, name, time, price])
+                    
+                    # Go back to nested product group page
+                    driver.back()
+                    driver.sleep(1)
+            else:
+                # Direct products page (no nested groups)
+                slots = soup.find_all("div", {"class": "prodBox"})
                 
-                # Store data in memory
-                slot_data = {
-                    'date': target_date,
-                    'time': time,
-                    'price': price,
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': 'Easybowl (NYC)'
-                }
+                # Filter out product groups (only get actual products)
+                actual_products = []
+                for slot in slots:
+                    # Product groups have class "prodBox prodGroup", actual products just have "prodBox"
+                    if "prodGroup" not in slot.get("class", []):
+                        actual_products.append(slot)
                 
-                scraped_data.append(slot_data)
-                scraping_status['total_slots_found'] = len(scraped_data)
-                
-                print([target_date, time, price, status])
+                for slot in actual_products:
+                    # Extract product name
+                    name_el = slot.select_one("div.prodHeadline")
+                    if name_el:
+                        name = name_el.get_text(strip=True)
+                    else:
+                        name = "Unknown"
+                    
+                    # Extract time from event details
+                    try:
+                        event_table = slot.find("table", {"class": "tableEventDetails"})
+                        if event_table:
+                            time_rows = event_table.find_all("tr")
+                            time_info = []
+                            for row in time_rows:
+                                cells = row.find_all("td")
+                                if len(cells) >= 4:
+                                    event_name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                                    start_time = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    end_time = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                                    if start_time and end_time:
+                                        time_info.append(f"{event_name}: {start_time} - {end_time}")
+                            time = " | ".join(time_info) if time_info else event_table.get_text(strip=True)
+                        else:
+                            time = "None"
+                    except:
+                        time = "None"
+                    
+                    # Extract price
+                    try:
+                        price_table = slot.find("table", {"class": "tablePriceBox"})
+                        if price_table:
+                            price_rows = price_table.find_all("tr")
+                            price_info = []
+                            for row in price_rows:
+                                cells = row.find_all("td")
+                                if len(cells) >= 3:
+                                    label = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                                    value = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                                    if label and value:
+                                        price_info.append(f"{label}: {value}")
+                            price = " | ".join(price_info) if price_info else price_table.get_text(strip=True)
+                        else:
+                            price = "None"
+                    except:
+                        price = "None"
+                    
+                    # Store data in memory
+                    slot_data = {
+                        'date': target_date,
+                        'time': time,
+                        'price': price,
+                        'status': name,
+                        'timestamp': datetime.now().isoformat(),
+                        'website': 'Easybowl (NYC)'
+                    }
+                    
+                    scraped_data.append(slot_data)
+                    scraping_status['total_slots_found'] = len(scraped_data)
+                    
+                    print([target_date, name, time, price])
             
             # Reset to original page for next iteration
             driver.back()
+            driver.sleep(1)
         scraping_status['progress'] = f'Found {len(scraped_data)} total slots on Easybowl'
         
         driver.quit()
@@ -1551,552 +1250,145 @@ def scrape_fair_game_city(guests, target_date):
         raise e
 
 
-
-# def scrape_clays_bar(location, guests, target_date):
-#     """Clays Bar (London) scraper function"""
-#     global scraping_status, scraped_data
-
-#     # Prepare date in a cross-platform safe way
-#     date_obj = datetime.strptime(target_date, "%Y-%m-%d")
-
-#     # Example: "November 2025"
-#     target_month_year = date_obj.strftime("%B %Y")
-
-#     # Example: "22 November 2025"
-#     target_date_label = f"{date_obj.day} {date_obj.strftime('%B %Y')}"
-
-#     # Example: "22" (works on all OS)
-#     target_day = str(date_obj.day)
-
-#     try:
-#         driver = Driver(uc=True, headless2=False, no_sandbox=True, disable_gpu=True)
-#         driver.get("https://clays.bar/")
-
-#         scraping_status['progress'] = f'Navigating to Clays Bar {location}...'
-#         scraping_status['current_date'] = target_date
-        
-        # driver.sleep(4)
-
-        # # Accept cookies
-        # try:
-        #     driver.wait_for_element('button[aria-label="Accept All"]', timeout=10)
-        #     driver.click('button[aria-label="Accept All"]')
-        #     print("Clicked Accept All")
-        # except Exception as e:
-        #     print("Cookie accept error:", e)
-
-#         # Click first search bar element (Where/When/Who/Occasion)
-#         try:
-#             a_element = driver.find_elements(
-#                 "xpath",
-#                 "//button[contains(@class,'SearchBarDesktop__Section-sc-1kwt1gr-2 liVzmj')]"
-#             )
-#             if a_element:
-#                 print("✔ Search sections found → clicking first one")
-#                 driver.execute_script("arguments[0].click();", a_element[0])
-#                 # a_element[0].click()
-#             else:
-#                 print("⚠ No search bar section found")
-#         except Exception as e:
-#             print("Search bar click error:", e)
-
-#         driver.sleep(5)
-
-#         try:
-#             # Select location
-#             location_input = driver.find_elements(
-#                 "xpath",
-#                 f"//span[contains(text(),'{location}')]"
-#             )
-#             driver.execute_script("arguments[0].click();", location_input[-1])
-#             driver.sleep(2)
-#         except Exception as e:
-#             print("error:",e)
-
-
-
-
-
 def scrape_clays_bar(location, guests, target_date):
     """Clays Bar (London) scraper function"""
     global scraping_status, scraped_data
-
-    # Prepare date in a cross-platform safe way
-    date_obj = datetime.strptime(target_date, "%Y-%m-%d")
-
-    # Example: "November 2025"
-    target_month_year = date_obj.strftime("%B %Y")
-
-    # Cross-platform day number
-    try:
-        day_num = date_obj.strftime("%-d")   # Linux / macOS
-    except:
-        day_num = date_obj.strftime("%#d")   # Windows
-
-    # Correct aria-label format used by Clays Bar:
-    # "November 25, 2025"
-    target_date_label = f"{date_obj.strftime('%B')} {day_num}, {date_obj.year}"
-
-    # Example: "25"
-    target_day = day_num
-
-
+    
     try:
         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
         driver.get("https://clays.bar/")
-
+        
         scraping_status['progress'] = f'Navigating to Clays Bar {location}...'
         scraping_status['current_date'] = target_date
         
         driver.sleep(4)
-
+        
         # Accept cookies
         try:
-            driver.wait_for_element('button[aria-label="Accept All"]', timeout=10)
-            driver.click('button[aria-label="Accept All"]')
-            print("Clicked Accept All")
-        except Exception as e:
-            print("Cookie accept error:", e)
-
-        # Click search bar sections
+            accept = driver.find_element(
+                "xpath",
+                "//button[contains(@aria-label,'Accept All')]"
+            )
+            driver.execute_script("arguments[0].click();", accept)
+        except:
+            pass
+        
+        # Navigation through booking flow
         a_element = driver.find_elements(
             "xpath",
-            "//button[contains(@class,'SearchBarDesktop__Section-sc-1kwt1gr-2')]"
+            "//button[contains(@class,'SearchBarDesktop__Section-sc-1kwt1gr-2 liVzmj')]"
         )
+        
+        # Location selection
         driver.execute_script("arguments[0].click();", a_element[0])
-        driver.sleep(3)
-
-        # Select location
+        driver.sleep(2)
+        
         location_input = driver.find_elements(
             "xpath",
             f"//span[contains(text(),'{location}')]"
         )
         driver.execute_script("arguments[0].click();", location_input[-1])
         driver.sleep(2)
-
-        # -------------------------------------
-        # 📅 OPEN DATE SECTION
-        # -------------------------------------
-        driver.execute_script("arguments[0].click();", a_element[1])
-        driver.sleep(1)
-
-        # -------------------------------------
-        # 📅 FORCE THE CALENDAR TO STAY OPEN
-        # -------------------------------------
-        def ensure_calendar_open():
-            for _ in range(5):
-                cal = driver.execute_script("""
-                    return document.querySelector('.react-calendar');
-                """)
-                if cal:
-                    return True
-                driver.execute_script("arguments[0].click();", a_element[1])
-                driver.sleep(0.8)
-            return False
-
-        if not ensure_calendar_open():
-            raise Exception("Calendar failed to stay open")
-
-
-        # -------------------------------------
-        # 📅 WAIT FOR HEADER
-        # -------------------------------------
-        def get_header():
-            return driver.execute_script("""
-                let h = document.querySelector('.react-calendar__navigation__label span span');
-                return h ? h.textContent.trim() : null;
-            """)
-
-        header = None
-        for _ in range(20):
-            header = get_header()
-            if header:
-                break
-            ensure_calendar_open()
-            driver.sleep(0.3)
-
-        if not header:
-            raise Exception("Calendar header missing. Popup keeps closing.")
-
-
-        # -------------------------------------
-        # 📅 NAVIGATE MONTHS UNTIL TARGET
-        # -------------------------------------
-        while header != target_month_year:
-            ensure_calendar_open()
-
-            driver.execute_script("""
-                let btn = document.querySelector('.react-calendar__navigation__next-button');
-                if (btn) btn.click();
-            """)
-
-            driver.sleep(0.4)
-            header = get_header()
-
-
-        # -------------------------------------
-        # 📅 CLICK THE TARGET DATE (JS CLICK)
-        # -------------------------------------
-        driver.execute_script(f"""
-            let cells = document.querySelectorAll('abbr[aria-label="{target_date_label}"]');
-            if (cells.length) cells[0].parentElement.click();
-        """)
-        driver.sleep(1)
-
-
-        # -------------------------------------
-        # 🕒 SELECT FIRST AVAILABLE TIME
-        # -------------------------------------
-        try:
-            time_dropdown = driver.find_element(
-                "css selector",
-                "select.WhenContent__TimeSelect-sc-5ndj3b-4"
-            )
-            driver.execute_script("""
-                let sel = arguments[0];
-                sel.selectedIndex = 1;
-                sel.dispatchEvent(new Event('change', { bubbles: true }));
-            """, time_dropdown)
-            print("✔ Time selected")
-            driver.sleep(1)
-
-        except Exception as e:
-            print("❌ Time selection error:", e)
-
-
-        # def ensure_who_open():
-        #     """Force open the 'Who' popup until the guest input appears."""
-        #     for _ in range(10):
-        #         exists = driver.execute_script("""
-        #             return document.querySelector('input.WhoContent__CountInput-sc-fm3zg1-3');
-        #         """)
-        #         if exists:
-        #             return True
-
-        #         # Click WHO section again
-        #         try:
-        #             driver.execute_script("arguments[0].click();", a_element[2])
-        #         except:
-        #             pass
-
-        #         driver.sleep(0.5)
-        #     return False
-
-
-
-        # # -------------------------
-        # # 👥 GUEST SELECTION (React-stable)
-        # # -------------------------
-
-        # # Step 1 — Ensure popup stays open
-        # if not ensure_who_open():
-        #     raise Exception("Who popup failed to stay open")
-
-        # driver.sleep(0.5)
-
-        # # Step 2 — Set value in React-controlled input
-        # driver.execute_script("""
-        #     let input = document.querySelector('input.WhoContent__CountInput-sc-fm3zg1-3');
-        #     if (input) {
-        #         input.value = arguments[0];
-        #         input.dispatchEvent(new Event('input', { bubbles: true }));
-        #         input.dispatchEvent(new Event('change', { bubbles: true }));
-        #     }
-        # """, str(guests))
-
-        # driver.sleep(0.5)
-
-        # # Step 3 — FORCE React to commit the changed value
-        # # Click outside popup (on SearchBar container)
-        # driver.execute_script("""
-        #     let bar = document.querySelector('.SearchBarDesktop__Container-sc-1kwt1gr-0');
-        #     if (bar) bar.click();
-        # """)
-
-        # driver.sleep(0.7)
-
-        # print("✔ Guests saved permanently:", guests)
-
-
-        def set_guests_value(guests):
-            """Safely set the guest count using React increment/decrement buttons."""
-
-            # Try to open WHO popup until visible
-            for _ in range(10):
-                popup_visible = driver.execute_script("""
-                    return document.querySelector('input.WhoContent__CountInput-sc-fm3zg1-3');
-                """)
-                if popup_visible:
-                    break
-                # Open WHO section
-                try:
-                    driver.execute_script("arguments[0].click();", a_element[2])
-                except:
-                    pass
-                driver.sleep(0.4)
-
-            # Read current value
-            current = driver.execute_script("""
-                let inp = document.querySelector('input.WhoContent__CountInput-sc-fm3zg1-3');
-                return inp ? parseInt(inp.value || "1") : null;
-            """)
-
-            if current is None:
-                raise Exception("WHO popup not open")
-
-            # Locate increment & decrement buttons
-            decrement_btn = driver.find_element("css selector", "button.decrement")
-            increment_btn = driver.find_element("css selector", "button.increment")
-
-            # RESET guests to 1 first (React consistent)
-            while current > 1:
-                driver.execute_script("arguments[0].click();", decrement_btn)
-                driver.sleep(0.12)
-                current -= 1
-
-            # INCREASE until target guests
-            for _ in range(guests):
-                driver.execute_script("arguments[0].click();", increment_btn)
-                driver.sleep(0.12)
-
-            # CLICK OUTSIDE to save React state
-            driver.execute_script("""
-                document.querySelector('.SearchBarDesktop__Container-sc-1kwt1gr-0')?.click();
-            """)
-
-            print("✔ Guests set successfully:", guests)
-            driver.sleep(1)
-
-        print("Selecting guests...")
-        set_guests_value(guests)
-
-        def ensure_occasion_open():
-            """Force open the Occasion popup until radios appear."""
-            for _ in range(10):
-                exists = driver.execute_script("""
-                    return document.querySelector('label.OccasionContent__RadioButtonContainer-sc-3wa38i-0');
-                """)
-                if exists:
-                    return True
-
-                try:
-                    driver.execute_script("arguments[0].click();", a_element[3])
-                except:
-                    pass
-
-                driver.sleep(0.6)
-
-            return False
-
-        # -------------------------
-        # 🎉 OCCASION SELECTION (Stable)
-        # -------------------------
-
-        if not ensure_occasion_open():
-            raise Exception("Occasion popup failed to stay open")
-
-        # Select FIRST OCCASION using JS (Birthday)
-        driver.execute_script("""
-            let radios = document.querySelectorAll('label.OccasionContent__RadioButtonContainer-sc-3wa38i-0');
-            if (radios.length > 0) {
-                radios[0].click();
-            }
-        """)
-
-        print("✔ Occasion selected (first option)")
-        driver.sleep(1)
-
-        # -------------------------
-        # 🔍 CLICK SEARCH BUTTON (Stable)
-        # -------------------------
-
-        # Ensure search bar container is still present
-        driver.sleep(1)
-
-        try:
-            # Query the search button directly
-            search_btn = driver.find_element(
-                "css selector",
-                "button.SearchBarDesktop__SearchButton-sc-1kwt1gr-4"
-            )
-
-            driver.execute_script("arguments[0].click();", search_btn)
-            print("✔ Search button clicked")
-
-        except Exception as e:
-            print("❌ Failed to click search button:", e)
-
-        # Wait for results to load
-        driver.sleep(5)
-
-        # -------------------------------------
-        # SCRAPE RESULTS
-        # -------------------------------------
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        try:
-            slots = soup.select(
-                'div.TimeCarousel__Container-sc-vww6qk-1.cuGlzd'
-            )[0].select(
-                "div.TimeSlots__TimeStepWrapper-sc-1mnx04v-3.eCuxLB"
-            )
-        except:
-            slots = []
-
-        scraping_status['progress'] = f'Found {len(slots)} available slots on Clays Bar'
-
-        if not slots:
-            driver.quit()
-            return
-
-        for slot in slots:
-            time_val = slot.find("span", {"class": "TimeSelect__Time-sc-1usgwcy-1 gJDrjO"})
-            desc_val = slot.find("span", {"class": "TimeSelect__Price-sc-1usgwcy-2 dpRGEw"})
-
-            time_val = time_val.get_text(strip=True) if time_val else "None"
-            desc = desc_val.get_text(strip=True) if desc_val else "None"
-
-            slot_data = {
-                'date': target_date,
-                'time': time_val,
-                'price': desc,
-                'status': "Available",
-                'timestamp': datetime.now().isoformat(),
-                'website': f'Clays Bar ({location})'
-            }
-
-            scraped_data.append(slot_data)
-            scraping_status['total_slots_found'] = len(scraped_data)
-            print([target_date, time_val, desc])
-
-        driver.quit()
-
-    except Exception as e:
-        if 'driver' in locals():
-            driver.quit()
-        raise e
-
-        # ---------------------
-        # 📅 DATE SELECTION FIXED
-        # ---------------------
-
-        # Click “When”
-        driver.execute_script("arguments[0].click();", a_element[1])
-        driver.sleep(5)
-
-        # STEP 1 — Check if correct month already open
-        try:
-            header = driver.find_element(
-                "xpath",
-                "//button[contains(@class,'react-calendar__navigation__label')]//span"
-            ).text.strip()
-
-            if header == target_month_year:
-                print("✔ Correct month visible:", header)
-            else:
-                raise Exception("Month does not match")
-        except:
-            print("⏳ Navigating calendar...")
-
-            # STEP 2 — Navigate month-by-month
-            while True:
-                header = driver.find_element(
+        
+        # Date selection
+        a_element[1].click()
+        driver.sleep(3)
+        
+        date_obj = datetime.strptime(target_date, "%Y-%m-%d")
+        formatted_date = date_obj.strftime("%B %d, %Y")
+        
+        while True:
+            try:
+                date = driver.find_element(
                     "xpath",
-                    "//button[contains(@class,'react-calendar__navigation__label')]//span"
-                ).text.strip()
-
-                print("Current calendar:", header)
-
-                if header == target_month_year:
-                    print("✔ Month reached:", header)
-                    break
-
-                next_btn = driver.find_element(
-                    "xpath",
-                    "//button[contains(@class,'react-calendar__navigation__next-button')]"
+                    f"//abbr[contains(@aria-label,'{str(formatted_date)}')]"
                 )
-                driver.execute_script("arguments[0].click();", next_btn)
-                driver.sleep(1)
-
-        # STEP 3 — Click the correct date
-        date_btn = driver.find_element(
-            "xpath",
-            f"//abbr[@aria-label='{target_date_label}']/parent::button"
-        )
-        driver.execute_script("arguments[0].click();", date_btn)
-        print("✔ Date selected:", target_date_label)
-
+                driver.execute_script("arguments[0].click();", date)
+                
+                # Time selection
+                select_element = driver.find_element("xpath", "//select[contains(@class,'WhenContent__TimeSelect-sc-5ndj3b-4 geMVef')]")
+                dropdown = Select(select_element)
+                dropdown.select_by_visible_text("12:00pm")
+                break
+            except:
+                try:
+                    next_btn = driver.find_element(
+                        "xpath",
+                        "//button[contains(@class,'react-calendar__navigation__arrow react-calendar__navigation__next-button')]"
+                    )
+                    driver.execute_script("arguments[0].click();", next_btn)
+                except:
+                    print("couldn't click the next button")
+                driver.sleep(2)
+        
         # Guest count
         a_element[2].click()
         driver.type('input[class="WhoContent__CountInput-sc-fm3zg1-3 kiTuOv"]', str(guests))
         driver.sleep(2)
-
+        
         # Occasion
         a_element[3].click()
         driver.sleep(2)
-
-        try:
-            occasion_option = driver.find_element(
-                "xpath",
-                "//label[normalize-space()='No Occasion']"
-            )
-            driver.execute_script("arguments[0].click();", occasion_option)
-            print("✔ Occasion selected")
-        except Exception as e:
-            print("❌ Failed to select occasion:", e)
-
-
+        
+        occasion = driver.find_elements(
+            "xpath",
+            "//label[contains(text(),'No Occasion')]"
+        )
+        driver.execute_script("arguments[0].click();", occasion[0])
+        
+        # Search
+        search = driver.find_elements(
+            "xpath",
+            "//button[contains(@class,'SearchBarDesktop__SearchButton-sc-1kwt1gr-4 cghPes')]"
+        )
+        driver.execute_script("arguments[0].click();", search[0])
         driver.sleep(10)
-
+        
         scraping_status['progress'] = 'Searching for available slots on Clays Bar...'
-
+        
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        try:
-            slots = soup.select(
-                'div.TimeCarousel__Container-sc-vww6qk-1.cuGlzd')[0].select(
-                "div.TimeSlots__TimeStepWrapper-sc-1mnx04v-3.eCuxLB")
-        except Exception as e:
-            print("GGGGGGGG:",e)
-
+        slots = soup.select('div.TimeCarousel__Container-sc-vww6qk-1.cuGlzd')[0].select("div.TimeSlots__TimeStepWrapper-sc-1mnx04v-3.eCuxLB")
+        
         scraping_status['progress'] = f'Found {len(slots)} available slots on Clays Bar'
-
+        
         if len(slots) == 0:
             scraping_status['progress'] = 'No slots available on Clays Bar'
             driver.quit()
             return
-
+        
         for slot in slots:
             # Status
             status = "Available"
-
+            
             # Time
             try:
-                time_val = slot.find("span", {"class": "TimeSelect__Time-sc-1usgwcy-1 gJDrjO"}).get_text().strip()
+                time = slot.find("span",{"class":"TimeSelect__Time-sc-1usgwcy-1 gJDrjO"}).get_text().strip()
             except:
-                time_val = "None"
-
+                time = "None"
+                
             # Description/Price
             try:
-                desc = slot.find("span", {"class": "TimeSelect__Price-sc-1usgwcy-2 dpRGEw"}).get_text().replace("\n","").strip()
+                desc = slot.find("span",{"class":"TimeSelect__Price-sc-1usgwcy-2 dpRGEw"}).get_text().replace("\n","").strip()
             except:
                 desc = "None"
-
-            # Store data
+            
+            # Store data in memory
             slot_data = {
                 'date': target_date,
-                'time': time_val,
+                'time': time,
                 'price': desc,
                 'status': status,
                 'timestamp': datetime.now().isoformat(),
                 'website': f'Clays Bar ({location})'
             }
-
+            
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-
-            print([target_date, time_val, desc, status])
-
+            
+            print([target_date, time, desc, status])
+        
         driver.quit()
-
+        
     except Exception as e:
         if 'driver' in locals():
             driver.quit()
@@ -2325,133 +1617,109 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
 
 
 def scrape_f1_arcade(guests, target_date):
-    """F1 Arcade (London) scraper"""
+    """F1 Arcade (London) scraper function"""
     global scraping_status, scraped_data
-
+    
     try:
         driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
         driver.get("https://f1arcade.com/uk/booking/venue/london")
-
+        
+        scraping_status['progress'] = f'Scraping F1 Arcade for {target_date}...'
+        scraping_status['current_date'] = target_date
+        
         driver.sleep(4)
-
-        scraping_status['progress'] = "Setting guest count..."
+        
+        # Set guest count
         driver.type('input[id="adults-group-size"]', str(guests))
-
-        # Continue button
+        
         continu = driver.find_elements("xpath", '//button[@id="game-continue"]')[1]
         driver.execute_script("arguments[0].click();", continu)
-
-        driver.sleep(4)
-
-        # -------------------------
-        # SELECT FIRST EXPERIENCE
-        # -------------------------
-        scraping_status['progress'] = "Selecting experience..."
-
-        try:
-            exp = driver.find_element("xpath", "(//button[contains(@class,'experience')])[1]")
-            driver.execute_script("arguments[0].click();", exp)
-        except:
-            pass
-
-        driver.sleep(3)
-
-        # -------------------------
-        # CALENDAR NAVIGATION
-        # -------------------------
+        
+        # Date navigation
         dt = datetime.strptime(target_date, "%Y-%m-%d")
-        target_month = dt.strftime("%b %Y")
-        day = str(dt.day)
-
-        scraping_status['progress'] = f"Opening calendar for {target_month}..."
-
-        # Click back several months to start
-        for _ in range(6):
+        formatted = dt.strftime("%b %Y")
+        day = dt.day
+        
+        driver.sleep(6)
+        
+        # Go back to start from earlier months
+        for i in range(5):
             try:
-                back = driver.find_element("id", "prev-month-btn")
-                if back.is_enabled():
-                    driver.execute_script("arguments[0].click();", back)
-                    driver.sleep(0.3)
+                back = driver.find_element("xpath", '//button[@id="prev-month-btn"]')
+                driver.execute_script("arguments[0].click();", back)
             except:
-                break
-
-        # Move forward until month matches
+                pass
+        
+        # Navigate to target month
         while True:
-            header = driver.find_element(
-                "xpath", "//div[@id='date-picker']//h2"
-            ).text.strip()
-
-            if header == target_month:
-                break
-
-            next_btn = driver.find_element("id", "next-month-btn")
-            driver.execute_script("arguments[0].click();", next_btn)
-            driver.sleep(4)
-
-        # -------------------------
-        # SELECT DAY
-        # -------------------------
-        scraping_status['progress'] = f"Selecting day {day}..."
-
-        # Buttons containing days:
-        buttons = driver.find_elements("xpath", "//button[@data-target='date-picker-day']")
-
-        clicked = False
-        for btn in buttons:
             try:
-                t = btn.find_element("tag name", "time").text.strip()
-                if t == day and btn.is_enabled():
-                    driver.execute_script("arguments[0].click();", btn)
-                    clicked = True
-                    break
+                driver.assert_element(f"//h2[contains(text(),'{formatted}')]")
+                break
             except:
-                continue
-
-        if not clicked:
-            scraping_status['progress'] = f"Day {day} is not selectable"
+                pass
+            
+            next_btn = driver.find_element("xpath", '//button[@id="next-month-btn"]')
+            driver.execute_script("arguments[0].click();", next_btn)
+        
+        # Select day
+        driver.js_click(f"//time[contains(text(),'{day}')]")
+        
+        try:
+            driver.assert_element('//div[@data-target="time-picker-option"]', timeout=30)
+        except:
+            scraping_status['progress'] = 'No slots available on F1 Arcade'
             driver.quit()
             return
-
-        driver.sleep(5)
-
-        # -------------------------
-        # READ TIME SLOTS
-        # -------------------------
-        scraping_status['progress'] = "Reading available slots..."
-
+        
+        scraping_status['progress'] = 'Searching for available slots on F1 Arcade...'
+        
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.find_all("div", {"data-target": "time-picker-option"})
-
-        if not slots:
-            scraping_status['progress'] = "No slots available"
+        slots = soup.find_all("div",{"data-target":"time-picker-option"})
+        
+        scraping_status['progress'] = f'Found {len(slots)} available slots on F1 Arcade'
+        
+        if len(slots) == 0:
+            scraping_status['progress'] = 'No slots available on F1 Arcade'
             driver.quit()
             return
-
+        
         for slot in slots:
-            time_text = slot.get_text(strip=True)
-
+            # Status
+            status = "Available"
+            
+            # Time
+            try:
+                time = slot.get_text().strip()
+            except:
+                time = "None"
+                
+            # Description
+            desc = "Peak from £24.95, Standard from £22.95"
+            
+            # Store data in memory
             slot_data = {
-                "date": target_date,
-                "time": time_text,
-                "price": "Peak from £24.95, Standard from £22.95",
-                "status": "Available",
-                "timestamp": datetime.now().isoformat(),
-                "website": "F1 Arcade"
+                'date': target_date,
+                'time': time,
+                'price': desc,
+                'status': status,
+                'timestamp': datetime.now().isoformat(),
+                'website': 'F1 Arcade'
             }
-
+            
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-
-            print([target_date, time_text, slot_data["price"], "Available"])
-
+            
+            print([target_date, time, desc, status])
+        
         driver.quit()
-
+        
     except Exception as e:
-        if "driver" in locals():
+        if 'driver' in locals():
             driver.quit()
         raise e
 
-def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, clays_location=None, puttshack_location=None):
+
+def scrape_restaurants(guests, target_date, website, lawn_club_option=None, clays_location=None, puttshack_location=None):
     """Main scraper function that calls appropriate scraper based on website"""
     global scraping_status, scraped_data
     
@@ -2482,7 +1750,7 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
             if not target_date:
                 raise ValueError("Lawn Club NYC requires a specific target date")
             option = lawn_club_option or "Curling Lawns & Cabins"
-            scrape_lawn_club(guests, target_date, option, lawn_club_time, lawn_club_duration)
+            scrape_lawn_club(guests, target_date, option)
         elif website == 'spin_nyc':
             if not target_date:
                 raise ValueError("SPIN NYC requires a specific target date")
@@ -2552,11 +1820,7 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
 
 @app.route('/')
 def index():
-    return render_template(
-        'index.html',
-        lawn_club_times=LAWN_CLUB_TIME_OPTIONS,
-        lawn_club_durations=LAWN_CLUB_DURATION_OPTIONS
-    )
+    return render_template('index.html')
 
 
 @app.route('/run_scraper', methods=['POST'])
@@ -2571,22 +1835,8 @@ def run_scraper():
     target_date = data.get('target_date')
     website = data.get('website', 'swingers_nyc')  # Default to swingers NYC
     lawn_club_option = data.get('lawn_club_option')
-    lawn_club_time = data.get('lawn_club_time')
-    lawn_club_duration = data.get('lawn_club_duration')
     clays_location = data.get('clays_location')
     puttshack_location = data.get('puttshack_location')
-    
-    # Validate and normalize target_date format (YYYY-MM-DD) to avoid timezone issues
-    if target_date:
-        try:
-            # Validate date format
-            datetime.strptime(target_date, "%Y-%m-%d")
-            # Ensure it's in the correct format (no time component)
-            if 'T' in target_date or ' ' in target_date:
-                target_date = target_date.split('T')[0].split(' ')[0]
-            print(f"Received target_date: {target_date}")
-        except ValueError:
-            return jsonify({'error': f'Invalid date format: {target_date}. Expected YYYY-MM-DD'}), 400
     
     if not guests:
         return jsonify({'error': 'Missing required parameters'}), 400
@@ -2621,19 +1871,7 @@ def run_scraper():
         return jsonify({'error': f'{website_names[website]} requires a specific target date'}), 400
     
     # Start scraping in a separate thread
-    thread = threading.Thread(
-        target=scrape_restaurants,
-        args=(
-            guests,
-            target_date,
-            website,
-            lawn_club_option,
-            lawn_club_time,
-            lawn_club_duration,
-            clays_location,
-            puttshack_location
-        )
-    )
+    thread = threading.Thread(target=scrape_restaurants, args=(guests, target_date, website, lawn_club_option, clays_location, puttshack_location))
     thread.daemon = True
     thread.start()
     
@@ -2663,4 +1901,4 @@ def clear_data():
 
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8000)
+    app.run(debug=True, port=5005)
