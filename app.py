@@ -689,8 +689,26 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
         
         scraping_status['progress'] = 'Searching for available slots on Lawn Club...'
         
+        # Wait a bit more for results to load
+        driver.sleep(2)
+        
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.find('div','sc-huFNyZ cINeur').find_all('button')
+        
+        # Try to find the slots container - handle case where it might not exist
+        slots_container = soup.find('div', {'class': 'sc-huFNyZ cINeur'})
+        if not slots_container:
+            # Try alternative selectors
+            slots_container = soup.find('div', class_=lambda x: x and 'sc-huFNyZ' in x)
+            if not slots_container:
+                # Try finding any container with time slots
+                slots_container = soup.find('div', {'data-test': 'sr-time-slot-list'})
+        
+        if not slots_container:
+            scraping_status['progress'] = 'No slots available on Lawn Club or page structure changed'
+            driver.quit()
+            return
+        
+        slots = slots_container.find_all('button')
         
         scraping_status['progress'] = f'Found {len(slots)} available slots on Lawn Club'
         

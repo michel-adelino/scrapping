@@ -10,558 +10,717 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
+        :root {
+            --bg: #f4f5fb;
+            --surface: #ffffff;
+            --surface-alt: #f8f9ff;
+            --border: #e3e6ef;
+            --primary: #3c5bfd;
+            --primary-dark: #324ad1;
+            --text: #1c1f2e;
+            --muted: #6b7280;
+            --success: #16a34a;
+            --warning: #eab308;
+            --error: #ef4444;
+            --radius: 12px;
+        }
+
         body {
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
-            color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-height: 100vh;
-            position: relative;
+            background: var(--bg);
+            color: var(--text);
+            padding: 32px 16px 60px;
         }
-        
-        /* Animated background pattern */
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
-            animation: pulse 4s ease-in-out infinite;
-            z-index: -1;
+
+        .app-shell {
+            max-width: 1440px;
+            margin: 0 auto;
         }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
-        }
-        
-        .header {
+
+        .page-header {
             text-align: center;
-            padding: 30px 20px;
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            margin-bottom: 28px;
         }
-        
-        .header h1 {
-            font-size: 32px;
-            color: #3b82f6;
-            margin-bottom: 8px;
+
+        .page-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: var(--radius);
+            background: rgba(60, 91, 253, 0.08);
+            color: var(--primary);
             font-weight: 600;
+            font-size: 14px;
         }
-        
-        .header p {
-            color: #9ca3af;
+
+        .page-header h1 {
+            font-size: 34px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .page-header p {
+            color: var(--muted);
             font-size: 16px;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+
+        .control-panel,
+        .status-section,
+        .data-section {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: 0 30px 70px rgba(15, 23, 42, 0.08);
+            border: 1px solid var(--border);
+            margin-bottom: 26px;
         }
-        
-        .control-panel {
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        }
-        
-        .form-row {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
+
+        .search-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
             align-items: flex-end;
-            margin-bottom: 20px;
         }
-        
-        .form-group {
-            flex: 1;
-            min-width: 200px;
+
+        .input-card {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
         }
-        
-        .form-group label {
+
+        .input-card label {
             display: block;
-            font-size: 14px;
-            margin-bottom: 8px;
-            color: #e5e7eb;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            margin-bottom: 10px;
         }
-        
+
+        .input-field {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+        }
+
+        .input-field .icon {
+            font-size: 18px;
+        }
+
         .form-control {
             width: 100%;
-            padding: 12px 16px;
-            background: rgba(15, 15, 15, 0.8);
-            border: 1px solid rgba(75, 85, 99, 0.5);
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-        
-        .form-control:focus {
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            color: var(--text);
+            font-weight: 500;
             outline: none;
-            border-color: #3b82f6;
-            background: rgba(15, 15, 15, 0.95);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        
-        .form-control option {
-            background: #1f2937;
-            color: #ffffff;
         }
 
         .form-control optgroup {
-            background: #374151;
-            color: #f9fafb;
+            background: var(--surface);
+            color: var(--text);
             font-weight: 600;
         }
-        
-        .checkbox-wrapper {
+
+        .guest-picker {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 15px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
         }
-        
-        .checkbox-wrapper input[type="checkbox"] {
-            transform: scale(1.2);
-        }
-        
-        .checkbox-wrapper label {
-            color: #9ca3af;
-            font-size: 14px;
-            margin: 0;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+
+        .guest-picker button {
+            width: 44px;
+            height: 46px;
             border: none;
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 14px;
+            background: transparent;
+            font-size: 20px;
             font-weight: 600;
+            color: var(--primary);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.2s ease;
+        }
+
+        .guest-picker button:disabled {
+            color: rgba(108, 115, 148, 0.5);
+            cursor: not-allowed;
+        }
+
+        .guest-picker button:hover:not(:disabled) {
+            background: rgba(60, 91, 253, 0.1);
+        }
+
+        .guest-picker input {
+            width: 64px;
+            text-align: center;
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            outline: none;
+        }
+
+        .primary-btn,
+        .ghost-btn {
+            width: 100%;
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
-        .btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+
+        .primary-btn {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 15px 25px rgba(60, 91, 253, 0.25);
+        }
+
+        .primary-btn:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 20px 35px rgba(60, 91, 253, 0.3);
         }
-        
-        .btn:disabled {
-            opacity: 0.6;
+
+        .primary-btn:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
-        
-        .btn-clear {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+
+        .ghost-btn {
+            background: rgba(60, 91, 253, 0.1);
+            color: var(--primary);
         }
-        
-        .btn-clear:hover:not(:disabled) {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+
+        .ghost-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(60, 91, 253, 0.15);
         }
-        
-        .status-section {
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 30px;
+
+        .target-toggle {
+            margin: 22px 0 8px;
+            padding: 14px 18px;
+            border-radius: var(--radius);
+            border: 1px dashed var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--surface-alt);
         }
-        
+
+        .target-toggle label {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .option-card {
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+        }
+
+        .option-card label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .chip-hidden-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            width: 0;
+        }
+
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            max-height: 170px;
+            overflow-y: auto;
+        }
+
+        .chip-group::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chip-group::-webkit-scrollbar-thumb {
+            background: rgba(60, 91, 253, 0.35);
+            border-radius: var(--radius);
+        }
+
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px 16px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .chip.active {
+            background: rgba(60, 91, 253, 0.12);
+            color: var(--primary);
+            border-color: rgba(60, 91, 253, 0.4);
+        }
+
+        .website-info {
+            margin-top: 22px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            background: var(--surface-alt);
+        }
+
+        .website-info h3 {
+            font-size: 18px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .website-info p {
+            color: var(--muted);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
         .status-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
-        
+
         .status-title {
             font-size: 18px;
-            font-weight: 600;
-            color: #3b82f6;
+            font-weight: 700;
         }
-        
+
         .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
+            padding: 6px 16px;
+            border-radius: var(--radius);
             font-size: 12px;
-            font-weight: 600;
             text-transform: uppercase;
+            font-weight: 700;
+            border: 1px solid transparent;
         }
-        
+
         .status-running {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            background: rgba(22, 163, 74, 0.12);
+            color: var(--success);
+            border-color: rgba(22, 163, 74, 0.2);
         }
-        
+
         .status-completed {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            background: rgba(60, 91, 253, 0.12);
+            color: var(--primary);
+            border-color: rgba(60, 91, 253, 0.2);
         }
-        
+
         .status-error {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--error);
+            border-color: rgba(239, 68, 68, 0.2);
         }
-        
+
         .progress-bar {
             width: 100%;
-            height: 8px;
-            background: rgba(75, 85, 99, 0.3);
-            border-radius: 4px;
+            height: 10px;
+            border-radius: var(--radius);
+            background: var(--surface-alt);
             overflow: hidden;
             margin-bottom: 10px;
         }
-        
+
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            background: linear-gradient(90deg, #3c5bfd, #7c4dff);
             width: 0%;
             transition: width 0.3s ease;
-            animation: shimmer 2s infinite;
+            animation: pulse 2s infinite;
         }
-        
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
         }
-        
+
         .status-text {
-            color: #e5e7eb;
-            font-size: 14px;
+            font-size: 15px;
+            color: var(--muted);
         }
-        
+
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
         }
-        
+
         .stat-card {
-            background: rgba(10, 10, 10, 0.6);
-            border: 1px solid rgba(75, 85, 99, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            background: var(--surface-alt);
         }
-        
+
         .stat-value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
-            color: #3b82f6;
-            margin-bottom: 5px;
+            color: var(--primary);
+            margin-bottom: 6px;
         }
-        
+
         .stat-label {
-            font-size: 12px;
-            color: #9ca3af;
+            font-size: 13px;
+            color: var(--muted);
             text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
-        
-        .data-section {
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 15px;
-            padding: 20px;
-        }
-        
+
         .data-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
         }
-        
+
+        .data-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
         .data-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #3b82f6;
+            font-size: 20px;
+            font-weight: 700;
         }
-        
+
+        .data-search {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+            background: var(--surface-alt);
+        }
+
+        .data-search input {
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            outline: none;
+            color: var(--text);
+            width: 180px;
+        }
+
+        .data-search input::placeholder {
+            color: var(--muted);
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 14px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
         }
-        
-        .data-table th,
-        .data-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid rgba(75, 85, 99, 0.3);
-        }
-        
+
         .data-table th {
-            background: rgba(15, 15, 15, 0.8);
-            color: #3b82f6;
-            font-weight: 600;
+            text-align: left;
+            padding: 14px;
+            background: var(--surface-alt);
+            border-bottom: 1px solid var(--border);
             text-transform: uppercase;
             font-size: 12px;
+            letter-spacing: 0.6px;
+            color: var(--muted);
         }
-        
-        .data-table tr:hover {
-            background: rgba(59, 130, 246, 0.05);
+
+        .data-table td {
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
         }
-        
-        .status-available {
-            color: #22c55e;
-            font-weight: 600;
+
+        .data-table tr:hover td {
+            background: rgba(60, 91, 253, 0.04);
         }
-        
-        .status-few-left {
-            color: #f59e0b;
-            font-weight: 600;
-        }
-        
-        .status-unavailable {
-            color: #ef4444;
-            font-weight: 600;
-        }
-        
-        .price-cell {
-            color: #3b82f6;
-            font-weight: 600;
-        }
-        
-        .website-cell {
-            color: #10b981;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #6b7280;
-            font-style: italic;
-        }
-        
+
         .new-row {
-            animation: slideIn 0.3s ease;
+            animation: fadeInUp 0.25s ease;
         }
-        
-        @keyframes slideIn {
+
+        @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(6px);
             }
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
-        
+
+        .status-available {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .status-few-left {
+            color: var(--warning);
+            font-weight: 600;
+        }
+
+        .status-unavailable {
+            color: var(--error);
+            font-weight: 600;
+        }
+
+        .price-cell {
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .website-cell {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 38px;
+            color: var(--muted);
+            font-style: italic;
+        }
+
         .auto-scroll {
-            max-height: 600px;
+            max-height: 520px;
             overflow-y: auto;
         }
-        
+
         .auto-scroll::-webkit-scrollbar {
             width: 8px;
         }
-        
-        .auto-scroll::-webkit-scrollbar-track {
-            background: rgba(75, 85, 99, 0.2);
-            border-radius: 4px;
-        }
-        
+
         .auto-scroll::-webkit-scrollbar-thumb {
-            background: rgba(59, 130, 246, 0.5);
-            border-radius: 4px;
+            background: rgba(60, 91, 253, 0.2);
+            border-radius: var(--radius);
         }
-        
-        .auto-scroll::-webkit-scrollbar-thumb:hover {
-            background: rgba(59, 130, 246, 0.7);
-        }
-        
-        .website-info {
-            background: rgba(10, 10, 10, 0.6);
-            border: 1px solid rgba(75, 85, 99, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .website-info h3 {
-            color: #3b82f6;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
-        
-        .website-info p {
-            color: #9ca3af;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        
+
         @media (max-width: 768px) {
-            .form-row {
+            body {
+                padding: 20px 12px 40px;
+            }
+
+            .control-panel,
+            .status-section,
+            .data-section {
+                padding: 22px;
+            }
+
+            .data-header {
                 flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
             }
-            
-            .form-group {
-                min-width: 100%;
+
+            .data-search input {
+                width: 100%;
             }
-            
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .data-table {
-                font-size: 12px;
-            }
-            
-            .data-table th,
-            .data-table td {
-                padding: 8px 10px;
+
+            .data-actions {
+                flex-wrap: wrap;
+                width: 100%;
+                justify-content: space-between;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🍽️ Real-time Restaurant Availability Dashboard</h1>
-        <p>Monitor live availability data from multiple restaurants</p>
-    </div>
+    <div class="app-shell">
+        <header class="page-header">
+            <div class="page-eyebrow">
+                <span>🍽️</span>
+                <span>Live Availability Scraper</span>
+            </div>
+            <h1>Find venues with available slots in seconds</h1>
+            <p>Choose a city, set your date and group size, then let the scraper do the work.</p>
+        </header>
 
-
-    <div class="container">
-        <!-- Control Panel -->
         <div class="control-panel">
             <form id="scraperForm">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="website">Select Website</label>
-                        <select id="website" class="form-control" required>
-                            <optgroup label="🗽 NEW YORK CITY">
-                                <option value="swingers_nyc">Swingers</option>
-                                <option value="electric_shuffle_nyc">Electric Shuffle</option>
-                                <option value="lawn_club_nyc">Lawn Club NYC</option>
-                                <option value="spin_nyc">SPIN</option>
-                                <option value="five_iron_golf_nyc">Five Iron Golf</option>
-                                <option value="lucky_strike_nyc">Lucky Strike Chelsea Piers</option>
-                                <option value="easybowl_nyc">Easybowl</option>
-                            </optgroup>
-                            <optgroup label="🇬🇧 LONDON">
-                                <option value="swingers_london">Swingers</option>
-                                <option value="electric_shuffle_london">Electric Shuffle</option>
-                                <option value="fair_game_canary_wharf">Fair Game (Canary Wharf)</option>
-                                <option value="fair_game_city">Fair Game (City)</option>
-                                <option value="clays_bar">Clays Bar</option>
-                                <option value="puttshack">Puttshack</option>
-                                <option value="flight_club_darts">Flight Club Darts</option>
-                                <option value="flight_club_darts_angel">Flight Club Darts (Angel)</option>
-                                <option value="flight_club_darts_shoreditch">Flight Club Darts (Shoreditch)</option>
-                                <option value="flight_club_darts_victoria">Flight Club Darts (Victoria)</option>
-                                <option value="f1_arcade">F1 Arcade</option>
-                            </optgroup>
-                        </select>
+                <div class="search-panel">
+                    <div class="input-card">
+                        <label for="website">Location / Venue</label>
+                        <div class="input-field">
+                            <span class="icon">📍</span>
+                            <select id="website" class="form-control" required>
+                                <optgroup label="🗽 NEW YORK CITY">
+                                    <option value="swingers_nyc">Swingers</option>
+                                    <option value="electric_shuffle_nyc">Electric Shuffle</option>
+                                    <option value="lawn_club_nyc">Lawn Club NYC</option>
+                                    <option value="spin_nyc">SPIN</option>
+                                    <option value="five_iron_golf_nyc">Five Iron Golf</option>
+                                    <option value="lucky_strike_nyc">Lucky Strike Chelsea Piers</option>
+                                    <option value="easybowl_nyc">Easybowl</option>
+                                </optgroup>
+                                <optgroup label="🇬🇧 LONDON">
+                                    <option value="swingers_london">Swingers</option>
+                                    <option value="electric_shuffle_london">Electric Shuffle</option>
+                                    <option value="fair_game_canary_wharf">Fair Game (Canary Wharf)</option>
+                                    <option value="fair_game_city">Fair Game (City)</option>
+                                    <option value="clays_bar">Clays Bar</option>
+                                    <option value="puttshack">Puttshack</option>
+                                    <option value="flight_club_darts">Flight Club Darts</option>
+                                    <option value="flight_club_darts_angel">Flight Club Darts (Angel)</option>
+                                    <option value="flight_club_darts_shoreditch">Flight Club Darts (Shoreditch)</option>
+                                    <option value="flight_club_darts_victoria">Flight Club Darts (Victoria)</option>
+                                    <option value="f1_arcade">F1 Arcade</option>
+                                </optgroup>
+                            </select>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="guests">Number of Guests</label>
-                        <input type="number" id="guests" class="form-control" placeholder="Enter guests" min="1" value="2" required>
+
+                    <div class="input-card">
+                        <label for="targetDate">Date</label>
+                        <div class="input-field">
+                            <span class="icon">📅</span>
+                            <input type="date" id="targetDate" class="form-control" disabled>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="targetDate">Target Date</label>
-                        <input type="date" id="targetDate" class="form-control" disabled>
+
+                    <div class="input-card">
+                        <label for="guests">Group Size</label>
+                        <div class="guest-picker">
+                            <button type="button" id="guestDecrement" aria-label="Decrease guests">−</button>
+                            <input type="number" id="guests" min="1" value="2" required readonly>
+                            <button type="button" id="guestIncrement" aria-label="Increase guests">+</button>
+                        </div>
                     </div>
-                    
-                    <div class="form-group" id="lawnClubOptions" style="display: none;">
-                        <label for="lawnClubOption">Lawn Club Option</label>
-                        <select id="lawnClubOption" class="form-control">
+
+                    <div class="input-card">
+                        <button type="submit" class="primary-btn" id="runBtn">
+                            <span>🔍</span>
+                            Search Availability
+                        </button>
+                        <button type="button" class="ghost-btn" id="clearBtn" style="margin-top:10px;">
+                            <span>🗑️</span>
+                            Clear Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="target-toggle">
+                    <input type="checkbox" id="targetDateEnabled">
+                    <label for="targetDateEnabled" id="targetDateLabel">Scrape specific date only (optional for Swingers)</label>
+                </div>
+
+                <div class="options-grid">
+                    <div class="option-card" id="lawnClubOptions" style="display: none;">
+                        <label for="lawnClubOption">Lawn Club Experience</label>
+                        <select id="lawnClubOption" class="form-control" style="border:1px solid var(--border); background:#fff; border-radius:var(--radius); padding:10px 12px;">
                             <option value="Curling Lawns & Cabins">Curling Lawns & Cabins</option>
                             <option value="Indoor Gaming Lawns">Indoor Gaming Lawns</option>
                             <option value="Croquet Lawns">Croquet Lawns</option>
-                            
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="lawnClubTimeGroup" style="display: none;">
-                        <label for="lawnClubTime">Preferred Time</label>
-                        <select id="lawnClubTime" class="form-control">
+
+                    <div class="option-card" id="lawnClubTimeGroup" style="display: none;">
+                        <label>Preferred Time</label>
+                        <div class="chip-group" id="lawnClubTimeChips"></div>
+                        <select id="lawnClubTime" class="chip-hidden-input">
                             <option value="">Use default time</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="lawnClubDurationGroup" style="display: none;">
-                        <label for="lawnClubDuration">Session Duration</label>
-                        <select id="lawnClubDuration" class="form-control">
+
+                    <div class="option-card" id="lawnClubDurationGroup" style="display: none;">
+                        <label>Session Duration</label>
+                        <div class="chip-group" id="lawnClubDurationChips"></div>
+                        <select id="lawnClubDuration" class="chip-hidden-input">
                             <option value="">Use default duration</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="spinTimeGroup" style="display: none;">
-                        <label for="spinTime">Preferred SPIN Time</label>
-                        <select id="spinTime" class="form-control">
+
+                    <div class="option-card" id="spinTimeGroup" style="display: none;">
+                        <label>Preferred SPIN Time</label>
+                        <div class="chip-group" id="spinTimeChips"></div>
+                        <select id="spinTime" class="chip-hidden-input">
                             <option value="">Use default time</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="claysLocationOptions" style="display: none;">
+
+                    <div class="option-card" id="claysLocationOptions" style="display: none;">
                         <label for="claysLocation">Clays Bar Location</label>
-                        <select id="claysLocation" class="form-control">
+                        <select id="claysLocation" class="form-control" style="border:1px solid var(--border); background:#fff; border-radius:var(--radius); padding:10px 12px;">
                             <option value="Canary Wharf">Canary Wharf</option>
                             <option value="The City">The City</option>
                             <option value="Birmingham">Birmingham</option>
                             <option value="Soho">Soho</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group" id="puttshackLocationOptions" style="display: none;">
+
+                    <div class="option-card" id="puttshackLocationOptions" style="display: none;">
                         <label for="puttshackLocation">Puttshack Location</label>
-                        <select id="puttshackLocation" class="form-control">
+                        <select id="puttshackLocation" class="form-control" style="border:1px solid var(--border); background:#fff; border-radius:var(--radius); padding:10px 12px;">
                             <option value="Bank">Bank</option>
                             <option value="Lakeside">Lakeside</option>
                             <option value="White City">White City</option>
                             <option value="Watford">Watford</option>
                         </select>
                     </div>
-                    
-                    <div class="form-group">
-                        <div style="height: 20px;"></div>
-                        <button type="submit" class="btn" id="runBtn">
-                            <span>▶</span> Start Scraping
-                        </button>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div style="height: 20px;"></div>
-                        <button type="button" class="btn btn-clear" id="clearBtn">
-                            <span>🗑️</span> Clear Data
-                        </button>
+
+                    <div class="option-card" id="f1ExperienceOptions" style="display: none;">
+                        <label for="f1Experience">F1 Arcade Experience</label>
+                        <select id="f1Experience" class="form-control" style="border:1px solid var(--border); background:#fff; border-radius:var(--radius); padding:10px 12px;">
+                            <option value="Team Racing">Team Racing</option>
+                            <option value="Christmas Racing">Christmas Racing</option>
+                        </select>
                     </div>
                 </div>
-                
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="targetDateEnabled">
-                    <label for="targetDateEnabled" id="targetDateLabel">Scrape specific date only (optional for Swingers)</label>
-                </div>
-                
+
                 <div class="website-info" id="websiteInfo">
                     <h3>Swingers (NYC)</h3>
                     <p>Golf club and restaurant offering crazy golf, cocktails, and street food. Can scrape multiple dates if no specific date is selected.</p>
@@ -569,20 +728,18 @@
             </form>
         </div>
 
-
-        <!-- Status Section -->
         <div class="status-section">
             <div class="status-header">
                 <div class="status-title">Scraping Status</div>
                 <div id="statusBadge" class="status-badge">Ready</div>
             </div>
-            
+
             <div class="progress-bar">
                 <div id="progressFill" class="progress-fill"></div>
             </div>
-            
+
             <div id="statusText" class="status-text">Ready to start scraping...</div>
-            
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <div id="totalSlots" class="stat-value">0</div>
@@ -603,18 +760,18 @@
             </div>
         </div>
 
-
-        <!-- Data Section -->
         <div class="data-section">
             <div class="data-header">
                 <div class="data-title">Live Availability Data</div>
-                <div>
-                    <label>
-                        <input type="checkbox" id="autoRefresh" checked> Auto-refresh
-                    </label>
+                <div class="data-actions">
+                    <label><input type="checkbox" id="autoRefresh" checked> Auto-refresh</label>
+                    <div class="data-search">
+                        <span>🔎</span>
+                        <input type="text" id="dataSearch" placeholder="Search results..." aria-label="Search results">
+                    </div>
                 </div>
             </div>
-            
+
             <div class="auto-scroll">
                 <table class="data-table" id="dataTable">
                     <thead>
@@ -636,7 +793,6 @@
             </div>
         </div>
     </div>
-
 
     <script>
         const form = document.getElementById('scraperForm');
@@ -664,9 +820,18 @@
         const claysLocation = document.getElementById('claysLocation');
         const puttshackLocationOptions = document.getElementById('puttshackLocationOptions');
         const puttshackLocation = document.getElementById('puttshackLocation');
+        const f1ExperienceOptions = document.getElementById('f1ExperienceOptions');
+        const f1Experience = document.getElementById('f1Experience');
+        const guestInput = document.getElementById('guests');
+        const guestIncrement = document.getElementById('guestIncrement');
+        const guestDecrement = document.getElementById('guestDecrement');
+        const lawnClubTimeChips = document.getElementById('lawnClubTimeChips');
+        const lawnClubDurationChips = document.getElementById('lawnClubDurationChips');
+        const spinTimeChips = document.getElementById('spinTimeChips');
+        const dataSearchInput = document.getElementById('dataSearch');
         
-        const lawnClubTimes = {{ lawn_club_times | tojson }};
-        const lawnClubDurations = {{ lawn_club_durations | tojson }};
+        const lawnClubTimes = JSON.parse('{{ lawn_club_times | tojson | safe }}');
+        const lawnClubDurations = JSON.parse('{{ lawn_club_durations | tojson | safe }}');
         
         // Stats elements
         const totalSlotsEl = document.getElementById('totalSlots');
@@ -677,31 +842,88 @@
         let statusCheckInterval;
         let dataCheckInterval;
         let lastDataLength = 0;
+        let tableData = [];
+        let searchTerm = '';
+        const runBtnDefaultMarkup = runBtn.innerHTML;
         
-        function populateTimeAndDurationSelectors() {
-            const timeSelects = [lawnClubTime, spinTime].filter(Boolean);
-            timeSelects.forEach(select => {
-                select.innerHTML = '<option value="">Use default time</option>';
-                lawnClubTimes.forEach(time => {
-                    const option = document.createElement('option');
-                    option.value = time;
-                    option.textContent = time;
-                    select.appendChild(option);
+        function setActiveChip(container, value) {
+            if (!container) return;
+            const normalized = value || '';
+            Array.from(container.querySelectorAll('.chip')).forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.value === normalized);
+            });
+        }
+        
+        function renderChipSet(selectEl, chipContainer, options, defaultLabel) {
+            if (!selectEl || !chipContainer) return;
+            chipContainer.innerHTML = '';
+            const allOptions = [{ label: defaultLabel, value: '' }, ...options.map(opt => ({ label: opt, value: opt }))];
+            
+            allOptions.forEach(item => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'chip';
+                chip.dataset.value = item.value;
+                chip.textContent = item.label;
+                chip.addEventListener('click', () => {
+                    selectEl.value = item.value;
+                    setActiveChip(chipContainer, item.value);
                 });
+                chipContainer.appendChild(chip);
             });
             
-            if (lawnClubDuration) {
-                lawnClubDuration.innerHTML = '<option value="">Use default duration</option>';
-                lawnClubDurations.forEach(duration => {
-                    const option = document.createElement('option');
-                    option.value = duration;
-                    option.textContent = duration;
-                    lawnClubDuration.appendChild(option);
-                });
-            }
+            selectEl.addEventListener('change', () => setActiveChip(chipContainer, selectEl.value));
+            setActiveChip(chipContainer, selectEl.value);
+        }
+        
+        function fillSelect(selectEl, items, defaultLabel) {
+            if (!selectEl) return;
+            selectEl.innerHTML = `<option value="">${defaultLabel}</option>`;
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item;
+                option.textContent = item;
+                selectEl.appendChild(option);
+            });
+        }
+        
+        function populateTimeAndDurationSelectors() {
+            fillSelect(lawnClubTime, lawnClubTimes, 'Use default time');
+            fillSelect(spinTime, lawnClubTimes, 'Use default time');
+            fillSelect(lawnClubDuration, lawnClubDurations, 'Use default duration');
+            
+            renderChipSet(lawnClubTime, lawnClubTimeChips, lawnClubTimes, 'Use default time');
+            renderChipSet(spinTime, spinTimeChips, lawnClubTimes, 'Use default time');
+            renderChipSet(lawnClubDuration, lawnClubDurationChips, lawnClubDurations, 'Use default duration');
         }
         
         populateTimeAndDurationSelectors();
+        
+        function updateGuestButtons() {
+            const value = parseInt(guestInput.value, 10) || 1;
+            guestDecrement.disabled = value <= 1;
+        }
+        
+        guestIncrement.addEventListener('click', () => {
+            const current = parseInt(guestInput.value, 10) || 1;
+            guestInput.value = current + 1;
+            updateGuestButtons();
+        });
+        
+        guestDecrement.addEventListener('click', () => {
+            const current = parseInt(guestInput.value, 10) || 1;
+            if (current > 1) {
+                guestInput.value = current - 1;
+                updateGuestButtons();
+            }
+        });
+        
+        updateGuestButtons();
+        
+        dataSearchInput.addEventListener('input', (event) => {
+            searchTerm = event.target.value.trim().toLowerCase();
+            renderTable();
+        });
         
         // Website information
         const websiteInfoData = {
@@ -815,16 +1037,23 @@
             if (!showLawnClubFields) {
                 lawnClubTime.value = '';
                 lawnClubDuration.value = '';
+                setActiveChip(lawnClubTimeChips, '');
+                setActiveChip(lawnClubDurationChips, '');
             }
             
             const showSpinFields = selectedWebsite === 'spin_nyc';
             spinTimeGroup.style.display = showSpinFields ? 'block' : 'none';
             if (!showSpinFields) {
                 spinTime.value = '';
+                setActiveChip(spinTimeChips, '');
             }
             
             claysLocationOptions.style.display = selectedWebsite === 'clays_bar' ? 'block' : 'none';
             puttshackLocationOptions.style.display = selectedWebsite === 'puttshack' ? 'block' : 'none';
+            f1ExperienceOptions.style.display = selectedWebsite === 'f1_arcade' ? 'block' : 'none';
+            if (selectedWebsite !== 'f1_arcade') {
+                f1Experience.value = 'Team Racing';
+            }
             
             // Update target date requirements
             if (info.requiresDate) {
@@ -861,7 +1090,7 @@
             e.preventDefault();
             
             const website = websiteSelect.value;
-            const guests = document.getElementById('guests').value;
+            const guests = guestInput.value;
             let targetDate = targetDateCheckbox.checked ? targetDateInput.value : null;
             const lawnClubOptionValue = lawnClubOption.value;
             const lawnClubTimeValue = lawnClubTime.value;
@@ -869,6 +1098,7 @@
             const spinTimeValue = spinTime.value;
             const claysLocationValue = claysLocation.value;
             const puttshackLocationValue = puttshackLocation.value;
+            const f1ExperienceValue = f1Experience.value;
             const info = websiteInfoData[website];
             
             if (!guests) {
@@ -913,6 +1143,9 @@
             if (website === 'puttshack') {
                 requestData.puttshack_location = puttshackLocationValue;
             }
+            if (website === 'f1_arcade' && f1ExperienceValue) {
+                requestData.f1_experience = f1ExperienceValue;
+            }
             
             try {
                 const response = await fetch('/run_scraper', {
@@ -951,7 +1184,7 @@
         
         function startMonitoring() {
             runBtn.disabled = true;
-            runBtn.innerHTML = '<span>⏳</span> Scraping...';
+            runBtn.innerHTML = '<span>⏳</span> Searching...';
             
             // Monitor status
             statusCheckInterval = setInterval(checkStatus, 1000);
@@ -966,7 +1199,7 @@
             clearInterval(statusCheckInterval);
             clearInterval(dataCheckInterval);
             runBtn.disabled = false;
-            runBtn.innerHTML = '<span>▶</span> Start Scraping';
+            runBtn.innerHTML = runBtnDefaultMarkup;
         }
         
         async function checkStatus() {
@@ -1041,72 +1274,134 @@
             }
         }
         
-        function updateTable(newData) {
-            // Remove "no data" message if it exists
-            if (dataTableBody.children.length === 1 && dataTableBody.children[0].children.length === 1 && dataTableBody.children[0].children[0].colSpan === 6) {
-                dataTableBody.innerHTML = '';
+        function updateTable(newData, { replace = false } = {}) {
+            if (!Array.isArray(newData)) {
+                return;
             }
             
-            newData.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'new-row';
-                
-                // Format date - parse as local date to avoid timezone issues
-                const dateParts = item.date.split('-');
-                const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-                
-                // Format timestamp - handle ISO timestamp
-                let timestamp;
-                if (item.timestamp) {
-                    const ts = new Date(item.timestamp);
-                    timestamp = ts.toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
-                } else {
-                    timestamp = 'N/A';
-                }
-                
-                // Status class
-                let statusClass = 'status-available';
-                if (item.status.toLowerCase().includes('few')) {
-                    statusClass = 'status-few-left';
-                } else if (item.status.toLowerCase().includes('unavailable') || item.status.toLowerCase().includes('full')) {
-                    statusClass = 'status-unavailable';
-                }
-                
-                row.innerHTML = `
-                    <td class="website-cell">${item.website}</td>
-                    <td>${date}</td>
-                    <td>${item.time}</td>
-                    <td class="price-cell">${item.price}</td>
-                    <td class="${statusClass}">${item.status}</td>
-                    <td>${timestamp}</td>
-                `;
-                
-                dataTableBody.appendChild(row);
-            });
+            const markNew = !replace;
+            let addedRecords = [];
             
-            // Auto-scroll to bottom to show new data
-            const scrollContainer = document.querySelector('.auto-scroll');
-            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            if (replace) {
+                tableData = newData.map(item => {
+                    const record = { ...item };
+                    if (markNew) {
+                        record._isNew = true;
+                    }
+                    addedRecords.push(record);
+                    return record;
+                });
+            } else {
+                const mapped = newData.map(item => {
+                    const record = { ...item, _isNew: markNew };
+                    return record;
+                });
+                addedRecords = mapped;
+                tableData = tableData.concat(mapped);
+            }
+            
+            renderTable();
+            addedRecords.forEach(record => delete record._isNew);
         }
         
-        function updateStats(data) {
+        function renderTable() {
+            const filteredData = searchTerm
+                ? tableData.filter(item => matchesSearch(item, searchTerm))
+                : tableData;
+            
+            if (filteredData.length === 0) {
+                dataTableBody.innerHTML = `<tr><td colspan="6" class="no-data">${tableData.length === 0 ? 'No data available. Start scraping to see live results.' : 'No matching results. Try a different search.'}</td></tr>`;
+            } else {
+                dataTableBody.innerHTML = '';
+                filteredData.forEach(item => {
+                    const row = document.createElement('tr');
+                    if (item._isNew) {
+                        row.className = 'new-row';
+                    }
+                    
+                    let date = item.date || 'N/A';
+                    if (item.date) {
+                        try {
+                            const dateParts = item.date.split('-');
+                            date = new Date(
+                                parseInt(dateParts[0], 10),
+                                parseInt(dateParts[1], 10) - 1,
+                                parseInt(dateParts[2], 10)
+                            ).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                            });
+                        } catch (err) {
+                            date = item.date;
+                        }
+                    }
+                    
+                    let timestamp;
+                    if (item.timestamp) {
+                        const ts = new Date(item.timestamp);
+                        timestamp = ts.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                    } else {
+                        timestamp = 'N/A';
+                    }
+                    
+                    let statusClass = 'status-available';
+                    const statusValue = (item.status || '').toLowerCase();
+                    if (statusValue.includes('few')) {
+                        statusClass = 'status-few-left';
+                    } else if (statusValue.includes('unavailable') || statusValue.includes('full')) {
+                        statusClass = 'status-unavailable';
+                    }
+                    
+                    row.innerHTML = `
+                        <td class="website-cell">${item.website || '-'}</td>
+                        <td>${date}</td>
+                        <td>${item.time || '-'}</td>
+                        <td class="price-cell">${item.price || '-'}</td>
+                        <td class="${statusClass}">${item.status || '-'}</td>
+                        <td>${timestamp}</td>
+                    `;
+                    
+                    dataTableBody.appendChild(row);
+                });
+            }
+            
+            const scrollContainer = document.querySelector('.auto-scroll');
+            if (scrollContainer) {
+                if (!searchTerm) {
+                    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                } else {
+                    scrollContainer.scrollTop = 0;
+                }
+            }
+        }
+        
+        function matchesSearch(item, term) {
+            const haystack = [
+                item.website,
+                item.date,
+                item.time,
+                item.price,
+                item.status
+            ].map(part => (part || '').toString().toLowerCase()).join(' ');
+            return haystack.includes(term);
+        }
+        
+        function updateStats(data = tableData) {
             const availableCount = data.filter(item => 
-                item.status.toLowerCase() === 'available'
+                (item.status || '').toLowerCase() === 'available'
             ).length;
             
             availableSlotsEl.textContent = availableCount;
         }
         
         function clearTable() {
-            dataTableBody.innerHTML = '<tr><td colspan="6" class="no-data">No data available. Start scraping to see live results.</td></tr>';
+            tableData = [];
+            renderTable();
         }
         
         function resetStats() {
@@ -1132,9 +1427,11 @@
                 const result = await response.json();
                 
                 if (result.data.length > 0) {
-                    updateTable(result.data);
+                    updateTable(result.data, { replace: true });
                     updateStats(result.data);
                     lastDataLength = result.data.length;
+                } else {
+                    renderTable();
                 }
             } catch (error) {
                 console.error('Failed to load existing data:', error);
