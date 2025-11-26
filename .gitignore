@@ -34,3 +34,8 @@ Thumbs.db
 downloaded_files/
 *.lock
 
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+

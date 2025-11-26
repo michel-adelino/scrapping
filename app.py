@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import threading
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -7,24 +8,43 @@ from time import sleep
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 import re
+import os
+from urllib.parse import quote_plus
+from celery import group, chord
+from celery.result import AsyncResult
+from sqlalchemy import inspect, text
+
+from models import db, AvailabilitySlot, ScrapingTask
+
+# Import celery_app after app is created to avoid circular import
+# We'll import it in the tasks that need it
+try:
+    from celery_app import celery_app
+except ImportError:
+    # Fallback if celery_app not available
+    celery_app = None
 
 app = Flask(__name__)
 
+# Enable CORS for React frontend
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins in development
 
-# Global variables to track scraping status and data
-scraping_status = {
-    'running': False,
-    'progress': '',
-    'completed': False,
-    'error': None,
-    'current_date': '',
-    'total_slots_found': 0,
-    'website': ''
-}
+# Database configuration
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', f'sqlite:///{os.path.join(basedir, "availability.db")}')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Initialize database
+db.init_app(app)
 
-# Store scraped data in memory
-scraped_data = []
+# Create tables and ensure latest schema
+with app.app_context():
+    db.create_all()
+    inspector = inspect(db.engine)
+    columns = [col['name'] for col in inspector.get_columns('availability_slots')]
+    if 'booking_url' not in columns:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE availability_slots ADD COLUMN booking_url VARCHAR(500)"))
 
 
 def _generate_lawn_club_time_options():
@@ -48,6 +68,241 @@ LAWN_CLUB_DURATION_OPTIONS = [
     "2 hr 30 min",
     "3 hr"
 ]
+
+# Global variables for scraping status and data
+scraping_status = {
+    'running': False,
+    'progress': 'Ready',
+    'completed': False,
+    'error': None,
+    'total_slots_found': 0,
+    'current_date': None,
+    'website': None
+}
+scraped_data = []
+
+# City venue lists for multi-venue scraping
+NYC_VENUES = [
+    'swingers_nyc',
+    'electric_shuffle_nyc',
+    'lawn_club_nyc',
+    'spin_nyc',
+    'five_iron_golf_nyc',
+    'lucky_strike_nyc',
+    'easybowl_nyc'
+]
+
+LONDON_VENUES = [
+    'swingers_london',
+    'electric_shuffle_london',
+    'fair_game_canary_wharf',
+    'fair_game_city',
+    'clays_bar',
+    'puttshack',
+    'flight_club_darts',
+    'flight_club_darts_angel',
+    'flight_club_darts_shoreditch',
+    'flight_club_darts_victoria',
+    'f1_arcade'
+]
+
+VENUE_BOOKING_URLS = {
+    'Swingers (NYC)': 'https://www.swingers.club/us/locations/nyc/book-now',
+    'Swingers (London)': 'https://www.swingers.club/uk/book-now',
+    'Electric Shuffle (NYC)': 'https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search',
+    'Electric Shuffle (London)': 'https://electricshuffle.com/uk/london/book',
+    'Lawn Club NYC': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'SPIN (NYC)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
+    'Five Iron Golf (NYC)': 'https://booking.fiveirongolf.com/session-length',
+    'Lucky Strike (NYC)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
+    'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
+    'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
+    'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
+    'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
+    'Clays Bar (The City)': 'https://clays.bar/book',
+    'Clays Bar (Birmingham)': 'https://clays.bar/book',
+    'Clays Bar (Soho)': 'https://clays.bar/book',
+    'Puttshack (Bank)': 'https://www.puttshack.com/book-golf',
+    'Puttshack (Lakeside)': 'https://www.puttshack.com/book-golf',
+    'Puttshack (White City)': 'https://www.puttshack.com/book-golf',
+    'Puttshack (Watford)': 'https://www.puttshack.com/book-golf',
+    'Flight Club Darts': 'https://flightclubdarts.com/book',
+    'Flight Club Darts (Angel)': 'https://flightclubdarts.com/book',
+    'Flight Club Darts (Shoreditch)': 'https://flightclubdarts.com/book',
+    'Flight Club Darts (Victoria)': 'https://flightclubdarts.com/book',
+    'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london'
+}
+
+
+def build_booking_search_url(venue_name):
+    if not venue_name:
+        return None
+    query = quote_plus(f"{venue_name} booking")
+    return f"https://www.google.com/search?q={query}"
+
+
+def get_booking_url_for_venue(venue_name, explicit_url=None):
+    """Return the deepest known booking URL for a venue, or fall back to search."""
+    if explicit_url:
+        return explicit_url
+    if not venue_name:
+        return None
+    # Direct match
+    if venue_name in VENUE_BOOKING_URLS:
+        return VENUE_BOOKING_URLS[venue_name]
+    # Attempt normalized match (strip city details)
+    normalized = venue_name.split('(')[0].strip()
+    for known_name, url in VENUE_BOOKING_URLS.items():
+        if normalized and normalized.lower() in known_name.lower():
+            return url
+    return build_booking_search_url(venue_name)
+
+
+# Helper function to save slot to database
+def save_slot_to_db(venue_name, date_str, time, price, status, guests, city, venue_specific_data=None, booking_url=None):
+    """Save or update availability slot in database"""
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date() if isinstance(date_str, str) else date_str
+        effective_booking_url = get_booking_url_for_venue(venue_name, booking_url)
+        
+        # Check if slot already exists
+        existing = AvailabilitySlot.query.filter_by(
+            venue_name=venue_name,
+            date=date_obj,
+            time=time,
+            guests=guests
+        ).first()
+        
+        if existing:
+            # Update existing record
+            existing.price = price
+            existing.status = status
+            existing.last_updated = datetime.utcnow()
+            if effective_booking_url and existing.booking_url != effective_booking_url:
+                existing.booking_url = effective_booking_url
+            if venue_specific_data:
+                existing.set_venue_specific_data(venue_specific_data)
+            db.session.commit()
+            return existing
+        else:
+            # Create new record
+            slot = AvailabilitySlot(
+                venue_name=venue_name,
+                date=date_obj,
+                time=time,
+                price=price,
+                status=status,
+                guests=guests,
+                city=city,
+                booking_url=effective_booking_url,
+                timestamp=datetime.utcnow(),
+                last_updated=datetime.utcnow()
+            )
+            if venue_specific_data:
+                slot.set_venue_specific_data(venue_specific_data)
+            db.session.add(slot)
+            db.session.commit()
+            return slot
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving slot to database: {e}")
+        return None
+
+# Helper function to update task status
+def update_task_status(task_id, status=None, progress=None, current_venue=None, total_slots=None, error=None):
+    """Update scraping task status in database"""
+    try:
+        task = ScrapingTask.query.filter_by(task_id=task_id).first()
+        if task:
+            if status:
+                task.status = status
+            if progress:
+                task.progress = progress
+            if current_venue:
+                task.current_venue = current_venue
+            if total_slots is not None:
+                task.total_slots_found = total_slots
+            if error:
+                task.error = error
+            if status in ['SUCCESS', 'FAILURE']:
+                task.completed_at = datetime.utcnow()
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating task status: {e}")
+
+# Helper function to run original scraper and save results to DB
+def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, task_id=None, **kwargs):
+    """Run original scraper function and save results to database"""
+    global scraped_data
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[SCRAPER] Starting scraper for {venue_name} (city: {city}, guests: {guests})")
+    
+    # Initialize scraped_data if it doesn't exist (shouldn't happen, but safety check)
+    try:
+        _ = scraped_data
+    except NameError:
+        globals()['scraped_data'] = []
+    
+    # Clear scraped_data before running
+    initial_length = len(scraped_data) if scraped_data else 0
+    scraped_data = []
+    
+    # Run the original scraper (it will populate scraped_data)
+    try:
+        logger.info(f"[SCRAPER] Calling scraper function for {venue_name}...")
+        scraper_func(*args, **kwargs)
+        logger.info(f"[SCRAPER] Scraper function completed for {venue_name}")
+    except Exception as e:
+        logger.error(f"[SCRAPER] Error in scraper function for {venue_name}: {e}", exc_info=True)
+        if task_id:
+            update_task_status(task_id, status='FAILURE', error=str(e))
+        raise e
+    
+    # Save all results to database
+    slots_saved = 0
+    new_items = scraped_data[initial_length:] if initial_length < len(scraped_data) else scraped_data
+    
+    logger.info(f"[SCRAPER] {venue_name}: Found {len(new_items)} items in scraped_data, saving to database...")
+    
+    for item in new_items:
+        # Extract venue name from item or use provided
+        item_venue_name = item.get('website', venue_name)
+        
+        # Determine city if not provided
+        item_city = city
+        if not item_city:
+            if 'nyc' in item_venue_name.lower() or 'new york' in item_venue_name.lower():
+                item_city = 'NYC'
+            else:
+                item_city = 'London'
+        
+        booking_url = item.get('booking_url') or VENUE_BOOKING_URLS.get(item_venue_name) or VENUE_BOOKING_URLS.get(venue_name)
+
+        venue_specific = item.get('venue_specific_data') if isinstance(item.get('venue_specific_data'), dict) else item.get('venue_specific_data')
+
+        saved = save_slot_to_db(
+            venue_name=item_venue_name,
+            date_str=item.get('date', ''),
+            time=item.get('time', ''),
+            price=item.get('price', ''),
+            status=item.get('status', 'Available'),
+            guests=guests,
+            city=item_city,
+            venue_specific_data=venue_specific,
+            booking_url=booking_url
+        )
+        if saved:
+            slots_saved += 1
+    
+    # Clear scraped_data after saving
+    scraped_data = []
+    
+    logger.info(f"[SCRAPER] {venue_name}: Successfully saved {slots_saved} slots to database")
+    
+    return slots_saved
 
 
 def normalize_time_value(raw_value):
@@ -107,107 +362,535 @@ def adjust_picker(driver, value_selector, increment_selector, decrement_selector
     return False
 
 
-def scrape_swingers(guests, target_date):
-    """Original Swingers scraper function"""
-    print ('guest--->>',guests)
-    print ('target_date--->>',target_date)
-    global scraping_status, scraped_data
-    
-    try:
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
-        driver.get(f"https://www.swingers.club/us/locations/nyc/book-now?guests={str(guests)}")
-        
-        scraping_status['progress'] = 'Starting to scrape Swingers availability...'
-        
-        while True:
-            soup = BeautifulSoup(driver.page_source, "html.parser")
-            dates = soup.find_all("li",{"class":"slot-calendar__dates-item","data-available":"true"})
+@celery_app.task(bind=True, name='app.scrape_swingers_task')
+def scrape_swingers_task(self, guests, target_date, task_id=None):
+    """Swingers scraper as Celery task"""
+    with app.app_context():
+        try:
+            # Update task status
+            if task_id:
+                task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                if task:
+                    task.status = 'STARTED'
+                    task.progress = 'Starting to scrape Swingers availability...'
+                    db.session.commit()
             
-            scraping_status['progress'] = f'Found {len(dates)} available dates on Swingers'
+            driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+            driver.get(f"https://www.swingers.club/us/locations/nyc/book-now?guests={str(guests)}")
             
-            if len(dates) == 0:
-                break
-                
-            for i in dates:
-                date_str = i["data-date"]
-                
-                # If target_date is specified, only process that date
-                if target_date and date_str != target_date:
-                    continue
-                
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                driver.get("https://www.swingers.club" + i.find("a")["href"])
-                
-                day = dt.strftime("%d")
-                month = dt.strftime("%b")
-                
-                scraping_status['current_date'] = date_str
-                scraping_status['progress'] = f'Processing Swingers slots for {date_str}'
-                
+            slots_count = 0
+            
+            while True:
                 soup = BeautifulSoup(driver.page_source, "html.parser")
-                slots = soup.find_all("button",{"data-day":day,"data-month":month})
+                dates = soup.find_all("li",{"class":"slot-calendar__dates-item","data-available":"true"})
                 
-                for slot in slots:
-                    # Status
-                    status_el = slot.select_one("div.slot-search-result__low-stock")
-                    if status_el:
-                        status = status_el.get_text(strip=True)
-                    else:
-                        status = "Available"
+                if len(dates) == 0:
+                    break
                     
-                    # Time
-                    try:
-                        time = slot.find("span",{"class":"slot-search-result__time h5"}).get_text().strip()
-                    except:
-                        time = "None"
+                for i in dates:
+                    date_str = i["data-date"]
                     
-                    # Price
-                    try:
-                        price = slot.find("span",{"class":"slot-search-result__price-label"}).get_text().strip()
-                    except:
-                        price = "None"
+                    # If target_date is specified, only process that date
+                    if target_date and date_str != target_date:
+                        continue
                     
-                    # Store data in memory
-                    slot_data = {
-                        'date': date_str,
-                        'time': time,
-                        'price': price,
-                        'status': status,
-                        'timestamp': datetime.now().isoformat(),
-                        'website': 'Swingers (NYC)'
-                    }
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                    driver.get("https://www.swingers.club" + i.find("a")["href"])
                     
-                    scraped_data.append(slot_data)
-                    scraping_status['total_slots_found'] = len(scraped_data)
+                    day = dt.strftime("%d")
+                    month = dt.strftime("%b")
                     
-                    print([date_str, time, price, status])
+                    if task_id:
+                        task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                        if task:
+                            task.progress = f'Processing Swingers slots for {date_str}'
+                            task.current_venue = 'Swingers (NYC)'
+                            db.session.commit()
+                    
+                    soup = BeautifulSoup(driver.page_source, "html.parser")
+                    slots = soup.find_all("button",{"data-day":day,"data-month":month})
+                    
+                    for slot in slots:
+                        # Status
+                        status_el = slot.select_one("div.slot-search-result__low-stock")
+                        if status_el:
+                            status = status_el.get_text(strip=True)
+                        else:
+                            status = "Available"
+                        
+                        # Time
+                        try:
+                            time = slot.find("span",{"class":"slot-search-result__time h5"}).get_text().strip()
+                        except:
+                            time = "None"
+                        
+                        # Price
+                        try:
+                            price = slot.find("span",{"class":"slot-search-result__price-label"}).get_text().strip()
+                        except:
+                            price = "None"
+                        
+                        # Save to database
+                        save_slot_to_db(
+                            venue_name='Swingers (NYC)',
+                            date_str=date_str,
+                            time=time,
+                            price=price,
+                            status=status,
+                            guests=guests,
+                            city='NYC',
+                            booking_url=driver.current_url
+                        )
+                        slots_count += 1
+                        
+                        if task_id:
+                            task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                            if task:
+                                task.total_slots_found = slots_count
+                                db.session.commit()
+                    
+                    # If target_date is specified, break after processing it
+                    if target_date and date_str == target_date:
+                        break
                 
-                # If target_date is specified, break after processing it
-                if target_date and date_str == target_date:
+                # If target_date is specified, don't click next
+                if target_date:
+                    break
+                    
+                driver.sleep(5)
+                
+                # Next button
+                try:
+                    a_element = driver.find_element(
+                        "xpath",
+                        "//div[contains(@class,'slot-calendar__current-month-container')]/following::a[1]"
+                    )
+                    a_element.click()
+                except:
                     break
             
-            # If target_date is specified, don't click next
-            if target_date:
-                break
-                
-            driver.sleep(5)
-            
-            # Next button
-            try:
-                a_element = driver.find_element(
-                    "xpath",
-                    "//div[contains(@class,'slot-calendar__current-month-container')]/following::a[1]"
-                )
-                a_element.click()
-                scraping_status['progress'] = 'Moving to next month on Swingers...'
-            except:
-                break
-        
-        driver.quit()
-        
-    except Exception as e:
-        if 'driver' in locals():
             driver.quit()
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_count} slots', total_slots=slots_count)
+            
+            return {'status': 'success', 'slots_found': slots_count}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+# Stub Celery tasks for other scrapers - these will be implemented similarly
+# For now, they call original functions and save to DB
+@celery_app.task(bind=True, name='app.scrape_swingers_uk_task')
+def scrape_swingers_uk_task(self, guests, target_date, task_id=None):
+    """Swingers UK scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers UK...', current_venue='Swingers (London)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_swingers_uk,
+                'Swingers (London)',
+                'London',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_electric_shuffle_task')
+def scrape_electric_shuffle_task(self, guests, target_date, task_id=None):
+    """Electric Shuffle NYC scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle NYC...', current_venue='Electric Shuffle (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_electric_shuffle,
+                'Electric Shuffle (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_electric_shuffle_london_task')
+def scrape_electric_shuffle_london_task(self, guests, target_date, task_id=None):
+    """Electric Shuffle London scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle London...', current_venue='Electric Shuffle (London)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_electric_shuffle_london,
+                'Electric Shuffle (London)',
+                'London',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_lawn_club_task')
+def scrape_lawn_club_task(self, guests, target_date, option, task_id=None, selected_time=None, selected_duration=None):
+    """Lawn Club scraper as Celery task"""
+    with app.app_context():
+        try:
+            venue_name = f'Lawn Club NYC ({option})'
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_lawn_club,
+                venue_name,
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                option,
+                selected_time,
+                selected_duration,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_spin_task')
+def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None):
+    """SPIN scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape SPIN NYC...', current_venue='SPIN (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_spin,
+                'SPIN (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                selected_time,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_five_iron_golf_task')
+def scrape_five_iron_golf_task(self, guests, target_date, task_id=None):
+    """Five Iron Golf scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Five Iron Golf...', current_venue='Five Iron Golf (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_five_iron_golf,
+                'Five Iron Golf (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_lucky_strike_task')
+def scrape_lucky_strike_task(self, guests, target_date, task_id=None):
+    """Lucky Strike scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Lucky Strike...', current_venue='Lucky Strike (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_lucky_strike,
+                'Lucky Strike (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_easybowl_task')
+def scrape_easybowl_task(self, guests, target_date, task_id=None):
+    """Easybowl scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Easybowl...', current_venue='Easybowl (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_easybowl,
+                'Easybowl (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_fair_game_canary_wharf_task')
+def scrape_fair_game_canary_wharf_task(self, guests, target_date, task_id=None):
+    """Fair Game Canary Wharf scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Fair Game (Canary Wharf)...', current_venue='Fair Game (Canary Wharf)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_fair_game_canary_wharf,
+                'Fair Game (Canary Wharf)',
+                'London',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_fair_game_city_task')
+def scrape_fair_game_city_task(self, guests, target_date, task_id=None):
+    """Fair Game City scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Fair Game (City)...', current_venue='Fair Game (City)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_fair_game_city,
+                'Fair Game (City)',
+                'London',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_clays_bar_task')
+def scrape_clays_bar_task(self, location, guests, target_date, task_id=None):
+    """Clays Bar scraper as Celery task"""
+    with app.app_context():
+        try:
+            venue_name = f'Clays Bar ({location})'
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_clays_bar,
+                venue_name,
+                'London',
+                guests,
+                location,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_puttshack_task')
+def scrape_puttshack_task(self, location, guests, target_date, task_id=None):
+    """Puttshack scraper as Celery task"""
+    with app.app_context():
+        try:
+            venue_name = f'Puttshack ({location})'
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_puttshack,
+                venue_name,
+                'London',
+                guests,
+                location,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_flight_club_darts_task')
+def scrape_flight_club_darts_task(self, guests, target_date, venue_id, task_id=None):
+    """Flight Club Darts scraper as Celery task"""
+    with app.app_context():
+        try:
+            venue_names = {
+                "1": "Flight Club Darts",
+                "2": "Flight Club Darts (Angel)",
+                "3": "Flight Club Darts (Shoreditch)",
+                "4": "Flight Club Darts (Victoria)"
+            }
+            venue_name = venue_names.get(venue_id, "Flight Club Darts")
+            
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_flight_club_darts,
+                venue_name,
+                'London',
+                guests,
+                guests,
+                target_date,
+                venue_id,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_f1_arcade_task')
+def scrape_f1_arcade_task(self, guests, target_date, f1_experience, task_id=None):
+    """F1 Arcade scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape F1 Arcade...', current_venue='F1 Arcade')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_f1_arcade,
+                'F1 Arcade',
+                'London',
+                guests,
+                guests,
+                target_date,
+                f1_experience,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
         raise e
 
 
@@ -2245,8 +2928,412 @@ def scrape_f1_arcade(guests, target_date, f1_experience):
             driver.quit()
         raise e
 
+@celery_app.task(bind=True, name='app.scrape_venue_task')
+def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
+    """Celery task wrapper for scraping a single venue"""
+    with app.app_context():
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            logger.info(f"[VENUE_TASK] Starting scrape for {website} (date: {target_date}, guests: {guests})")
+            
+            # Create or update task status
+            if task_id:
+                task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                if not task:
+                    task = ScrapingTask(
+                        task_id=task_id,
+                        website=website,
+                        guests=guests,
+                        target_date=datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else None,
+                        status='STARTED',
+                        progress='Initializing browser...'
+                    )
+                    db.session.add(task)
+                else:
+                    task.status = 'STARTED'
+                    task.progress = 'Initializing browser...'
+                db.session.commit()
+            
+            # Temporary list to collect results
+            temp_results = []
+            
+            # Determine city and venue name
+            city = 'NYC' if 'nyc' in website or website in NYC_VENUES else 'London'
+            venue_name_map = {
+                'swingers_nyc': 'Swingers (NYC)',
+                'swingers_london': 'Swingers (London)',
+                'electric_shuffle_nyc': 'Electric Shuffle (NYC)',
+                'electric_shuffle_london': 'Electric Shuffle (London)',
+                'lawn_club_nyc': 'Lawn Club NYC',
+                'spin_nyc': 'SPIN (NYC)',
+                'five_iron_golf_nyc': 'Five Iron Golf (NYC)',
+                'lucky_strike_nyc': 'Lucky Strike (NYC)',
+                'easybowl_nyc': 'Easybowl (NYC)',
+                'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
+                'fair_game_city': 'Fair Game (City)',
+                'clays_bar': f'Clays Bar ({clays_location or "Canary Wharf"})',
+                'puttshack': f'Puttshack ({puttshack_location or "Bank"})',
+                'flight_club_darts': 'Flight Club Darts',
+                'flight_club_darts_angel': 'Flight Club Darts (Angel)',
+                'flight_club_darts_shoreditch': 'Flight Club Darts (Shoreditch)',
+                'flight_club_darts_victoria': 'Flight Club Darts (Victoria)',
+                'f1_arcade': 'F1 Arcade'
+            }
+            venue_name = venue_name_map.get(website, website.replace('_', ' ').title())
+            
+            # Call appropriate scraper (using original functions but intercepting results)
+            # We'll modify the approach to call scrapers and save to DB directly
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[VENUE_TASK] {website} ({venue_name}): Calling scraper task function for date {target_date} with {guests} guests...")
+            
+            if website == 'swingers_nyc':
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_swingers_task")
+                result = scrape_swingers_task(guests, target_date, task_id)
+            elif website == 'swingers_london':
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_swingers_uk_task")
+                result = scrape_swingers_uk_task(guests, target_date, task_id)
+            elif website == 'electric_shuffle_nyc':
+                if not target_date:
+                    raise ValueError("Electric Shuffle NYC requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_electric_shuffle_task")
+                result = scrape_electric_shuffle_task(guests, target_date, task_id)
+            elif website == 'electric_shuffle_london':
+                if not target_date:
+                    raise ValueError("Electric Shuffle London requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_electric_shuffle_london_task")
+                result = scrape_electric_shuffle_london_task(guests, target_date, task_id)
+            elif website == 'lawn_club_nyc':
+                if not target_date:
+                    raise ValueError("Lawn Club NYC requires a specific target date")
+                option = lawn_club_option or "Curling Lawns & Cabins"
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_lawn_club_task with option {option}")
+                venue_specific = {'lawn_club_option': option, 'lawn_club_time': lawn_club_time, 'lawn_club_duration': lawn_club_duration}
+                result = scrape_lawn_club_task(guests, target_date, option, task_id, lawn_club_time, lawn_club_duration)
+            elif website == 'spin_nyc':
+                if not target_date:
+                    raise ValueError("SPIN NYC requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_spin_task")
+                result = scrape_spin_task(guests, target_date, task_id, spin_time)
+            elif website == 'five_iron_golf_nyc':
+                if not target_date:
+                    raise ValueError("Five Iron Golf NYC requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task")
+                result = scrape_five_iron_golf_task(guests, target_date, task_id)
+            elif website == 'lucky_strike_nyc':
+                if not target_date:
+                    raise ValueError("Lucky Strike NYC requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_lucky_strike_task")
+                result = scrape_lucky_strike_task(guests, target_date, task_id)
+            elif website == 'easybowl_nyc':
+                if not target_date:
+                    raise ValueError("Easybowl NYC requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_easybowl_task")
+                result = scrape_easybowl_task(guests, target_date, task_id)
+            elif website == 'fair_game_canary_wharf':
+                if not target_date:
+                    raise ValueError("Fair Game (Canary Wharf) requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_fair_game_canary_wharf_task")
+                result = scrape_fair_game_canary_wharf_task(guests, target_date, task_id)
+            elif website == 'fair_game_city':
+                if not target_date:
+                    raise ValueError("Fair Game (City) requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_fair_game_city_task")
+                result = scrape_fair_game_city_task(guests, target_date, task_id)
+            elif website == 'clays_bar':
+                if not target_date:
+                    raise ValueError("Clays Bar requires a specific target date")
+                location = clays_location or "Canary Wharf"
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_clays_bar_task with location {location}")
+                result = scrape_clays_bar_task(location, guests, target_date, task_id)
+            elif website == 'puttshack':
+                if not target_date:
+                    raise ValueError("Puttshack requires a specific target date")
+                location = puttshack_location or "Bank"
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_puttshack_task with location {location}")
+                result = scrape_puttshack_task(location, guests, target_date, task_id)
+            elif website == 'flight_club_darts':
+                if not target_date:
+                    raise ValueError("Flight Club Darts requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_flight_club_darts_task with venue_id 1")
+                result = scrape_flight_club_darts_task(guests, target_date, "1", task_id)
+            elif website == 'flight_club_darts_angel':
+                if not target_date:
+                    raise ValueError("Flight Club Darts (Angel) requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_flight_club_darts_task with venue_id 2")
+                result = scrape_flight_club_darts_task(guests, target_date, "2", task_id)
+            elif website == 'flight_club_darts_shoreditch':
+                if not target_date:
+                    raise ValueError("Flight Club Darts (Shoreditch) requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_flight_club_darts_task with venue_id 3")
+                result = scrape_flight_club_darts_task(guests, target_date, "3", task_id)
+            elif website == 'flight_club_darts_victoria':
+                if not target_date:
+                    raise ValueError("Flight Club Darts (Victoria) requires a specific target date")
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_flight_club_darts_task with venue_id 4")
+                result = scrape_flight_club_darts_task(guests, target_date, "4", task_id)
+            elif website == 'f1_arcade':
+                if not target_date:
+                    raise ValueError("F1 Arcade requires a specific target date")
+                experience = f1_experience or "Team Racing"
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_f1_arcade_task with experience {experience}")
+                result = scrape_f1_arcade_task(guests, target_date, experience, task_id)
+            else:
+                logger.error(f"[VENUE_TASK] {website}: Unknown website!")
+                raise ValueError(f"Unknown website: {website}")
+            
+            slots_found = result.get("slots_found", 0) if isinstance(result, dict) else 0
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[VENUE_TASK] {website}: Completed scraping, found {slots_found} slots")
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Scraping completed! Found {slots_found} slots')
+            
+            return result
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"[VENUE_TASK] {website}: Error during scraping: {e}", exc_info=True)
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
+@celery_app.task(bind=True, name='app.refresh_all_venues_task')
+def refresh_all_venues_task(self):
+    """Periodic task to refresh all venues for today and tomorrow"""
+    with app.app_context():
+        try:
+            from datetime import date, timedelta
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Refresh for today and tomorrow only
+            today = date.today()
+            tomorrow = today + timedelta(days=1)
+            dates_to_refresh = [today, tomorrow]
+            
+            guests = 6  # Default guest count
+            
+            logger.info(f"[REFRESH] Starting refresh for {len(dates_to_refresh)} dates (today and tomorrow)")
+            logger.info(f"[REFRESH] NYC venues: {NYC_VENUES}")
+            logger.info(f"[REFRESH] London venues: {LONDON_VENUES}")
+            
+            # Refresh NYC venues
+            for target_date in dates_to_refresh:
+                date_str = target_date.isoformat()
+                logger.info(f"[REFRESH] Scheduling NYC venues for {date_str}")
+                scrape_all_venues_task.delay('NYC', guests, date_str, None, None)
+            
+            # Refresh London venues
+            for target_date in dates_to_refresh:
+                date_str = target_date.isoformat()
+                logger.info(f"[REFRESH] Scheduling London venues for {date_str}")
+                scrape_all_venues_task.delay('London', guests, date_str, None, None)
+            
+            logger.info(f"[REFRESH] All refresh tasks scheduled successfully")
+            return {'status': 'success', 'dates_refreshed': len(dates_to_refresh)}
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"[REFRESH] Error in refresh_all_venues_task: {e}", exc_info=True)
+            raise e
+
+
+@celery_app.task(bind=True, name='app.scrape_all_venues_task')
+def scrape_all_venues_task(self, city, guests, target_date, task_id=None, options=None):
+    """Scrape all venues in a city simultaneously using Celery group"""
+    with app.app_context():
+        import time
+        import uuid
+        start_time = time.time()  # Record start time
+        
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Use Celery task ID if no task_id provided (for periodic tasks)
+            if not task_id:
+                task_id = self.request.id
+            
+            # Get or create task record
+            task = ScrapingTask.query.filter_by(task_id=task_id).first()
+            if not task:
+                # Create new task record for periodic scraping
+                # Use website name that includes city and date type (today/tomorrow)
+                from datetime import date
+                city_lower = city.lower()
+                target_date_obj = datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else None
+                today = date.today()
+                
+                # Determine if this is "today" or "tomorrow"
+                if target_date_obj:
+                    if target_date_obj == today:
+                        date_type = 'today'
+                    elif target_date_obj == today + timedelta(days=1):
+                        date_type = 'tomorrow'
+                    else:
+                        date_type = target_date_obj.isoformat()  # Use date string for other dates
+                else:
+                    date_type = 'unknown'
+                
+                # Create website name: all_nyc_today, all_nyc_tomorrow, all_london_today, all_london_tomorrow
+                if city_lower in ['nyc', 'new york']:
+                    website_name = f'all_nyc_{date_type}'
+                elif city_lower == 'london':
+                    website_name = f'all_london_{date_type}'
+                else:
+                    website_name = f'all_{city_lower.replace(" ", "_")}_{date_type}'
+                
+                logger.info(f"[SCRAPE_ALL] Creating task record: website={website_name}, city={city}, date={target_date}, date_type={date_type}, task_id={task_id}")
+                task = ScrapingTask(
+                    task_id=task_id,
+                    website=website_name,
+                    guests=guests,
+                    target_date=target_date_obj,
+                    status='STARTED',
+                    progress=f'Starting to scrape all {city} venues for {target_date}...'
+                )
+                db.session.add(task)
+                db.session.commit()
+                logger.info(f"[SCRAPE_ALL] ✅ Task record created: {website_name} (task_id: {task_id})")
+            else:
+                task.status = 'STARTED'
+                task.progress = f'Starting to scrape all {city} venues...'
+                db.session.commit()
+                logger.info(f"[SCRAPE_ALL] Using existing task record: {task.website} (task_id: {task_id})")
+            
+            # Get venue list based on city
+            if city.lower() == 'nyc' or city.lower() == 'new york':
+                venues = NYC_VENUES
+                city_name = 'NYC'
+            elif city.lower() == 'london':
+                venues = LONDON_VENUES
+                city_name = 'London'
+            else:
+                raise ValueError(f"Unknown city: {city}")
+            
+            logger.info(f"[SCRAPE_ALL] Starting to scrape {len(venues)} {city_name} venues for {target_date} with {guests} guests")
+            logger.info(f"[SCRAPE_ALL] Venues: {venues}")
+            
+            options = options or {}
+            
+            # Create subtasks for each venue
+            venue_tasks = []
+            for venue in venues:
+                # Create a subtask for each venue
+                venue_task_id = f"{task_id}_{venue}" if task_id else None
+                logger.info(f"[SCRAPE_ALL] Creating task for venue: {venue}")
+                venue_tasks.append(
+                    scrape_venue_task.s(
+                        guests=guests,
+                        target_date=target_date,
+                        website=venue,
+                        task_id=venue_task_id,
+                        lawn_club_option=options.get('lawn_club_option'),
+                        lawn_club_time=options.get('lawn_club_time'),
+                        lawn_club_duration=options.get('lawn_club_duration'),
+                        spin_time=options.get('spin_time'),
+                        clays_location=options.get('clays_location'),
+                        puttshack_location=options.get('puttshack_location'),
+                        f1_experience=options.get('f1_experience')
+                    )
+                )
+            
+            # Execute all tasks in parallel using group
+            job = group(venue_tasks)
+            result = job.apply_async()
+            
+            logger.info(f"[SCRAPE_ALL] All {len(venue_tasks)} venue tasks submitted, waiting for results...")
+            
+            # Wait for all tasks to complete and collect results
+            venue_results = {}
+            total_slots = 0
+            try:
+                results = result.get(timeout=1800)  # 30 minute timeout
+                logger.info(f"[SCRAPE_ALL] Received {len(results)} results from venue tasks")
+                
+                # Process results and log each venue
+                for i, venue in enumerate(venues):
+                    if i < len(results):
+                        r = results[i]
+                        slots_found = r.get('slots_found', 0) if isinstance(r, dict) else 0
+                        venue_results[venue] = slots_found
+                        total_slots += slots_found
+                        status = r.get('status', 'unknown') if isinstance(r, dict) else 'unknown'
+                        logger.info(f"[SCRAPE_ALL] {venue}: {slots_found} slots found (status: {status})")
+                    else:
+                        logger.warning(f"[SCRAPE_ALL] No result received for {venue}")
+                        venue_results[venue] = 0
+                
+            except Exception as e:
+                logger.error(f"[SCRAPE_ALL] Error waiting for tasks: {e}", exc_info=True)
+                total_slots = 0
+            
+            # Calculate duration
+            end_time = time.time()
+            duration_seconds = end_time - start_time
+            duration_minutes = duration_seconds / 60
+            
+            logger.info(f"[SCRAPE_ALL] Completed scraping {city_name} venues for {target_date}")
+            logger.info(f"[SCRAPE_ALL] ⏱️  DURATION: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
+            logger.info(f"[SCRAPE_ALL] Total slots found: {total_slots}")
+            logger.info(f"[SCRAPE_ALL] Venue breakdown: {venue_results}")
+            
+            # Always save duration (task_id is now guaranteed to exist)
+            task = ScrapingTask.query.filter_by(task_id=task_id).first()
+            if task:
+                task.duration_seconds = duration_seconds
+                task.completed_at = datetime.utcnow()
+                task.status = 'SUCCESS'
+                task.progress = f'Scraping completed for all {city_name} venues! Found {total_slots} total slots in {duration_minutes:.2f} minutes'
+                task.total_slots_found = total_slots
+                db.session.commit()
+                logger.info(f"[SCRAPE_ALL] ✅ Saved duration {duration_seconds:.2f}s ({duration_minutes:.2f}m) to task {task_id} for {city_name}")
+                logger.info(f"[SCRAPE_ALL] Task website: {task.website}, duration_seconds: {task.duration_seconds}")
+            else:
+                logger.error(f"[SCRAPE_ALL] ❌ Task {task_id} not found in database, cannot save duration!")
+                logger.error(f"[SCRAPE_ALL] Available task_ids: {[t.task_id for t in ScrapingTask.query.limit(5).all()]}")
+            
+            return {
+                'status': 'success', 
+                'total_slots': total_slots, 
+                'venues_completed': len(venues), 
+                'venue_results': venue_results,
+                'duration_seconds': duration_seconds,
+                'duration_minutes': duration_minutes
+            }
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Calculate duration even on error
+            end_time = time.time()
+            duration_seconds = end_time - start_time
+            duration_minutes = duration_seconds / 60
+            
+            logger.error(f"[SCRAPE_ALL] Error in scrape_all_venues_task: {e}", exc_info=True)
+            logger.error(f"[SCRAPE_ALL] ⏱️  DURATION (failed): {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
+            
+            # Always save duration on error (task_id is now guaranteed to exist)
+            task = ScrapingTask.query.filter_by(task_id=task_id).first()
+            if task:
+                task.duration_seconds = duration_seconds
+                task.completed_at = datetime.utcnow()
+                task.status = 'FAILURE'
+                task.error = str(e)
+                db.session.commit()
+                logger.info(f"[SCRAPE_ALL] Saved duration {duration_seconds:.2f}s to failed task {task_id}")
+            raise e
+
+
 def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
-    """Main scraper function that calls appropriate scraper based on website"""
+    """Main scraper function that calls appropriate scraper based on website (legacy - kept for compatibility)"""
     global scraping_status, scraped_data
     
     try:
@@ -2347,24 +3434,42 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
 
 @app.route('/')
 def index():
-    return render_template(
-        'index.html',
-        lawn_club_times=LAWN_CLUB_TIME_OPTIONS,
-        lawn_club_durations=LAWN_CLUB_DURATION_OPTIONS
-    )
+    # In production, serve React app from frontend/dist
+    # For now, return a simple message or redirect
+    return jsonify({'message': 'Flask API is running. Use React frontend at http://localhost:3000'})
+
+@app.route('/api/health')
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    try:
+        # Test database connection
+        count = AvailabilitySlot.query.count()
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'total_slots': count
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+# API routes - prefix with /api for React frontend (also support direct routes)
+@app.route('/api/clear_data', methods=['POST'])
+@app.route('/clear_data', methods=['POST'])  # Also support direct route
+def api_clear_data():
+    """API endpoint for clearing data"""
+    return clear_data()
 
 
 @app.route('/run_scraper', methods=['POST'])
 def run_scraper():
-    global scraping_status
-    
-    if scraping_status['running']:
-        return jsonify({'error': 'Scraper is already running'}), 400
-    
     data = request.get_json()
     guests = data.get('guests')
     target_date = data.get('target_date')
-    website = data.get('website', 'swingers_nyc')  # Default to swingers NYC
+    website = data.get('website', 'swingers_nyc')
     lawn_club_option = data.get('lawn_club_option')
     lawn_club_time = data.get('lawn_club_time')
     lawn_club_duration = data.get('lawn_club_duration')
@@ -2373,15 +3478,12 @@ def run_scraper():
     puttshack_location = data.get('puttshack_location')
     f1_experience = data.get("f1_experience")
  
-    # Validate and normalize target_date format (YYYY-MM-DD) to avoid timezone issues
+    # Validate and normalize target_date format
     if target_date:
         try:
-            # Validate date format
             datetime.strptime(target_date, "%Y-%m-%d")
-            # Ensure it's in the correct format (no time component)
             if 'T' in target_date or ' ' in target_date:
                 target_date = target_date.split('T')[0].split(' ')[0]
-            print(f"Received target_date: {target_date}")
         except ValueError:
             return jsonify({'error': f'Invalid date format: {target_date}. Expected YYYY-MM-DD'}), 400
     
@@ -2393,10 +3495,12 @@ def run_scraper():
         'five_iron_golf_nyc', 'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
         'flight_club_darts', 'flight_club_darts_angel', 'flight_club_darts_shoreditch', 
-        'flight_club_darts_victoria', 'f1_arcade'
+        'flight_club_darts_victoria', 'f1_arcade', 'all_new_york', 'all_london'
     ]
     
     if website in required_date_websites and not target_date:
+        if website in ['all_new_york', 'all_london']:
+            return jsonify({'error': f'{website.replace("_", " ").title()} requires a specific target date'}), 400
         website_names = {
             'electric_shuffle_nyc': 'Electric Shuffle NYC',
             'electric_shuffle_london': 'Electric Shuffle London',
@@ -2417,35 +3521,340 @@ def run_scraper():
         }
         return jsonify({'error': f'{website_names[website]} requires a specific target date'}), 400
     
-    # Start scraping in a separate thread
-    thread = threading.Thread(target=scrape_restaurants, args=(guests, target_date, website, lawn_club_option, lawn_club_time, lawn_club_duration, spin_time, clays_location, puttshack_location, f1_experience))
-    thread.daemon = True
-    thread.start()
+    # Create task record in database
+    import uuid
+    task_id = str(uuid.uuid4())
+    task = ScrapingTask(
+        task_id=task_id,
+        website=website,
+        guests=guests,
+        target_date=datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else None,
+        status='PENDING',
+        progress='Task queued...'
+    )
+    db.session.add(task)
+    db.session.commit()
     
-    return jsonify({'message': 'Scraping started successfully'})
+    # Prepare options
+    options = {
+        'lawn_club_option': lawn_club_option,
+        'lawn_club_time': lawn_club_time,
+        'lawn_club_duration': lawn_club_duration,
+        'spin_time': spin_time,
+        'clays_location': clays_location,
+        'puttshack_location': puttshack_location,
+        'f1_experience': f1_experience
+    }
+    
+    # Start Celery task
+    if website == 'all_new_york':
+        result = scrape_all_venues_task.delay('NYC', guests, target_date, task_id, options)
+    elif website == 'all_london':
+        result = scrape_all_venues_task.delay('London', guests, target_date, task_id, options)
+    else:
+        result = scrape_venue_task.delay(
+            guests=guests,
+            target_date=target_date,
+            website=website,
+            task_id=task_id,
+            **options
+        )
+    
+    return jsonify({
+        'message': 'Scraping started successfully',
+        'task_id': task_id
+    })
+
+
+@app.route('/task_status/<task_id>')
+def get_task_status(task_id):
+    """Get Celery task status"""
+    try:
+        # Get task from database
+        task = ScrapingTask.query.filter_by(task_id=task_id).first()
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+        
+        # Get Celery task status
+        celery_task = AsyncResult(task_id, app=celery_app)
+        
+        response = {
+            'task_id': task_id,
+            'status': celery_task.state if celery_task.state else task.status,
+            'progress': task.progress,
+            'current_venue': task.current_venue,
+            'total_slots_found': task.total_slots_found,
+            'error': task.error,
+            'duration_seconds': task.duration_seconds,
+            'completed': celery_task.ready() if celery_task else (task.status in ['SUCCESS', 'FAILURE'])
+        }
+        
+        # Add Celery-specific info
+        if celery_task:
+            if celery_task.state == 'PENDING':
+                response['status'] = 'PENDING'
+            elif celery_task.state == 'PROGRESS':
+                response['status'] = 'STARTED'
+                if celery_task.info:
+                    response.update(celery_task.info)
+            elif celery_task.state == 'SUCCESS':
+                response['status'] = 'SUCCESS'
+                if celery_task.result:
+                    response['result'] = celery_task.result
+            elif celery_task.state == 'FAILURE':
+                response['status'] = 'FAILURE'
+                response['error'] = str(celery_task.info) if celery_task.info else task.error
+        
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/scraping_durations')
+@app.route('/scraping_durations')
+def get_scraping_durations():
+    """Get latest scraping durations for each queue: NYC today, NYC tomorrow, London today, London tomorrow"""
+    try:
+        # Get latest successful tasks for each queue
+        nyc_today_task = ScrapingTask.query.filter_by(
+            website='all_nyc_today',
+            status='SUCCESS'
+        ).order_by(ScrapingTask.completed_at.desc()).first()
+        
+        nyc_tomorrow_task = ScrapingTask.query.filter_by(
+            website='all_nyc_tomorrow',
+            status='SUCCESS'
+        ).order_by(ScrapingTask.completed_at.desc()).first()
+        
+        london_today_task = ScrapingTask.query.filter_by(
+            website='all_london_today',
+            status='SUCCESS'
+        ).order_by(ScrapingTask.completed_at.desc()).first()
+        
+        london_tomorrow_task = ScrapingTask.query.filter_by(
+            website='all_london_tomorrow',
+            status='SUCCESS'
+        ).order_by(ScrapingTask.completed_at.desc()).first()
+        
+        def format_task_duration(task):
+            if task and task.duration_seconds:
+                return {
+                    'duration_seconds': task.duration_seconds,
+                    'duration_minutes': round(task.duration_seconds / 60, 2),
+                    'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+                    'total_slots': task.total_slots_found
+                }
+            return None
+        
+        durations = {
+            'nyc_today': format_task_duration(nyc_today_task),
+            'nyc_tomorrow': format_task_duration(nyc_tomorrow_task),
+            'london_today': format_task_duration(london_today_task),
+            'london_tomorrow': format_task_duration(london_tomorrow_task)
+        }
+        
+        return jsonify(durations)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/status')
 def get_status():
-    return jsonify(scraping_status)
+    """Legacy status endpoint - returns latest task status if available"""
+    # Get most recent task
+    task = ScrapingTask.query.order_by(ScrapingTask.created_at.desc()).first()
+    if task:
+        return jsonify({
+            'running': task.status == 'STARTED',
+            'progress': task.progress or '',
+            'completed': task.status == 'SUCCESS',
+            'error': task.error,
+            'current_date': task.target_date.isoformat() if task.target_date else '',
+            'total_slots_found': task.total_slots_found,
+            'website': task.website
+        })
+    return jsonify({
+        'running': False,
+        'progress': 'Ready to start scraping...',
+        'completed': False,
+        'error': None,
+        'current_date': '',
+        'total_slots_found': 0,
+        'website': ''
+    })
 
 
 @app.route('/data')
+@app.route('/api/data')  # Also support /api/data for React frontend
 def get_data():
-    """Get scraped data"""
-    return jsonify({
-        'data': scraped_data,
-        'total_count': len(scraped_data)
-    })
+    """Get scraped data from database"""
+    try:
+        # Get query parameters
+        city = request.args.get('city')
+        venue_name = request.args.get('venue_name')
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        status_filter = request.args.get('status')
+        guests = request.args.get('guests')  # Add guests filter
+        search_term = request.args.get('search', '').lower()
+        
+        # Build query
+        query = AvailabilitySlot.query
+        
+        if city:
+            query = query.filter(AvailabilitySlot.city == city)
+        if venue_name:
+            query = query.filter(AvailabilitySlot.venue_name == venue_name)
+        if date_from:
+            try:
+                date_from_obj = datetime.strptime(date_from, "%Y-%m-%d").date()
+                query = query.filter(AvailabilitySlot.date >= date_from_obj)
+            except ValueError as e:
+                return jsonify({'error': f'Invalid date_from format: {date_from}. Expected YYYY-MM-DD'}), 400
+        if date_to:
+            try:
+                date_to_obj = datetime.strptime(date_to, "%Y-%m-%d").date()
+                query = query.filter(AvailabilitySlot.date <= date_to_obj)
+            except ValueError as e:
+                return jsonify({'error': f'Invalid date_to format: {date_to}. Expected YYYY-MM-DD'}), 400
+        if guests:
+            try:
+                guests_int = int(guests)
+                query = query.filter(AvailabilitySlot.guests == guests_int)
+            except ValueError:
+                pass  # Ignore invalid guest count
+        if status_filter:
+            query = query.filter(AvailabilitySlot.status.ilike(f'%{status_filter}%'))
+        
+        # Get all results
+        slots = query.order_by(AvailabilitySlot.date.desc(), AvailabilitySlot.time).all()
+        
+        # Convert to dict and filter by search term if provided
+        data = []
+        for slot in slots:
+            try:
+                slot_dict = slot.to_dict()
+                if not slot_dict.get('booking_url'):
+                    slot_dict['booking_url'] = get_booking_url_for_venue(slot_dict.get('venue_name'))
+                data.append(slot_dict)
+            except Exception as e:
+                # Log error but continue processing other slots
+                print(f"Error converting slot {slot.id} to dict: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        if search_term:
+            data = [
+                item for item in data
+                if search_term in str(item.get('venue_name', '')).lower() or
+                   search_term in str(item.get('date', '')).lower() or
+                   search_term in str(item.get('time', '')).lower() or
+                   search_term in str(item.get('price', '')).lower() or
+                   search_term in str(item.get('status', '')).lower()
+            ]
+        
+        return jsonify({
+            'data': data,
+            'total_count': len(data)
+        })
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error in get_data: {e}")
+        print(error_trace)
+        # Always return JSON, even on error
+        try:
+            return jsonify({
+                'error': str(e),
+                'message': f'Error fetching data: {str(e)}',
+                'traceback': error_trace.split('\n')[-5:] if error_trace else None  # Last 5 lines only
+            }), 500
+        except Exception as json_error:
+            # Fallback if jsonify fails
+            print(f"Error creating JSON response: {json_error}")
+            return jsonify({'error': 'Internal server error', 'message': str(e)}), 500
 
 
 @app.route('/clear_data', methods=['POST'])
 def clear_data():
-    """Clear scraped data"""
-    global scraped_data
-    scraped_data = []
-    return jsonify({'message': 'Data cleared successfully'})
+    """Clear scraped data from database"""
+    try:
+        data = request.get_json() or {}
+        city = data.get('city')
+        date_from = data.get('date_from')
+        date_to = data.get('date_to')
+        
+        query = AvailabilitySlot.query
+        
+        if city:
+            query = query.filter(AvailabilitySlot.city == city)
+        if date_from:
+            query = query.filter(AvailabilitySlot.date >= datetime.strptime(date_from, "%Y-%m-%d").date())
+        if date_to:
+            query = query.filter(AvailabilitySlot.date <= datetime.strptime(date_to, "%Y-%m-%d").date())
+        
+        count = query.delete()
+        db.session.commit()
+        
+        return jsonify({'message': f'Cleared {count} records successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/refresh_data', methods=['POST'])
+def refresh_data():
+    """Manually trigger data refresh - defaults to today and tomorrow"""
+    data = request.get_json() or {}
+    city = data.get('city')
+    guests = data.get('guests', 6)  # Default to 6 guests
+    target_date = data.get('target_date')
+    
+    from datetime import date, timedelta
+    
+    # Default to today and tomorrow if no date specified
+    if not target_date:
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        dates_to_refresh = [today.isoformat(), tomorrow.isoformat()]
+    else:
+        dates_to_refresh = [target_date] if isinstance(target_date, str) else [target_date]
+    
+    import uuid
+    task_ids = []
+    
+    for date_str in dates_to_refresh:
+        task_id = str(uuid.uuid4())
+        task_ids.append(task_id)
+        
+        task = ScrapingTask(
+            task_id=task_id,
+            website=f'refresh_{city or "all"}',
+            guests=guests,
+            target_date=datetime.strptime(date_str, "%Y-%m-%d").date() if isinstance(date_str, str) else date_str,
+            status='PENDING',
+            progress='Refresh task queued...'
+        )
+        db.session.add(task)
+    
+    db.session.commit()
+    
+    # Start refresh tasks
+    for i, date_str in enumerate(dates_to_refresh):
+        task_id = task_ids[i]
+        if city:
+            scrape_all_venues_task.delay(city, guests, date_str, task_id)
+        else:
+            # Refresh both cities
+            scrape_all_venues_task.delay('NYC', guests, date_str, task_id)
+            scrape_all_venues_task.delay('London', guests, date_str, task_id)
+    
+    return jsonify({
+        'message': f'Refresh started successfully for {len(dates_to_refresh)} date(s)',
+        'task_ids': task_ids
+    })
 
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8000)
+    app.run(debug=True, port=8010)
