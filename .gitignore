@@ -16,7 +16,10 @@ instance/
 # Scraped data
 saved_data/
 *.db
-*.json
+# Only ignore data JSON files, not config files like package.json
+# *.json  # Commented out - we need package.json
+data/*.json
+scraped_*.json
 *.csv
 
 # IDE
@@ -32,7 +35,8 @@ Thumbs.db
 
 # Selenium
 downloaded_files/
-*.lock
+# Only ignore lock files in downloaded_files, not package-lock.json
+downloaded_files/*.lock
 
 # Frontend
 frontend/node_modules/
