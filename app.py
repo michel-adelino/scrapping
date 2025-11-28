@@ -26,6 +26,64 @@ except ImportError:
 
 app = Flask(__name__)
 
+
+def find_chrome_binary():
+    """Find Chrome/Chromium binary in common locations"""
+    import shutil
+    import platform
+    
+    # Common Chrome binary locations
+    chrome_paths = [
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/local/bin/google-chrome',
+        '/usr/local/bin/chromium-browser',
+        '/usr/local/bin/chromium',
+        '/snap/bin/chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',  # macOS
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',  # Windows
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',  # Windows
+    ]
+    
+    # Check if chrome is in PATH
+    chrome_in_path = shutil.which('google-chrome') or shutil.which('chromium-browser') or shutil.which('chromium')
+    if chrome_in_path:
+        return chrome_in_path
+    
+    # Check common locations
+    for path in chrome_paths:
+        if os.path.exists(path):
+            return path
+    
+    # Check environment variable
+    chrome_env = os.getenv('CHROME_BINARY') or os.getenv('GOOGLE_CHROME_BIN')
+    if chrome_env and os.path.exists(chrome_env):
+        return chrome_env
+    
+    return None
+
+
+def create_driver_with_chrome_fallback(**kwargs):
+    """Create SeleniumBase Driver with Chrome binary detection and fallback"""
+    chrome_binary = find_chrome_binary()
+    
+    # Try with uc=True first if specified
+    if kwargs.get('uc', False) and chrome_binary:
+        try:
+            # SeleniumBase should auto-detect, but we can try to help it
+            return Driver(**kwargs)
+        except (TypeError, Exception) as e:
+            if 'Binary Location' in str(e) or 'binary_location' in str(e).lower():
+                # Fallback: try without uc=True
+                kwargs_no_uc = kwargs.copy()
+                kwargs_no_uc['uc'] = False
+                return Driver(**kwargs_no_uc)
+            raise
+    
+    # Default: create driver as requested
+    return Driver(**kwargs)
+
 # Enable CORS for React frontend
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins in development
 
@@ -1652,7 +1710,17 @@ def scrape_lucky_strike(guests, target_date):
         day_str = str(int(dt.day) - 1)
         
         url = f"https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation?date={target_date}T23:00:00.000Z&guestsCount={str(guests)}"
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        
+        # Try to create driver with uc=True, fallback to regular Chrome if binary not found
+        try:
+            driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        except (TypeError, Exception) as e:
+            if 'Binary Location' in str(e) or 'binary_location' in str(e).lower() or 'session not created' in str(e).lower():
+                # Fallback: try without uc=True if Chrome binary detection fails
+                driver = Driver(headless2=True, no_sandbox=True, disable_gpu=True)
+            else:
+                raise
+        
         driver.get(url)
         
         scraping_status['progress'] = f'Navigating to Lucky Strike Chelsea Piers...'
