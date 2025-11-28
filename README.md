@@ -149,7 +149,12 @@ python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=
 python -m celery -A celery_app beat --loglevel=info
 ```
 
-**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes).
+**For better debugging (if Beat seems stuck):**
+```bash
+python -m celery -A celery_app beat --loglevel=debug
+```
+
+**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes). If Beat shows "Starting..." then nothing, see troubleshooting below.
 
 ### 5. Start React Frontend (Port 3000)
 
@@ -348,8 +353,9 @@ redis-server
 - Just verify it's working: `redis-cli ping` (should return "PONG")
 
 ### Celery Worker Not Starting
-- On Windows, make sure to use `--pool=solo`
+- On Windows, make sure to use `--pool=threads` (not `solo`)
 - Check Redis is running and accessible
+- See `TROUBLESHOOTING_CELERY.md` for detailed debugging steps
 
 ### Frontend Not Connecting to Backend
 - Verify Flask is running on port 8010
@@ -393,12 +399,74 @@ python -m celery -A celery_app beat --loglevel=info
 
 **Linux/macOS:**
 ```bash
+# Stop Celery Beat first (Ctrl+C if running)
 # Delete all corrupted schedule files
 rm -f celerybeat-schedule*
 
-# Then restart Celery Beat
+# If you get "Resource temporarily unavailable" error, the file might be locked:
+# Wait a few seconds, or kill any running beat processes:
+pkill -f "celery.*beat"
+
+# Then delete the files and restart
+rm -f celerybeat-schedule*
 python -m celery -A celery_app beat --loglevel=info
 ```
 
 Celery Beat will automatically create new, properly formatted schedule files on startup.
+
+**Note:** If you see the error but Beat still shows "Current schedule:" with your tasks listed, Beat is actually working! The error is just about cleaning up old files.
+
+### Celery Beat Shows "Starting..." Then Nothing
+
+If Celery Beat starts but doesn't show any schedule information:
+
+1. **Check if tasks are registered:**
+   ```bash
+   source venv/bin/activate
+   python test_celery.py
+   ```
+
+2. **Make sure Flask app is imported:**
+   - The tasks are in `app.py`, so Beat needs to import it
+   - The `celery_app.py` should have `include=['app']` (already configured)
+
+3. **Try running Beat with debug logging:**
+   ```bash
+   source venv/bin/activate
+   python -m celery -A celery_app beat --loglevel=debug
+   ```
+   You should see messages about discovered tasks and the beat schedule.
+
+4. **Check if the task name matches:**
+   - Beat schedule uses: `'app.refresh_all_venues_task'`
+   - Task is registered as: `@celery_app.task(name='app.refresh_all_venues_task')`
+   - These must match exactly!
+
+5. **Verify Redis connection:**
+   ```bash
+   redis-cli ping
+   # Should return: PONG
+   ```
+
+### Celery Worker Shows "ready" But No Tasks Processing
+
+If the worker is ready but not processing tasks:
+
+1. **Check if tasks are being sent:**
+   - Look at Beat logs - it should show when tasks are scheduled
+   - Check Flask logs if you trigger tasks manually
+
+2. **Verify worker can see tasks:**
+   ```bash
+   source venv/bin/activate
+   python -m celery -A celery_app inspect registered
+   ```
+   This should list all registered tasks.
+
+3. **Test a task manually:**
+   ```bash
+   source venv/bin/activate
+   python -c "from celery_app import celery_app; from app import refresh_all_venues_task; result = refresh_all_venues_task.delay(); print(f'Task ID: {result.id}')"
+   ```
+   Then check worker logs to see if it processes the task.
 

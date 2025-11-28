@@ -9,8 +9,18 @@ celery_app = Celery(
     'availability_scraper',
     broker=redis_url,
     backend=redis_url,
-    include=['app']
+    include=['app']  # This tells Celery to import the 'app' module to discover tasks
 )
+
+# Import app module to ensure tasks are registered
+# This is important for Beat to discover scheduled tasks
+try:
+    import app
+except ImportError as e:
+    # If app can't be imported, log warning but continue
+    # This might happen if Flask context is needed, but tasks should still register
+    import warnings
+    warnings.warn(f"Could not import app module: {e}. Tasks may not be discoverable.")
 
 # Celery configuration
 import sys
