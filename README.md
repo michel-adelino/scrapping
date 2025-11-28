@@ -75,11 +75,22 @@ The backend will start on `http://localhost:8010`
 
 ### 3. Start Celery Worker
 
+**Windows (Single worker with threads pool for parallel processing):**
+
 ```bash
-python -m celery -A celery_app worker --pool=solo --loglevel=info
+python -m celery -A celery_app worker --pool=threads --concurrency=5 --loglevel=info
 ```
 
-**Note:** On Windows, use `--pool=solo` to avoid multiprocessing issues. On Linux/macOS, you can use `--pool=prefork` for better performance.
+**Linux/macOS (Single worker with prefork pool):**
+
+```bash
+python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
+```
+
+**Note:** 
+- On Windows, `threads` pool allows multiple tasks to run in parallel within a single worker (default: 5 concurrent threads)
+- Adjust `--concurrency=N` based on your PC's performance (3-8 is recommended)
+- On Linux/macOS, `prefork` pool uses multiple processes for parallel processing
 
 ### 4. Start Celery Beat (Scheduler)
 
@@ -87,7 +98,7 @@ python -m celery -A celery_app worker --pool=solo --loglevel=info
 python -m celery -A celery_app beat --loglevel=info
 ```
 
-**Note:** Celery Beat schedules periodic tasks (runs scraping every 15 minutes).
+**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes).
 
 ### 5. Start React Frontend (Port 3000)
 
@@ -100,7 +111,7 @@ The frontend will start on `http://localhost:3000`
 
 ## Quick Start (All Commands)
 
-Open **4 separate terminal windows**:
+Open **5 separate terminal windows**:
 
 **Terminal 1 - Redis:**
 ```bash
@@ -114,7 +125,11 @@ python app.py
 
 **Terminal 3 - Celery Worker:**
 ```bash
-python -m celery -A celery_app worker --pool=solo --loglevel=info
+# Windows
+python -m celery -A celery_app worker --pool=threads --concurrency=5 --loglevel=info
+
+# Linux/macOS
+python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
 ```
 
 **Terminal 4 - Celery Beat:**
@@ -127,6 +142,8 @@ python -m celery -A celery_app beat --loglevel=info
 cd frontend
 npm run dev
 ```
+
+**Note:** The worker uses parallel processing (5 threads on Windows, 4 processes on Linux/macOS) so you only need one worker terminal.
 
 ## Application Structure
 
@@ -155,8 +172,9 @@ availability-scraper/
 ## Background Scraping
 
 The application automatically scrapes data every 15 minutes for:
-- NYC venues (today and tomorrow)
-- London venues (today and tomorrow)
+- NYC venues (30 days from today)
+- London venues (30 days from today)
+- Default guest count: 6 guests
 
 Scraping durations are tracked and displayed in the Status section.
 
@@ -199,6 +217,32 @@ Scraping durations are tracked and displayed in the Status section.
 ## Notes
 
 - The database file (`availability.db`) is automatically created
-- Celery Beat schedule file (`celerybeat-schedule.dat`) is automatically created
+- Celery Beat schedule file (`celerybeat-schedule.dat`) is automatically created (or will be created on first run)
 - These files are excluded from version control (see `.gitignore`)
+
+## Troubleshooting Celery Beat
+
+### Error: `FileNotFoundError` or `EOFError: Ran out of input`
+
+If you see errors about `celerybeat-schedule.dat`, the schedule file is corrupted or missing. Fix it by:
+
+**Windows PowerShell:**
+```powershell
+# Delete all corrupted schedule files
+Remove-Item -Force -Recurse -ErrorAction SilentlyContinue "celerybeat-schedule*"
+
+# Then restart Celery Beat - it will create fresh files
+python -m celery -A celery_app beat --loglevel=info
+```
+
+**Linux/macOS:**
+```bash
+# Delete all corrupted schedule files
+rm -f celerybeat-schedule*
+
+# Then restart Celery Beat
+python -m celery -A celery_app beat --loglevel=info
+```
+
+Celery Beat will automatically create new, properly formatted schedule files on startup.
 

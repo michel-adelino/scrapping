@@ -15,8 +15,14 @@ celery_app = Celery(
 # Celery configuration
 import sys
 
-# Use solo pool on Windows (prefork doesn't work well on Windows)
-worker_pool = 'solo' if sys.platform == 'win32' else 'prefork'
+# Use threads pool on Windows for parallel processing (prefork doesn't work well on Windows)
+# threads pool allows multiple tasks to run in parallel within a single worker
+if sys.platform == 'win32':
+    worker_pool = 'threads'
+    worker_concurrency = 5  # Number of parallel threads (adjust based on your PC's performance)
+else:
+    worker_pool = 'prefork'
+    worker_concurrency = 4
 
 celery_app.conf.update(
     task_serializer='json',
@@ -29,14 +35,15 @@ celery_app.conf.update(
     task_soft_time_limit=1500,  # 25 minutes soft limit
     worker_prefetch_multiplier=1,
     worker_pool=worker_pool,
-    worker_max_tasks_per_child=10 if worker_pool != 'solo' else None,  # Not applicable for solo pool
+    worker_concurrency=worker_concurrency,
+    worker_max_tasks_per_child=10 if worker_pool != 'solo' else None,
 )
 
 # Celery Beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
     'refresh-all-venues': {
         'task': 'app.refresh_all_venues_task',
-        'schedule': 900.0,  # Every 15 minutes - refresh today and tomorrow slots
+        'schedule': 1800.0,  # Every 30 minutes - refresh 30 days of slots (split into smaller chunks)
     },
 }
 

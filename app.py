@@ -964,8 +964,6 @@ def scrape_swingers_uk(guests, target_date):
                     
                     scraped_data.append(slot_data)
                     scraping_status['total_slots_found'] = len(scraped_data)
-                    
-                    print([date_str, time, price, status])
                 
                 # If target_date is specified, break after processing it
                 if target_date and date_str == target_date:
@@ -1053,8 +1051,6 @@ def scrape_electric_shuffle(guests, target_date):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, length, status])
         
         driver.quit()
         
@@ -1212,8 +1208,6 @@ def scrape_electric_shuffle_london(guests, target_date):
 
                 scraped_data.append(slot_data)
                 scraping_status["total_slots_found"] = len(scraped_data)
-
-                print([date_str, holder_title, time, desc, "Available"])
 
         driver.quit()
 
@@ -1385,8 +1379,6 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -1528,8 +1520,6 @@ def scrape_spin(guests, target_date, selected_time=None):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -1642,8 +1632,6 @@ def scrape_five_iron_golf(guests, target_date):
                 scraped_data.append(slot_data)
                 scraping_status['total_slots_found'] = len(scraped_data)
 
-                print([date_str, time, desc, status])
-
 
         
         driver.quit()
@@ -1722,8 +1710,6 @@ def scrape_lucky_strike(guests, target_date):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -1853,8 +1839,6 @@ def scrape_easybowl(guests, target_date):
                         
                         scraped_data.append(slot_data)
                         scraping_status['total_slots_found'] = len(scraped_data)
-                        
-                        print([target_date, name, time, price])
                     
                     # Go back to nested product group page
                     driver.back()
@@ -1929,8 +1913,6 @@ def scrape_easybowl(guests, target_date):
                     
                     scraped_data.append(slot_data)
                     scraping_status['total_slots_found'] = len(scraped_data)
-                    
-                    print([target_date, name, time, price])
             
             # Reset to original page for next iteration
             driver.back()
@@ -1997,8 +1979,6 @@ def scrape_fair_game_canary_wharf(guests, target_date):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -2060,8 +2040,6 @@ def scrape_fair_game_city(guests, target_date):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([date_str, time, desc, status])
         
         driver.quit()
         
@@ -2365,7 +2343,6 @@ def scrape_clays_bar(location, guests, target_date):
 
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            print([target_date, time_val, desc])
 
         driver.quit()
 
@@ -2491,8 +2468,6 @@ def scrape_clays_bar(location, guests, target_date):
 
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-
-            print([target_date, time_val, desc, status])
 
         driver.quit()
 
@@ -2632,8 +2607,6 @@ def scrape_puttshack(location, guests, target_date):
             
             scraped_data.append(slot_data)
             scraping_status['total_slots_found'] = len(scraped_data)
-            
-            print([target_date, time, desc, status])
         
         driver.quit()
         
@@ -2712,8 +2685,6 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
                 
                 scraped_data.append(slot_data)
                 scraping_status['total_slots_found'] = len(scraped_data)
-                
-                print([date_str, holder_title, time, desc, status])
         
         driver.quit()
         
@@ -3105,38 +3076,56 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
 
 @celery_app.task(bind=True, name='app.refresh_all_venues_task')
 def refresh_all_venues_task(self):
-    """Periodic task to refresh all venues for today and tomorrow"""
+    """Periodic task to refresh all venues for 30 days from today, split into smaller chunks"""
     with app.app_context():
         try:
             from datetime import date, timedelta
             import logging
             logger = logging.getLogger(__name__)
             
-            # Refresh for today and tomorrow only
+            # Refresh for 30 days from today
             today = date.today()
-            tomorrow = today + timedelta(days=1)
-            dates_to_refresh = [today, tomorrow]
+            dates_to_refresh = [today + timedelta(days=i) for i in range(30)]  # 30 days from today
             
             guests = 6  # Default guest count
             
-            logger.info(f"[REFRESH] Starting refresh for {len(dates_to_refresh)} dates (today and tomorrow)")
+            # Split 30 days into smaller chunks for better performance
+            # 6 chunks of 5 days each = 12 tasks total (6 for NYC, 6 for London)
+            days_per_chunk = 5
+            num_chunks = (len(dates_to_refresh) + days_per_chunk - 1) // days_per_chunk  # Ceiling division
+            
+            logger.info(f"[REFRESH] Starting refresh for {len(dates_to_refresh)} dates (30 days from today)")
+            logger.info(f"[REFRESH] Date range: {dates_to_refresh[0]} to {dates_to_refresh[-1]}")
+            logger.info(f"[REFRESH] Splitting into {num_chunks} chunks of ~{days_per_chunk} days each")
             logger.info(f"[REFRESH] NYC venues: {NYC_VENUES}")
             logger.info(f"[REFRESH] London venues: {LONDON_VENUES}")
             
-            # Refresh NYC venues
-            for target_date in dates_to_refresh:
-                date_str = target_date.isoformat()
-                logger.info(f"[REFRESH] Scheduling NYC venues for {date_str}")
-                scrape_all_venues_task.delay('NYC', guests, date_str, None, None)
+            tasks_created = 0
             
-            # Refresh London venues
-            for target_date in dates_to_refresh:
-                date_str = target_date.isoformat()
-                logger.info(f"[REFRESH] Scheduling London venues for {date_str}")
-                scrape_all_venues_task.delay('London', guests, date_str, None, None)
+            # Schedule tasks for NYC in chunks
+            for chunk_idx in range(num_chunks):
+                start_idx = chunk_idx * days_per_chunk
+                end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
+                chunk_dates = dates_to_refresh[start_idx:end_idx]
+                date_strings = [d.isoformat() for d in chunk_dates]
+                
+                logger.info(f"[REFRESH] Scheduling NYC venues for chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
+                scrape_all_venues_task.delay('NYC', guests, date_strings, None, None)
+                tasks_created += 1
             
-            logger.info(f"[REFRESH] All refresh tasks scheduled successfully")
-            return {'status': 'success', 'dates_refreshed': len(dates_to_refresh)}
+            # Schedule tasks for London in chunks
+            for chunk_idx in range(num_chunks):
+                start_idx = chunk_idx * days_per_chunk
+                end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
+                chunk_dates = dates_to_refresh[start_idx:end_idx]
+                date_strings = [d.isoformat() for d in chunk_dates]
+                
+                logger.info(f"[REFRESH] Scheduling London venues for chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
+                scrape_all_venues_task.delay('London', guests, date_strings, None, None)
+                tasks_created += 1
+            
+            logger.info(f"[REFRESH] All refresh tasks scheduled successfully ({tasks_created} tasks total)")
+            return {'status': 'success', 'dates_refreshed': len(dates_to_refresh), 'tasks_created': tasks_created, 'chunks': num_chunks}
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
@@ -3146,7 +3135,7 @@ def refresh_all_venues_task(self):
 
 @celery_app.task(bind=True, name='app.scrape_all_venues_task')
 def scrape_all_venues_task(self, city, guests, target_date, task_id=None, options=None):
-    """Scrape all venues in a city simultaneously using Celery group"""
+    """Scrape all venues in a city for one or more dates simultaneously using Celery group"""
     with app.app_context():
         import time
         import uuid
@@ -3156,6 +3145,14 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
             import logging
             logger = logging.getLogger(__name__)
             
+            # Handle both single date (string) and multiple dates (list)
+            if isinstance(target_date, str):
+                target_dates = [target_date]
+            elif isinstance(target_date, list):
+                target_dates = target_date
+            else:
+                raise ValueError(f"target_date must be a string or list, got {type(target_date)}")
+            
             # Use Celery task ID if no task_id provided (for periodic tasks)
             if not task_id:
                 task_id = self.request.id
@@ -3164,24 +3161,26 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
             task = ScrapingTask.query.filter_by(task_id=task_id).first()
             if not task:
                 # Create new task record for periodic scraping
-                # Use website name that includes city and date type (today/tomorrow)
                 from datetime import date
                 city_lower = city.lower()
-                target_date_obj = datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else None
                 today = date.today()
                 
-                # Determine if this is "today" or "tomorrow"
-                if target_date_obj:
+                # For multiple dates, use a generic name
+                if len(target_dates) == 1:
+                    target_date_obj = datetime.strptime(target_dates[0], "%Y-%m-%d").date()
                     if target_date_obj == today:
                         date_type = 'today'
                     elif target_date_obj == today + timedelta(days=1):
                         date_type = 'tomorrow'
                     else:
-                        date_type = target_date_obj.isoformat()  # Use date string for other dates
+                        date_type = target_date_obj.isoformat()
                 else:
-                    date_type = 'unknown'
+                    # Multiple dates - use a range identifier
+                    first_date = datetime.strptime(target_dates[0], "%Y-%m-%d").date()
+                    last_date = datetime.strptime(target_dates[-1], "%Y-%m-%d").date()
+                    date_type = f'{len(target_dates)}days_{first_date.isoformat()}_{last_date.isoformat()}'
                 
-                # Create website name: all_nyc_today, all_nyc_tomorrow, all_london_today, all_london_tomorrow
+                # Create website name
                 if city_lower in ['nyc', 'new york']:
                     website_name = f'all_nyc_{date_type}'
                 elif city_lower == 'london':
@@ -3189,21 +3188,21 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
                 else:
                     website_name = f'all_{city_lower.replace(" ", "_")}_{date_type}'
                 
-                logger.info(f"[SCRAPE_ALL] Creating task record: website={website_name}, city={city}, date={target_date}, date_type={date_type}, task_id={task_id}")
+                logger.info(f"[SCRAPE_ALL] Creating task record: website={website_name}, city={city}, dates={len(target_dates)}, task_id={task_id}")
                 task = ScrapingTask(
                     task_id=task_id,
                     website=website_name,
                     guests=guests,
-                    target_date=target_date_obj,
+                    target_date=datetime.strptime(target_dates[0], "%Y-%m-%d").date() if target_dates else None,
                     status='STARTED',
-                    progress=f'Starting to scrape all {city} venues for {target_date}...'
+                    progress=f'Starting to scrape all {city} venues for {len(target_dates)} date(s)...'
                 )
                 db.session.add(task)
                 db.session.commit()
                 logger.info(f"[SCRAPE_ALL] ✅ Task record created: {website_name} (task_id: {task_id})")
             else:
                 task.status = 'STARTED'
-                task.progress = f'Starting to scrape all {city} venues...'
+                task.progress = f'Starting to scrape all {city} venues for {len(target_dates)} date(s)...'
                 db.session.commit()
                 logger.info(f"[SCRAPE_ALL] Using existing task record: {task.website} (task_id: {task_id})")
             
@@ -3217,95 +3216,76 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
             else:
                 raise ValueError(f"Unknown city: {city}")
             
-            logger.info(f"[SCRAPE_ALL] Starting to scrape {len(venues)} {city_name} venues for {target_date} with {guests} guests")
+            logger.info(f"[SCRAPE_ALL] Starting to scrape {len(venues)} {city_name} venues for {len(target_dates)} date(s) with {guests} guests")
+            logger.info(f"[SCRAPE_ALL] Dates: {target_dates[0]} to {target_dates[-1]}")
             logger.info(f"[SCRAPE_ALL] Venues: {venues}")
             
             options = options or {}
             
-            # Create subtasks for each venue
+            # Create subtasks for each venue and date combination
             venue_tasks = []
             for venue in venues:
-                # Create a subtask for each venue
-                venue_task_id = f"{task_id}_{venue}" if task_id else None
-                logger.info(f"[SCRAPE_ALL] Creating task for venue: {venue}")
-                venue_tasks.append(
-                    scrape_venue_task.s(
-                        guests=guests,
-                        target_date=target_date,
-                        website=venue,
-                        task_id=venue_task_id,
-                        lawn_club_option=options.get('lawn_club_option'),
-                        lawn_club_time=options.get('lawn_club_time'),
-                        lawn_club_duration=options.get('lawn_club_duration'),
-                        spin_time=options.get('spin_time'),
-                        clays_location=options.get('clays_location'),
-                        puttshack_location=options.get('puttshack_location'),
-                        f1_experience=options.get('f1_experience')
+                for date_str in target_dates:
+                    # Create a subtask for each venue-date combination
+                    venue_task_id = f"{task_id}_{venue}_{date_str}" if task_id else None
+                    logger.info(f"[SCRAPE_ALL] Creating task for venue: {venue}, date: {date_str}")
+                    venue_tasks.append(
+                        scrape_venue_task.s(
+                            guests=guests,
+                            target_date=date_str,
+                            website=venue,
+                            task_id=venue_task_id,
+                            lawn_club_option=options.get('lawn_club_option'),
+                            lawn_club_time=options.get('lawn_club_time'),
+                            lawn_club_duration=options.get('lawn_club_duration'),
+                            spin_time=options.get('spin_time'),
+                            clays_location=options.get('clays_location'),
+                            puttshack_location=options.get('puttshack_location'),
+                            f1_experience=options.get('f1_experience')
+                        )
                     )
-                )
             
             # Execute all tasks in parallel using group
+            # Note: We don't wait for results synchronously (Celery doesn't allow result.get() within a task)
+            # Instead, all individual venue tasks save their results directly to the database
             job = group(venue_tasks)
             result = job.apply_async()
             
-            logger.info(f"[SCRAPE_ALL] All {len(venue_tasks)} venue tasks submitted, waiting for results...")
+            logger.info(f"[SCRAPE_ALL] All {len(venue_tasks)} venue-date tasks submitted to queue")
+            logger.info(f"[SCRAPE_ALL] Tasks will execute in parallel and save results to database independently")
             
-            # Wait for all tasks to complete and collect results
+            # Don't wait for results - individual tasks save to DB
+            # The parent task completes immediately after submitting child tasks
             venue_results = {}
-            total_slots = 0
-            try:
-                results = result.get(timeout=1800)  # 30 minute timeout
-                logger.info(f"[SCRAPE_ALL] Received {len(results)} results from venue tasks")
-                
-                # Process results and log each venue
-                for i, venue in enumerate(venues):
-                    if i < len(results):
-                        r = results[i]
-                        slots_found = r.get('slots_found', 0) if isinstance(r, dict) else 0
-                        venue_results[venue] = slots_found
-                        total_slots += slots_found
-                        status = r.get('status', 'unknown') if isinstance(r, dict) else 'unknown'
-                        logger.info(f"[SCRAPE_ALL] {venue}: {slots_found} slots found (status: {status})")
-                    else:
-                        logger.warning(f"[SCRAPE_ALL] No result received for {venue}")
-                        venue_results[venue] = 0
-                
-            except Exception as e:
-                logger.error(f"[SCRAPE_ALL] Error waiting for tasks: {e}", exc_info=True)
-                total_slots = 0
+            total_slots = 0  # Will be calculated from DB later if needed
             
             # Calculate duration
             end_time = time.time()
             duration_seconds = end_time - start_time
             duration_minutes = duration_seconds / 60
             
-            logger.info(f"[SCRAPE_ALL] Completed scraping {city_name} venues for {target_date}")
-            logger.info(f"[SCRAPE_ALL] ⏱️  DURATION: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
-            logger.info(f"[SCRAPE_ALL] Total slots found: {total_slots}")
-            logger.info(f"[SCRAPE_ALL] Venue breakdown: {venue_results}")
+            logger.info(f"[SCRAPE_ALL] Submitted {len(venue_tasks)} scraping tasks for {city_name} venues across {len(target_dates)} date(s)")
+            logger.info(f"[SCRAPE_ALL] ⏱️  Task submission duration: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
+            logger.info(f"[SCRAPE_ALL] Individual venue tasks are now running in parallel and saving results to database")
             
-            # Always save duration (task_id is now guaranteed to exist)
+            # Mark task as submitted (not completed - child tasks are still running)
             task = ScrapingTask.query.filter_by(task_id=task_id).first()
             if task:
-                task.duration_seconds = duration_seconds
-                task.completed_at = datetime.utcnow()
-                task.status = 'SUCCESS'
-                task.progress = f'Scraping completed for all {city_name} venues! Found {total_slots} total slots in {duration_minutes:.2f} minutes'
-                task.total_slots_found = total_slots
+                task.status = 'SUBMITTED'
+                task.progress = f'Submitted {len(venue_tasks)} scraping tasks for {len(venues)} {city_name} venues across {len(target_dates)} dates. Tasks are running in parallel.'
+                # Don't set completed_at or duration_seconds yet - child tasks are still running
                 db.session.commit()
-                logger.info(f"[SCRAPE_ALL] ✅ Saved duration {duration_seconds:.2f}s ({duration_minutes:.2f}m) to task {task_id} for {city_name}")
-                logger.info(f"[SCRAPE_ALL] Task website: {task.website}, duration_seconds: {task.duration_seconds}")
+                logger.info(f"[SCRAPE_ALL] ✅ Task marked as SUBMITTED: {task.website} (task_id: {task_id})")
             else:
                 logger.error(f"[SCRAPE_ALL] ❌ Task {task_id} not found in database, cannot save duration!")
                 logger.error(f"[SCRAPE_ALL] Available task_ids: {[t.task_id for t in ScrapingTask.query.limit(5).all()]}")
             
             return {
-                'status': 'success', 
-                'total_slots': total_slots, 
-                'venues_completed': len(venues), 
-                'venue_results': venue_results,
-                'duration_seconds': duration_seconds,
-                'duration_minutes': duration_minutes
+                'status': 'submitted', 
+                'tasks_submitted': len(venue_tasks),
+                'venues': len(venues), 
+                'dates': len(target_dates),
+                'message': f'Submitted {len(venue_tasks)} scraping tasks. Results will be saved to database as tasks complete.'
             }
             
         except Exception as e:

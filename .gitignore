@@ -38,6 +38,12 @@ downloaded_files/
 # Only ignore lock files in downloaded_files, not package-lock.json
 downloaded_files/*.lock
 
+# Celery
+celerybeat-schedule.dat
+celerybeat-schedule.dat.*
+celerybeat-schedule.dir/
+celerybeat-schedule.bak
+
 # Frontend
 frontend/node_modules/
 frontend/build/
