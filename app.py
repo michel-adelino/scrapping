@@ -64,25 +64,96 @@ def find_chrome_binary():
     return None
 
 
+def create_driver_for_platform(uc=True, headless2=True, no_sandbox=True, disable_gpu=True, **extra_kwargs):
+    """
+    Create SeleniumBase Driver with platform-specific optimizations.
+    On Linux/Ubuntu, adds disable_dev_shm_usage which is critical for proper operation.
+    """
+    import platform
+    import time
+    
+    driver_kwargs = {
+        'headless2': headless2,
+        'no_sandbox': no_sandbox,
+        'disable_gpu': disable_gpu,
+        **extra_kwargs
+    }
+    
+    # Add Linux-specific options (critical for Ubuntu)
+    if platform.system() == 'Linux':
+        driver_kwargs['disable_dev_shm_usage'] = True
+    
+    # Try with uc=True first if specified
+    if uc:
+        try:
+            driver = Driver(uc=True, **driver_kwargs)
+            # On Linux, wait a moment for Chrome to fully initialize
+            if platform.system() == 'Linux':
+                time.sleep(1)
+            return driver
+        except (TypeError, Exception) as e:
+            error_str = str(e).lower()
+            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
+                                                   'devtoolsactiveport', 'chrome not reachable']):
+                # Fallback: try without uc=True
+                driver = Driver(**driver_kwargs)
+                # On Linux, wait a moment for Chrome to fully initialize
+                if platform.system() == 'Linux':
+                    time.sleep(1)
+                return driver
+            raise
+    
+    # Create driver without uc
+    driver = Driver(**driver_kwargs)
+    # On Linux, wait a moment for Chrome to fully initialize
+    if platform.system() == 'Linux':
+        time.sleep(1)
+    return driver
+
 def create_driver_with_chrome_fallback(**kwargs):
     """Create SeleniumBase Driver with Chrome binary detection and fallback"""
+    import platform
+    
     chrome_binary = find_chrome_binary()
+    
+    # Add Linux-specific options if on Linux (critical for Ubuntu)
+    if platform.system() == 'Linux':
+        # disable_dev_shm_usage is critical for Linux to avoid /dev/shm issues
+        if 'disable_dev_shm_usage' not in kwargs:
+            kwargs['disable_dev_shm_usage'] = True
     
     # Try with uc=True first if specified
     if kwargs.get('uc', False) and chrome_binary:
         try:
             # SeleniumBase should auto-detect, but we can try to help it
-            return Driver(**kwargs)
+            driver = Driver(**kwargs)
+            # On Linux, wait a moment for Chrome to fully initialize
+            if platform.system() == 'Linux':
+                import time
+                time.sleep(1)
+            return driver
         except (TypeError, Exception) as e:
-            if 'Binary Location' in str(e) or 'binary_location' in str(e).lower():
+            error_str = str(e).lower()
+            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
+                                                   'devtoolsactiveport', 'chrome not reachable']):
                 # Fallback: try without uc=True
                 kwargs_no_uc = kwargs.copy()
                 kwargs_no_uc['uc'] = False
-                return Driver(**kwargs_no_uc)
+                driver = Driver(**kwargs_no_uc)
+                # On Linux, wait a moment for Chrome to fully initialize
+                if platform.system() == 'Linux':
+                    import time
+                    time.sleep(1)
+                return driver
             raise
     
     # Default: create driver as requested
-    return Driver(**kwargs)
+    driver = Driver(**kwargs)
+    # On Linux, wait a moment for Chrome to fully initialize
+    if platform.system() == 'Linux':
+        import time
+        time.sleep(1)
+    return driver
 
 # Enable CORS for React frontend
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins in development
@@ -957,7 +1028,29 @@ def scrape_swingers_uk(guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        # Try to create driver with uc=True, fallback to regular Chrome if it fails
+        import platform
+        driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
+        # Add Linux-specific option (critical for Ubuntu)
+        if platform.system() == 'Linux':
+            driver_kwargs['disable_dev_shm_usage'] = True
+        
+        try:
+            driver = Driver(uc=True, **driver_kwargs)
+        except (TypeError, Exception) as e:
+            error_str = str(e).lower()
+            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
+                                                   'devtoolsactiveport', 'chrome not reachable']):
+                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
+                driver = Driver(**driver_kwargs)
+            else:
+                raise
+        
+        # On Linux, wait a moment for Chrome to fully initialize before navigation
+        if platform.system() == 'Linux':
+            import time
+            time.sleep(1)
+        
         driver.get(f"https://www.swingers.club/uk/book-now?guests={str(guests)}")
         
         scraping_status['progress'] = 'Starting to scrape Swingers UK availability...'
@@ -1712,14 +1805,27 @@ def scrape_lucky_strike(guests, target_date):
         url = f"https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation?date={target_date}T23:00:00.000Z&guestsCount={str(guests)}"
         
         # Try to create driver with uc=True, fallback to regular Chrome if binary not found
+        import platform
+        driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
+        # Add Linux-specific option (critical for Ubuntu)
+        if platform.system() == 'Linux':
+            driver_kwargs['disable_dev_shm_usage'] = True
+        
         try:
-            driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+            driver = Driver(uc=True, **driver_kwargs)
         except (TypeError, Exception) as e:
-            if 'Binary Location' in str(e) or 'binary_location' in str(e).lower() or 'session not created' in str(e).lower():
-                # Fallback: try without uc=True if Chrome binary detection fails
-                driver = Driver(headless2=True, no_sandbox=True, disable_gpu=True)
+            error_str = str(e).lower()
+            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
+                                                   'devtoolsactiveport', 'chrome not reachable']):
+                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
+                driver = Driver(**driver_kwargs)
             else:
                 raise
+        
+        # On Linux, wait a moment for Chrome to fully initialize before navigation
+        if platform.system() == 'Linux':
+            import time
+            time.sleep(1)
         
         driver.get(url)
         
