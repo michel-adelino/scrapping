@@ -64,11 +64,53 @@ def find_chrome_binary():
     return None
 
 
+def create_driver_with_timeout(uc, driver_kwargs, timeout=60):
+    """
+    Create Driver with a timeout to prevent indefinite hanging.
+    Uses threading to enforce timeout.
+    """
+    import threading
+    import logging
+    import queue
+    
+    logger = logging.getLogger(__name__)
+    result_queue = queue.Queue()
+    exception_queue = queue.Queue()
+    
+    def create_driver():
+        try:
+            logger.info(f"[DRIVER] Starting Driver creation (uc={uc})...")
+            if uc:
+                driver = Driver(uc=True, **driver_kwargs)
+            else:
+                driver = Driver(**driver_kwargs)
+            logger.info(f"[DRIVER] Driver created successfully (uc={uc})")
+            result_queue.put(driver)
+        except Exception as e:
+            logger.error(f"[DRIVER] Exception during Driver creation: {str(e)}")
+            exception_queue.put(e)
+    
+    thread = threading.Thread(target=create_driver, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+    
+    if thread.is_alive():
+        logger.error(f"[DRIVER] Driver creation timed out after {timeout} seconds!")
+        raise TimeoutError(f"Driver creation timed out after {timeout} seconds")
+    
+    if not exception_queue.empty():
+        raise exception_queue.get()
+    
+    if not result_queue.empty():
+        return result_queue.get()
+    
+    raise RuntimeError("Driver creation failed for unknown reason")
+
 def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=True, **extra_kwargs):
     """
     Create SeleniumBase Driver with platform-specific optimizations and error handling.
     On Linux, uses headless=True instead of headless2=True for better compatibility.
-    Includes fallback logic for Chrome startup failures.
+    Includes fallback logic for Chrome startup failures and timeout protection.
     """
     import platform
     import logging
@@ -82,12 +124,12 @@ def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=Tru
     else:
         driver_kwargs = {'headless2': headless2, 'no_sandbox': no_sandbox, 'disable_gpu': disable_gpu, **extra_kwargs}
     
-    logger.info("[DRIVER] Creating Chrome driver...")
+    logger.info(f"[DRIVER] Creating Chrome driver with kwargs: {driver_kwargs}")
     
     # Try with uc=True first if specified
     if uc:
         try:
-            driver = Driver(uc=True, **driver_kwargs)
+            driver = create_driver_with_timeout(uc=True, driver_kwargs=driver_kwargs, timeout=60)
             logger.info("[DRIVER] Driver created with uc=True")
             # On Linux, wait a moment for Chrome to fully initialize
             if platform.system() == 'Linux':
@@ -95,24 +137,28 @@ def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=Tru
             # Set page load timeout to prevent hanging
             driver.set_page_load_timeout(30)
             return driver
-        except (TypeError, Exception) as e:
+        except (TimeoutError, TypeError, Exception) as e:
             error_str = str(e).lower()
             if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
+                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited', 'timeout']):
                 logger.warning(f"[DRIVER] uc=True failed, trying without uc: {str(e)}")
                 # Fallback: try without uc=True
-                driver = Driver(**driver_kwargs)
-                logger.info("[DRIVER] Driver created without uc=True")
-                # On Linux, wait a moment for Chrome to fully initialize
-                if platform.system() == 'Linux':
-                    time.sleep(1)
-                # Set page load timeout to prevent hanging
-                driver.set_page_load_timeout(30)
-                return driver
+                try:
+                    driver = create_driver_with_timeout(uc=False, driver_kwargs=driver_kwargs, timeout=60)
+                    logger.info("[DRIVER] Driver created without uc=True")
+                    # On Linux, wait a moment for Chrome to fully initialize
+                    if platform.system() == 'Linux':
+                        time.sleep(1)
+                    # Set page load timeout to prevent hanging
+                    driver.set_page_load_timeout(30)
+                    return driver
+                except Exception as e2:
+                    logger.error(f"[DRIVER] Fallback driver creation also failed: {str(e2)}")
+                    raise
             raise
     
     # Create driver without uc
-    driver = Driver(**driver_kwargs)
+    driver = create_driver_with_timeout(uc=False, driver_kwargs=driver_kwargs, timeout=60)
     logger.info("[DRIVER] Driver created")
     # On Linux, wait a moment for Chrome to fully initialize
     if platform.system() == 'Linux':
@@ -384,9 +430,18 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
     """Run original scraper function and save results to database"""
     global scraped_data
     import logging
+    import sys
+    
     logger = logging.getLogger(__name__)
     
+    # Force flush to ensure logs appear immediately
+    print(f"[SCRAPER] Starting scraper for {venue_name} (city: {city}, guests: {guests})", flush=True)
     logger.info(f"[SCRAPER] Starting scraper for {venue_name} (city: {city}, guests: {guests})")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    print(f"[SCRAPER] About to call scraper function: {scraper_func.__name__}", flush=True)
+    logger.info(f"[SCRAPER] About to call scraper function: {scraper_func.__name__}")
     
     # Initialize scraped_data if it doesn't exist (shouldn't happen, but safety check)
     try:
@@ -1046,11 +1101,14 @@ def scrape_swingers_uk(guests, target_date):
     """Swingers UK scraper function"""
     global scraping_status, scraped_data
     
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[SCRAPER] scrape_swingers_uk called with guests={guests}, target_date={target_date}")
+    
     try:
         # Try to create driver with uc=True, fallback to regular Chrome if it fails
         import platform
-        import logging
-        logger = logging.getLogger(__name__)
+        import time
         
         # On Linux, try headless=True first as headless2 might not work properly
         if platform.system() == 'Linux':
@@ -1058,10 +1116,12 @@ def scrape_swingers_uk(guests, target_date):
         else:
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
         
-        logger.info("[SCRAPER] Creating Chrome driver...")
+        logger.info(f"[SCRAPER] About to create Chrome driver with kwargs: {driver_kwargs}")
+        logger.info("[SCRAPER] Calling Driver(uc=True, ...) - this may take a moment...")
+        
         try:
             driver = Driver(uc=True, **driver_kwargs)
-            logger.info("[SCRAPER] Driver created with uc=True")
+            logger.info("[SCRAPER] Driver created with uc=True successfully!")
         except (TypeError, Exception) as e:
             error_str = str(e).lower()
             if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
