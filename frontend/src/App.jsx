@@ -5,7 +5,18 @@ import DataSection from './components/DataSection'
 import ToastContainer from './components/ToastContainer'
 import './App.css'
 
-const API_BASE = 'http://localhost:8010/api'
+// Use environment variable or detect from current host
+const getApiBase = () => {
+  // If VITE_API_BASE is set, use it (for production builds)
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE
+  }
+  // For development, use current host (works for both localhost and IP access)
+  const host = window.location.hostname
+  return `http://${host}:8010/api`
+}
+
+const API_BASE = getApiBase()
 
 function App() {
   const [tableData, setTableData] = useState([])

@@ -3837,4 +3837,7 @@ def refresh_data():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8010)
+    # Bind to 0.0.0.0 to allow external access (for VPS)
+    # Set host='127.0.0.1' for localhost only (more secure for development)
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    app.run(debug=True, host=host, port=8010)

@@ -11,7 +11,11 @@ function StatusSection({ stats }) {
   useEffect(() => {
     const fetchDurations = async () => {
       try {
-        const response = await fetch('http://localhost:8010/api/scraping_durations')
+        // Use same host as frontend for API calls
+        const apiBase = window.location.hostname === 'localhost' 
+          ? 'http://localhost:8010/api' 
+          : `http://${window.location.hostname}:8010/api`
+        const response = await fetch(`${apiBase}/scraping_durations`)
         if (response.ok) {
           const data = await response.json()
           console.log('Fetched durations:', data)

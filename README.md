@@ -35,11 +35,47 @@ sudo yum install redis             # CentOS/RHEL
 
 ## Installation
 
-### 1. Install Python Dependencies
+### 1. Set Up Python Virtual Environment (Recommended)
+
+**Ubuntu/Linux (VPS):**
+
+Modern Ubuntu systems (22.04+) use externally-managed Python environments. You must create a virtual environment:
 
 ```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+
+**Or use the automated setup script:**
+```bash
+chmod +x setup_venv.sh
+./setup_venv.sh
+```
+
+**Windows/macOS:**
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows PowerShell:
+venv\Scripts\Activate.ps1
+# Windows CMD:
+venv\Scripts\activate.bat
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Note:** Always activate the virtual environment before running the application. You'll see `(venv)` in your terminal prompt when it's active.
 
 ### 2. Install Frontend Dependencies
 
@@ -63,6 +99,21 @@ wsl redis-server
 **macOS/Linux:**
 ```bash
 redis-server
+```
+
+**Ubuntu VPS (if Redis is installed as a service):**
+```bash
+# Check if Redis is already running
+redis-cli ping
+# Should return: PONG
+
+# If Redis is not running, start it:
+sudo systemctl start redis-server
+
+# To enable Redis to start on boot:
+sudo systemctl enable redis-server
+
+# If you get "Address already in use" error, Redis is already running - you're good to go!
 ```
 
 ### 2. Start Flask Backend (Port 8010)
@@ -109,41 +160,105 @@ npm run dev
 
 The frontend will start on `http://localhost:3000`
 
+**For VPS/External Access:**
+```bash
+cd frontend
+npm run dev -- --host 0.0.0.0
+```
+
+This allows access from external IP addresses (e.g., `http://YOUR_VPS_IP:3000`)
+
+## Quick Start for Ubuntu VPS
+
+After setting up the virtual environment, you need to run **5 processes**. Here's what needs the virtual environment:
+
+✅ **Need Virtual Environment (Python processes):**
+- Flask Backend
+- Celery Worker  
+- Celery Beat
+
+❌ **Don't Need Virtual Environment:**
+- Redis (system service)
+- React Frontend (Node.js/npm)
+
+### Using screen or tmux (Recommended for VPS)
+
+Since you're on a VPS, you can use `screen` or `tmux` to manage multiple sessions:
+
+```bash
+# Install screen (if not installed)
+sudo apt install screen
+
+# Create named screen sessions
+screen -S redis -d -m redis-server
+screen -S flask -d -m bash -c "cd $(pwd) && source venv/bin/activate && python app.py"
+screen -S celery-worker -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info"
+screen -S celery-beat -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app beat --loglevel=info"
+screen -S frontend -d -m bash -c "cd $(pwd)/frontend && npm run dev"
+
+# View running sessions
+screen -ls
+
+# Attach to a session (e.g., to see logs)
+screen -r flask
+
+# Detach from screen: Press Ctrl+A then D
+```
+
 ## Quick Start (All Commands)
 
-Open **5 separate terminal windows**:
+Open **5 separate terminal windows** (or use screen/tmux):
 
 **Terminal 1 - Redis:**
 ```bash
+# Check if Redis is already running (common on Ubuntu VPS)
+redis-cli ping
+# If it returns "PONG", Redis is already running - skip to Terminal 2!
+
+# If Redis is not running, start it:
+# Ubuntu/Debian (service):
+sudo systemctl start redis-server
+# Or manually:
 redis-server
 ```
 
 **Terminal 2 - Flask Backend:**
 ```bash
+# Activate virtual environment first (REQUIRED for Python processes)
+source venv/bin/activate
 python app.py
 ```
 
 **Terminal 3 - Celery Worker:**
 ```bash
-# Windows
-python -m celery -A celery_app worker --pool=threads --concurrency=5 --loglevel=info
-
+# Activate virtual environment first (REQUIRED for Python processes)
+source venv/bin/activate
 # Linux/macOS
 python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
 ```
 
 **Terminal 4 - Celery Beat:**
 ```bash
+# Activate virtual environment first (REQUIRED for Python processes)
+source venv/bin/activate
 python -m celery -A celery_app beat --loglevel=info
 ```
 
 **Terminal 5 - React Frontend:**
 ```bash
+# NO virtual environment needed (this is Node.js, not Python)
 cd frontend
+# For localhost only:
 npm run dev
+# For VPS/external access:
+npm run dev -- --host 0.0.0.0
 ```
 
-**Note:** The worker uses parallel processing (5 threads on Windows, 4 processes on Linux/macOS) so you only need one worker terminal.
+**Important Notes:**
+- **Python processes** (Flask, Celery Worker, Celery Beat) **MUST** have the virtual environment activated
+- **Redis** and **npm** processes do **NOT** need the virtual environment
+- The worker uses parallel processing (5 threads on Windows, 4 processes on Linux/macOS) so you only need one worker terminal
+- On Ubuntu VPS, you can use `screen` or `tmux` to manage multiple terminal sessions
 
 ## Application Structure
 
@@ -187,9 +302,50 @@ Scraping durations are tracked and displayed in the Status section.
 
 ## Troubleshooting
 
+### Externally-Managed-Environment Error (Ubuntu/Linux)
+
+If you see an error like:
+```
+error: externally-managed-environment
+× This environment is externally managed
+```
+
+**Solution:** Create and use a virtual environment:
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it
+source venv/bin/activate
+
+# Now install dependencies
+pip install -r requirements.txt
+```
+
+**Important:** Always activate the virtual environment (`source venv/bin/activate`) before running any Python commands. The virtual environment must be activated in each terminal window where you run the application.
+
 ### Redis Connection Error
-- Make sure Redis is running: `redis-server`
-- Check Redis is accessible: `redis-cli ping` (should return "PONG")
+
+**If Redis is already running (common on Ubuntu VPS):**
+```bash
+# Check if Redis is accessible
+redis-cli ping
+# Should return: PONG
+```
+
+**If Redis is not running:**
+```bash
+# Ubuntu/Debian (if installed as service):
+sudo systemctl start redis-server
+
+# Or run manually:
+redis-server
+```
+
+**If you see "Address already in use" error:**
+- Redis is already running - you don't need to start it again!
+- Just verify it's working: `redis-cli ping` (should return "PONG")
 
 ### Celery Worker Not Starting
 - On Windows, make sure to use `--pool=solo`
