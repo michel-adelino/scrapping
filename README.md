@@ -154,7 +154,9 @@ python -m celery -A celery_app beat --loglevel=info
 python -m celery -A celery_app beat --loglevel=debug
 ```
 
-**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes). If Beat shows "Starting..." then nothing, see troubleshooting below.
+**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes). 
+- **On startup:** Beat will trigger the first task immediately, then continue every 30 minutes
+- If Beat shows "Starting..." then nothing, see troubleshooting below
 
 ### 5. Start React Frontend (Port 3000)
 
@@ -212,6 +214,13 @@ screen -r flask
 
 ## Quick Start (All Commands)
 
+**Recommended order:** Start processes in this order for best results:
+1. Redis (if not running as service)
+2. Flask Backend
+3. **Celery Worker** (start this before Beat)
+4. **Celery Beat** (start this after Worker)
+5. React Frontend
+
 Open **5 separate terminal windows** (or use screen/tmux):
 
 **Terminal 1 - Redis:**
@@ -234,7 +243,7 @@ source venv/bin/activate
 python app.py
 ```
 
-**Terminal 3 - Celery Worker:**
+**Terminal 3 - Celery Worker (Start this FIRST):**
 ```bash
 # Activate virtual environment first (REQUIRED for Python processes)
 source venv/bin/activate
@@ -242,12 +251,14 @@ source venv/bin/activate
 python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
 ```
 
-**Terminal 4 - Celery Beat:**
+**Terminal 4 - Celery Beat (Start this AFTER Worker):**
 ```bash
 # Activate virtual environment first (REQUIRED for Python processes)
 source venv/bin/activate
 python -m celery -A celery_app beat --loglevel=info
 ```
+
+**Note:** Start Worker before Beat so tasks are processed immediately. If you start Beat first, tasks will queue in Redis until Worker starts (which is fine, but Worker-first is cleaner).
 
 **Terminal 5 - React Frontend:**
 ```bash
@@ -403,18 +414,31 @@ python -m celery -A celery_app beat --loglevel=info
 # Delete all corrupted schedule files
 rm -f celerybeat-schedule*
 
+# If you get "Permission denied" error:
+# The file might be owned by a different user (e.g., root)
+sudo rm -f celerybeat-schedule*
+# Or fix ownership:
+sudo chown $USER:$USER celerybeat-schedule* 2>/dev/null || true
+
 # If you get "Resource temporarily unavailable" error, the file might be locked:
 # Wait a few seconds, or kill any running beat processes:
 pkill -f "celery.*beat"
+sleep 2
 
 # Then delete the files and restart
 rm -f celerybeat-schedule*
 python -m celery -A celery_app beat --loglevel=info
 ```
 
+**Or use the fix script:**
+```bash
+chmod +x fix_beat_schedule.sh
+./fix_beat_schedule.sh
+```
+
 Celery Beat will automatically create new, properly formatted schedule files on startup.
 
-**Note:** If you see the error but Beat still shows "Current schedule:" with your tasks listed, Beat is actually working! The error is just about cleaning up old files.
+**Note:** If you see permission errors but Beat still shows "Current schedule:" with your tasks listed, Beat is actually working! The error is just about saving schedule state to disk. Beat will still send tasks, but won't remember the last run time between restarts.
 
 ### Celery Beat Shows "Starting..." Then Nothing
 
@@ -450,23 +474,47 @@ If Celery Beat starts but doesn't show any schedule information:
 
 ### Celery Worker Shows "ready" But No Tasks Processing
 
-If the worker is ready but not processing tasks:
+**This is normal!** The worker is ready and waiting for tasks. Tasks will only appear when:
+- Beat sends scheduled tasks (every 30 minutes)
+- Tasks are triggered manually via Flask API
+- Tasks are sent programmatically
 
-1. **Check if tasks are being sent:**
-   - Look at Beat logs - it should show when tasks are scheduled
-   - Check Flask logs if you trigger tasks manually
+**To verify worker is working:**
 
-2. **Verify worker can see tasks:**
+1. **Test by manually triggering a task:**
+   ```bash
+   source venv/bin/activate
+   python test_worker.py
+   ```
+   Or manually:
+   ```bash
+   python -c "from celery_app import celery_app; from app import refresh_all_venues_task; result = refresh_all_venues_task.delay(); print(f'Task ID: {result.id}')"
+   ```
+   Then watch your worker terminal - you should see:
+   ```
+   [timestamp] Task app.refresh_all_venues_task[task-id] received
+   [timestamp] Task app.refresh_all_venues_task[task-id] started
+   ```
+
+2. **Check if Beat is sending tasks:**
+   - Look at Beat logs with `--loglevel=debug`
+   - You should see: `Scheduler: Sending due task refresh-all-venues`
+   - Beat sends tasks every 30 minutes, so if it just started, wait for the next scheduled time
+
+3. **Verify worker can see tasks:**
    ```bash
    source venv/bin/activate
    python -m celery -A celery_app inspect registered
    ```
    This should list all registered tasks.
 
-3. **Test a task manually:**
-   ```bash
-   source venv/bin/activate
-   python -c "from celery_app import celery_app; from app import refresh_all_venues_task; result = refresh_all_venues_task.delay(); print(f'Task ID: {result.id}')"
-   ```
-   Then check worker logs to see if it processes the task.
+**Why Windows shows tasks immediately:**
+- On Windows, tasks were likely already queued or triggered manually
+- On Ubuntu, Beat schedules tasks every 30 minutes - if Beat just started, you need to wait or trigger manually
+
+**No logs in worker after starting? This is normal!**
+- Worker is ready and waiting for tasks
+- Beat sends tasks every 30 minutes
+- To test immediately, run: `python test_worker.py`
+- See `VERIFY_WORKER.md` for detailed verification steps
 

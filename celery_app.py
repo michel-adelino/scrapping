@@ -53,7 +53,25 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     'refresh-all-venues': {
         'task': 'app.refresh_all_venues_task',
-        'schedule': 1800.0,  # Every 30 minutes - refresh 30 days of slots (split into smaller chunks)
+        'schedule': 1800.0,  # Every 30 minutes (1800 seconds)
+        # Note: This will wait 30 minutes before first run
+        # To trigger immediately on startup, we use the beat_init signal below
     },
 }
+
+# Trigger task immediately when Beat starts, then continue with scheduled frequency
+from celery.signals import beat_init
+
+@beat_init.connect
+def on_beat_init(sender=None, **kwargs):
+    """Trigger initial task immediately when Beat starts, then schedule continues every 30 minutes"""
+    try:
+        from app import refresh_all_venues_task
+        result = refresh_all_venues_task.delay()
+        print(f"[Beat Startup] ✓ Triggered initial refresh task immediately (ID: {result.id})")
+        print(f"[Beat Startup] Task will run now, then continue every 30 minutes as scheduled")
+    except Exception as e:
+        import warnings
+        warnings.warn(f"Could not trigger initial refresh on Beat startup: {e}")
+        # Don't fail Beat startup if we can't trigger the task
 
