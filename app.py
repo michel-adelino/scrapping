@@ -9,7 +9,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 import re
 import os
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 from celery import group, chord
 from celery.result import AsyncResult
 from sqlalchemy import inspect, text, or_
@@ -631,7 +631,7 @@ def adjust_picker(driver, value_selector, increment_selector, decrement_selector
 
 @celery_app.task(bind=True, name='app.scrape_swingers_task')
 def scrape_swingers_task(self, guests, target_date, task_id=None):
-    """Swingers scraper as Celery task"""
+    """Swingers scraper as Celery task - uses direct URL approach"""
     with app.app_context():
         try:
             # Update task status
@@ -642,99 +642,99 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                     task.progress = 'Starting to scrape Swingers availability...'
                     db.session.commit()
             
+            # Validate that target_date is provided
+            if not target_date:
+                raise ValueError("target_date is required for Swingers NYC scraper")
+            
+            # Parse the target date
+            dt = datetime.strptime(target_date, "%Y-%m-%d")
+            date_str = target_date
+            month = dt.month
+            year = dt.year
+            day = dt.strftime("%d")
+            month_abbr = dt.strftime("%b")
+            
+            # Construct the URL with query parameters
+            # Format: https://www.swingers.club/us/locations/nyc/book-now?guests=6&search%5Bmonth%5D=11&search%5Byear%5D=2025&depart=2025-11-30
+            query_params = {
+                'guests': str(guests),
+                'search[month]': str(month),
+                'search[year]': str(year),
+                'depart': date_str
+            }
+            url = f"https://www.swingers.club/us/locations/nyc/book-now?{urlencode(query_params)}"
+            
+            if task_id:
+                task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                if task:
+                    task.progress = f'Loading Swingers availability page for {date_str}...'
+                    task.current_venue = 'Swingers (NYC)'
+                    db.session.commit()
+            
             driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
-            driver.get(f"https://www.swingers.club/us/locations/nyc/book-now?guests={str(guests)}")
+            driver.get(url)
+            
+            # Wait for page to load and slots to appear
+            # Try to wait for slot buttons to be present (they may load via JavaScript)
+            try:
+                # Wait for any slot button to appear (indicating slots are loaded)
+                driver.wait_for_element('button[data-day][data-month]', timeout=10)
+            except:
+                # If wait fails, just sleep and continue
+                driver.sleep(5)
             
             slots_count = 0
             
-            while True:
-                soup = BeautifulSoup(driver.page_source, "html.parser")
-                dates = soup.find_all("li",{"class":"slot-calendar__dates-item","data-available":"true"})
+            if task_id:
+                task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                if task:
+                    task.progress = f'Processing Swingers slots for {date_str}'
+                    db.session.commit()
+            
+            # Parse the page and find available slots
+            # Using the same selector logic as the working script:
+            # slots = soup.find_all("button",{"data-day":day,"data-month":month})
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            slots = soup.find_all("button", {"data-day": day, "data-month": month_abbr})
+            
+            for slot in slots:
+                # Status
+                status_el = slot.select_one("div.slot-search-result__low-stock")
+                if status_el:
+                    status = status_el.get_text(strip=True)
+                else:
+                    status = "Available"
                 
-                if len(dates) == 0:
-                    break
-                    
-                for i in dates:
-                    date_str = i["data-date"]
-                    
-                    # If target_date is specified, only process that date
-                    if target_date and date_str != target_date:
-                        continue
-                    
-                    dt = datetime.strptime(date_str, "%Y-%m-%d")
-                    driver.get("https://www.swingers.club" + i.find("a")["href"])
-                    
-                    day = dt.strftime("%d")
-                    month = dt.strftime("%b")
-                    
-                    if task_id:
-                        task = ScrapingTask.query.filter_by(task_id=task_id).first()
-                        if task:
-                            task.progress = f'Processing Swingers slots for {date_str}'
-                            task.current_venue = 'Swingers (NYC)'
-                            db.session.commit()
-                    
-                    soup = BeautifulSoup(driver.page_source, "html.parser")
-                    slots = soup.find_all("button",{"data-day":day,"data-month":month})
-                    
-                    for slot in slots:
-                        # Status
-                        status_el = slot.select_one("div.slot-search-result__low-stock")
-                        if status_el:
-                            status = status_el.get_text(strip=True)
-                        else:
-                            status = "Available"
-                        
-                        # Time
-                        try:
-                            time = slot.find("span",{"class":"slot-search-result__time h5"}).get_text().strip()
-                        except:
-                            time = "None"
-                        
-                        # Price
-                        try:
-                            price = slot.find("span",{"class":"slot-search-result__price-label"}).get_text().strip()
-                        except:
-                            price = "None"
-                        
-                        # Save to database
-                        save_slot_to_db(
-                            venue_name='Swingers (NYC)',
-                            date_str=date_str,
-                            time=time,
-                            price=price,
-                            status=status,
-                            guests=guests,
-                            city='NYC',
-                            booking_url=driver.current_url
-                        )
-                        slots_count += 1
-                        
-                        if task_id:
-                            task = ScrapingTask.query.filter_by(task_id=task_id).first()
-                            if task:
-                                task.total_slots_found = slots_count
-                                db.session.commit()
-                    
-                    # If target_date is specified, break after processing it
-                    if target_date and date_str == target_date:
-                        break
-                
-                # If target_date is specified, don't click next
-                if target_date:
-                    break
-                    
-                driver.sleep(5)
-                
-                # Next button
+                # Time
                 try:
-                    a_element = driver.find_element(
-                        "xpath",
-                        "//div[contains(@class,'slot-calendar__current-month-container')]/following::a[1]"
-                    )
-                    a_element.click()
+                    time = slot.find("span", {"class": "slot-search-result__time h5"}).get_text().strip()
                 except:
-                    break
+                    time = "None"
+                
+                # Price
+                try:
+                    price = slot.find("span", {"class": "slot-search-result__price-label"}).get_text().strip()
+                except:
+                    price = "None"
+                
+                # Save to database
+                save_slot_to_db(
+                    venue_name='Swingers (NYC)',
+                    date_str=date_str,
+                    time=time,
+                    price=price,
+                    status=status,
+                    guests=guests,
+                    city='NYC',
+                    booking_url=driver.current_url
+                )
+                slots_count += 1
+                
+                if task_id:
+                    task = ScrapingTask.query.filter_by(task_id=task_id).first()
+                    if task:
+                        task.total_slots_found = slots_count
+                        db.session.commit()
             
             driver.quit()
             
