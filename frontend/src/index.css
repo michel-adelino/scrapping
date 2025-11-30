@@ -784,51 +784,29 @@ body {
   scrollbar-color: rgba(60, 91, 253, 0.3) transparent;
 }
 
-/* Date group within venue row - vertical stack of divider + slots */
+/* Date group within venue row - horizontal flow with divider at start */
 .venue-date-group {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  align-items: flex-start;
   min-width: fit-content;
 }
 
-/* Inline date divider within venue row */
-.date-divider-inline {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  margin-bottom: 4px;
-}
-
-.date-divider-line-inline {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, transparent, var(--border), transparent);
-  min-width: 15px;
-}
-
+/* Date divider text - inline with slots */
 .date-divider-text-inline {
   font-weight: 600;
   font-size: 11px;
   color: var(--primary);
   white-space: nowrap;
-  padding: 3px 10px;
+  padding: 4px 10px;
   background: var(--surface-alt);
   border: 1px solid var(--primary);
   border-radius: 12px;
   flex-shrink: 0;
-}
-
-/* Slots container for a specific date within venue row - horizontal flow */
-.venue-date-slots {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 .venue-slots::-webkit-scrollbar {

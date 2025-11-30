@@ -129,18 +129,12 @@ function VenueRows({ data }) {
             <div className="venue-slots">
               {dates.map(({ date, slots }, dateIdx) => (
                 <div key={`${venueName}-${date}`} className="venue-date-group">
-                  {/* Date Divider */}
-                  <div className="date-divider-inline">
-                    <div className="date-divider-line-inline"></div>
-                    <div className="date-divider-text-inline">{formatDate(date)}</div>
-                    <div className="date-divider-line-inline"></div>
-                  </div>
+                  {/* Date Divider - inline with slots */}
+                  <div className="date-divider-text-inline">{formatDate(date)}</div>
                   {/* Slots for this date */}
-                  <div className="venue-date-slots">
-                    {slots.map((item, idx) => (
-                      <SlotCard key={`${venueName}-${date}-${idx}`} item={item} />
-                    ))}
-                  </div>
+                  {slots.map((item, idx) => (
+                    <SlotCard key={`${venueName}-${date}-${idx}`} item={item} />
+                  ))}
                 </div>
               ))}
             </div>
