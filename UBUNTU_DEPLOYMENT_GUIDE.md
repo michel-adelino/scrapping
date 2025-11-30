@@ -42,47 +42,15 @@ python3 --version
 pip3 --version
 ```
 
-### 2.2 Install PostgreSQL (or SQLite if you prefer)
+### 2.2 SQLite Database (Default)
 
-**Option A: PostgreSQL (Recommended for Production)**
-```bash
-sudo apt install -y postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-```
+**SQLite is used by default** - no installation needed! SQLite comes pre-installed with Python.
 
-Create database and user:
-```bash
-sudo -u postgres psql
-```
+The database file will be automatically created at:
+- **Production**: `/opt/scrapping/availability.db`
+- **Development**: `./availability.db` (in project root)
 
-In PostgreSQL prompt:
-```sql
-CREATE DATABASE scrapping_db;
-CREATE USER scrapping_user WITH PASSWORD 'scrapping_pwd';
-GRANT ALL PRIVILEGES ON DATABASE scrapping_db TO scrapping_user;
-\q
-```
-
-**Important for PostgreSQL 15+:** Grant schema permissions (required for creating tables):
-```bash
-sudo -u postgres psql -d scrapping_db
-```
-
-In PostgreSQL prompt:
-```sql
-GRANT USAGE ON SCHEMA public TO scrapping_user;
-GRANT CREATE ON SCHEMA public TO scrapping_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO scrapping_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO scrapping_user;
-\q
-```
-
-**Option B: SQLite (Simpler, for testing)**
-```bash
-# SQLite comes pre-installed with Python
-# No additional setup needed
-```
+No additional setup is required. The database will be created automatically when Flask starts.
 
 ---
 
@@ -293,11 +261,10 @@ FLASK_ENV=production
 FLASK_HOST=0.0.0.0
 FLASK_PORT=8010
 
-# Database Configuration (PostgreSQL)
-DATABASE_URL=postgresql://scrapping_user:your_secure_password@localhost:5432/scrapping_db
-
-# Or for SQLite:
-# DATABASE_URL=sqlite:///scrapping.db
+# Database Configuration (SQLite - Default)
+# Database file will be created at: /opt/scrapping/availability.db
+# Leave DATABASE_URL unset to use default SQLite database
+# Or set it explicitly: DATABASE_URL=sqlite:////opt/scrapping/availability.db
 
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
@@ -348,7 +315,7 @@ Add:
 ```ini
 [Unit]
 Description=Scrapping Flask Application
-After=network.target postgresql.service redis-server.service
+After=network.target redis-server.service
 
 [Service]
 Type=simple
@@ -734,9 +701,10 @@ which chromium-browser
 - Test: `redis-cli ping`
 
 **Issue: Database connection error**
-- Verify PostgreSQL is running: `sudo systemctl status postgresql`
-- Check credentials in `.env` file
-- Test connection: `psql -U scrapping_user -d scrapping_db`
+- Check if database file exists: `ls -lh /opt/scrapping/availability.db`
+- Verify Flask service is running: `sudo systemctl status scrapping-flask`
+- Check Flask logs for database errors: `sudo journalctl -u scrapping-flask -n 50`
+- Test database: `sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots;"`
 
 ---
 
@@ -769,7 +737,7 @@ sudo systemctl stop scrapping-frontend
 - [ ] Configure firewall (UFW)
 - [ ] Set up SSL/HTTPS (Let's Encrypt)
 - [ ] Use environment variables for secrets
-- [ ] Restrict database access (PostgreSQL)
+- [ ] Backup SQLite database regularly
 - [ ] Keep system and packages updated
 - [ ] Set up regular backups
 - [ ] Monitor logs regularly
@@ -782,11 +750,11 @@ sudo systemctl stop scrapping-frontend
 ### Database Backup
 
 ```bash
-# PostgreSQL
-sudo -u postgres pg_dump scrapping_db > backup_$(date +%Y%m%d).sql
+# SQLite - Simple file copy
+cp /opt/scrapping/availability.db /opt/scrapping/availability_backup_$(date +%Y%m%d).db
 
-# SQLite
-cp /opt/scrapping/scrapping.db /opt/scrapping/backups/scrapping_$(date +%Y%m%d).db
+# Or use sqlite3 backup command
+sqlite3 /opt/scrapping/availability.db ".backup /opt/scrapping/availability_backup_$(date +%Y%m%d).db"
 ```
 
 ### Application Backup

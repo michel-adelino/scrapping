@@ -4272,6 +4272,7 @@ def get_data():
         
         if city:
             # Normalize city values for case-insensitive matching
+            # SQLAlchemy's ilike() works with both PostgreSQL and SQLite
             city_normalized = city.strip()
             # Handle variations: "New York" -> "NYC", "NY" -> "NYC"
             if city_normalized.upper() in ['NEW YORK', 'NY', 'NYC']:

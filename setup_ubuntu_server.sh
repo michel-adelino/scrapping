@@ -38,26 +38,9 @@ sudo apt install -y python3 python3-pip python3-venv
 python3 --version
 pip3 --version
 
-echo -e "${GREEN}Step 4: Installing PostgreSQL...${NC}"
-sudo apt install -y postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-echo -e "${YELLOW}Creating PostgreSQL database and user...${NC}"
-echo "Please enter a password for the database user 'scrapping_user':"
-read -s DB_PASSWORD
-sudo -u postgres psql -c "CREATE DATABASE scrapping_db;" || echo "Database may already exist"
-sudo -u postgres psql -c "CREATE USER scrapping_user WITH PASSWORD '$DB_PASSWORD';" || echo "User may already exist"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE scrapping_db TO scrapping_user;"
-
-# Grant schema permissions (required for PostgreSQL 15+)
-echo -e "${YELLOW}Granting schema permissions...${NC}"
-sudo -u postgres psql -d scrapping_db << EOF
-GRANT USAGE ON SCHEMA public TO scrapping_user;
-GRANT CREATE ON SCHEMA public TO scrapping_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO scrapping_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO scrapping_user;
-EOF
+echo -e "${GREEN}Step 4: SQLite Database${NC}"
+echo -e "${YELLOW}Using SQLite database (no installation needed)${NC}"
+echo "Database file will be created at: $APP_DIR/availability.db"
 
 echo -e "${GREEN}Step 5: Installing Redis...${NC}"
 sudo apt install -y redis-server
@@ -137,8 +120,10 @@ FLASK_ENV=production
 FLASK_HOST=0.0.0.0
 FLASK_PORT=8010
 
-# Database Configuration
-DATABASE_URL=postgresql://scrapping_user:$DB_PASSWORD@localhost:5432/scrapping_db
+# Database Configuration (SQLite)
+# Database file will be created at: $APP_DIR/availability.db
+# Leave DATABASE_URL unset to use default SQLite database
+# Or set it explicitly: DATABASE_URL=sqlite:///$APP_DIR/availability.db
 
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
@@ -162,7 +147,7 @@ echo -e "${GREEN}Step 14: Creating systemd service files...${NC}"
 sudo tee /etc/systemd/system/scrapping-flask.service > /dev/null << EOF
 [Unit]
 Description=Scrapping Flask Application
-After=network.target postgresql.service redis-server.service
+After=network.target redis-server.service
 
 [Service]
 Type=simple

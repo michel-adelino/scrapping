@@ -169,16 +169,60 @@ chromium-browser --version
 which chromium-browser
 ```
 
-## Database Backup
+## Database Access (SQLite)
 
-### PostgreSQL
+### Connect to Database
 ```bash
-sudo -u postgres pg_dump scrapping_db > backup_$(date +%Y%m%d).sql
+# Navigate to project directory
+cd /opt/scrapping
+
+# Connect to SQLite database
+sqlite3 availability.db
+```
+
+### Quick Database Checks (from command line)
+```bash
+# Count total slots
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots;"
+
+# Count by city
+sqlite3 /opt/scrapping/availability.db "SELECT city, COUNT(*) FROM availability_slots GROUP BY city;"
+
+# View latest 10 slots
+sqlite3 /opt/scrapping/availability.db "SELECT venue_name, city, date, time, status FROM availability_slots ORDER BY last_updated DESC LIMIT 10;"
+```
+
+### Useful SQL Queries (inside sqlite3)
+```sql
+-- Count all slots
+SELECT COUNT(*) FROM availability_slots;
+
+-- View slots by city
+SELECT city, COUNT(*) FROM availability_slots GROUP BY city;
+
+-- View recent slots
+SELECT venue_name, city, date, time, status FROM availability_slots ORDER BY last_updated DESC LIMIT 20;
+
+-- View available slots
+SELECT venue_name, date, time, price FROM availability_slots WHERE UPPER(status) LIKE '%AVAILABLE%' ORDER BY date, time LIMIT 50;
+```
+
+**See `DATABASE_CHECK_GUIDE.md` for comprehensive database queries.**
+
+## Database Backup (SQLite)
+
+### Backup
+```bash
+# Simple file copy
+cp /opt/scrapping/availability.db /opt/scrapping/availability_backup_$(date +%Y%m%d).db
+
+# Or use sqlite3 backup command
+sqlite3 /opt/scrapping/availability.db ".backup /opt/scrapping/availability_backup_$(date +%Y%m%d).db"
 ```
 
 ### Restore
 ```bash
-sudo -u postgres psql scrapping_db < backup_YYYYMMDD.sql
+cp /opt/scrapping/availability_backup_YYYYMMDD.db /opt/scrapping/availability.db
 ```
 
 ## Firewall
