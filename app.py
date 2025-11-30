@@ -4267,6 +4267,9 @@ def get_data():
         guests = request.args.get('guests')  # Add guests filter
         search_term = request.args.get('search', '').lower()
         
+        # Debug logging
+        print(f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}")
+        
         # Build query
         query = AvailabilitySlot.query
         
@@ -4314,6 +4317,11 @@ def get_data():
             AvailabilitySlot.time
         ).all()
         
+        # Debug logging
+        print(f"[API DEBUG] Query returned {len(slots)} slots")
+        if len(slots) > 0:
+            print(f"[API DEBUG] First slot: {slots[0].venue_name}, {slots[0].city}, {slots[0].date}, guests={slots[0].guests}")
+        
         # Convert to dict and filter by search term if provided
         data = []
         for slot in slots:
@@ -4339,12 +4347,15 @@ def get_data():
                    search_term in str(item.get('status', '')).lower()
             ]
         
+        print(f"[API DEBUG] Returning {len(data)} items")
         return jsonify({
             'data': data,
             'total_count': len(data)
         })
     except Exception as e:
         import traceback
+        print(f"[API ERROR] Exception in get_data: {e}")
+        traceback.print_exc()
         error_trace = traceback.format_exc()
         print(f"Error in get_data: {e}")
         print(error_trace)
