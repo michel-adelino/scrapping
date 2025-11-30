@@ -86,12 +86,30 @@ function SearchPanel({ onSearch, onClear }) {
 
   const handleSearch = (e) => {
     e?.preventDefault()
-    const filters = getDefaultDateFilters()
+    const filters = {}
     
-    // Add date filter if specified
-    if (targetDate && targetDateEnabled) {
-      filters.date_from = targetDate
-      filters.date_to = targetDate
+    // For "All New York" and "All London", don't apply date filters by default
+    // User can still specify a date if they want
+    const isMultiVenue = website === 'all_new_york' || website === 'all_london'
+    
+    if (isMultiVenue) {
+      // For multi-venue searches, only apply date filter if user explicitly selects a date
+      if (targetDate && targetDateEnabled) {
+        filters.date_from = targetDate
+        filters.date_to = targetDate
+      }
+      // Otherwise, no date filter - show all available slots
+    } else {
+      // For single venue searches, use default date range (today/tomorrow)
+      const defaultFilters = getDefaultDateFilters()
+      filters.date_from = defaultFilters.date_from
+      filters.date_to = defaultFilters.date_to
+      
+      // Override with user-selected date if specified
+      if (targetDate && targetDateEnabled) {
+        filters.date_from = targetDate
+        filters.date_to = targetDate
+      }
     }
 
     // Add venue/city filter
@@ -112,7 +130,6 @@ function SearchPanel({ onSearch, onClear }) {
     // Add guests filter
     filters.guests = guests
 
-    const isMultiVenue = website === 'all_new_york' || website === 'all_london'
     onSearch(filters, guests, isMultiVenue)
   }
 
