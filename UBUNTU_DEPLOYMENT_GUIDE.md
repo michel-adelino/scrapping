@@ -192,10 +192,16 @@ google-chrome --version
 
 ## Step 5: Install Node.js and npm
 
-### 5.1 Install Node.js 18+ (using NodeSource)
+### 5.1 Install Node.js 20 LTS (using NodeSource)
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Alternative: Install Node.js 22 LTS (if you prefer the latest LTS)**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 

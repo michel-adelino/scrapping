@@ -83,8 +83,8 @@ else
     sudo apt install -y libatk-bridge2.0-0 libasound2 || true
 fi
 
-echo -e "${GREEN}Step 7: Installing Node.js...${NC}"
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+echo -e "${GREEN}Step 7: Installing Node.js 20 LTS...${NC}"
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 node --version
 npm --version

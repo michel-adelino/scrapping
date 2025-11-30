@@ -13,7 +13,7 @@ A web application that scrapes restaurant and venue availability data from multi
 ## Prerequisites
 
 - Python 3.8+
-- Node.js 16+ and npm
+- Node.js 20+ LTS and npm (or Node.js 22 LTS)
 - Redis server (required for Celery)
 
 ### Installing Redis
