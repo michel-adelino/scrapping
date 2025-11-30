@@ -4271,25 +4271,18 @@ def get_data():
         query = AvailabilitySlot.query
         
         if city:
-            # Normalize city values for case-insensitive matching
-            # SQLAlchemy's ilike() works with both PostgreSQL and SQLite
+            # Normalize city values - handle variations
             city_normalized = city.strip()
             # Handle variations: "New York" -> "NYC", "NY" -> "NYC"
             if city_normalized.upper() in ['NEW YORK', 'NY', 'NYC']:
-                # Use case-insensitive filter for NYC variations
-                query = query.filter(
-                    or_(
-                        AvailabilitySlot.city.ilike('NYC'),
-                        AvailabilitySlot.city.ilike('New York'),
-                        AvailabilitySlot.city.ilike('NY')
-                    )
-                )
-            elif city_normalized.lower() == 'london':
-                # Use case-insensitive filter for London
-                query = query.filter(AvailabilitySlot.city.ilike('London'))
+                # For SQLite, match exact "NYC" value (data is stored as "NYC")
+                query = query.filter(AvailabilitySlot.city == 'NYC')
+            elif city_normalized.upper() == 'LONDON':
+                # Match exact "London" value (data is stored as "London")
+                query = query.filter(AvailabilitySlot.city == 'London')
             else:
-                # Default case-insensitive match
-                query = query.filter(AvailabilitySlot.city.ilike(city_normalized))
+                # Default: exact match (case-sensitive for SQLite)
+                query = query.filter(AvailabilitySlot.city == city_normalized)
         if venue_name:
             query = query.filter(AvailabilitySlot.venue_name == venue_name)
         if date_from:
