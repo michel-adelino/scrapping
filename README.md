@@ -177,6 +177,32 @@ This allows access from external IP addresses (e.g., `http://YOUR_VPS_IP:3000`)
 
 ## Quick Start for Ubuntu VPS
 
+### 🚀 Production Deployment (Recommended)
+
+For running the application **always on Ubuntu server**, see the comprehensive guide:
+
+- **[UBUNTU_DEPLOYMENT_GUIDE.md](UBUNTU_DEPLOYMENT_GUIDE.md)** - Complete step-by-step guide with systemd services
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick command reference
+- **[setup_ubuntu_server.sh](setup_ubuntu_server.sh)** - Automated setup script
+
+The production setup uses **systemd services** which:
+- ✅ Start automatically on server boot
+- ✅ Restart automatically if services crash
+- ✅ Provide better logging and monitoring
+- ✅ Are more reliable than screen/tmux
+
+### Quick Setup with Automated Script
+
+```bash
+# 1. Upload your project to the server
+# 2. Run the setup script
+bash setup_ubuntu_server.sh
+```
+
+### Manual Setup with screen/tmux (Alternative)
+
+If you prefer manual management with screen/tmux:
+
 After setting up the virtual environment, you need to run **5 processes**. Here's what needs the virtual environment:
 
 ✅ **Need Virtual Environment (Python processes):**
@@ -188,10 +214,6 @@ After setting up the virtual environment, you need to run **5 processes**. Here'
 - Redis (system service)
 - React Frontend (Node.js/npm)
 
-### Using screen or tmux (Recommended for VPS)
-
-Since you're on a VPS, you can use `screen` or `tmux` to manage multiple sessions:
-
 ```bash
 # Install screen (if not installed)
 sudo apt install screen
@@ -201,7 +223,7 @@ screen -S redis -d -m redis-server
 screen -S flask -d -m bash -c "cd $(pwd) && source venv/bin/activate && python app.py"
 screen -S celery-worker -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info"
 screen -S celery-beat -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app beat --loglevel=info"
-screen -S frontend -d -m bash -c "cd $(pwd)/frontend && npm run dev"
+screen -S frontend -d -m bash -c "cd $(pwd)/frontend && npm run dev -- --host 0.0.0.0"
 
 # View running sessions
 screen -ls
