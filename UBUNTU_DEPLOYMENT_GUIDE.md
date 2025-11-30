@@ -130,6 +130,7 @@ sudo apt install -y ./google-chrome-stable_current_amd64.deb
 
 ### 4.2 Install Additional Dependencies for Headless Chrome
 
+**For Ubuntu 22.04 and earlier:**
 ```bash
 sudo apt install -y \
     libnss3 \
@@ -142,6 +143,41 @@ sudo apt install -y \
     libxrandr2 \
     libgbm1 \
     libasound2
+```
+
+**For Ubuntu 24.04 and later:**
+```bash
+sudo apt install -y \
+    libnss3 \
+    libatk-bridge2.0-0t64 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2t64
+```
+
+**Or use this command that works for both versions:**
+```bash
+sudo apt install -y \
+    libnss3 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1
+
+# Handle package name differences between Ubuntu versions
+if apt-cache show libatk-bridge2.0-0t64 > /dev/null 2>&1; then
+    sudo apt install -y libatk-bridge2.0-0t64 libasound2t64
+else
+    sudo apt install -y libatk-bridge2.0-0 libasound2
+fi
 ```
 
 ### 4.3 Verify Chrome Installation

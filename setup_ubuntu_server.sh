@@ -58,17 +58,30 @@ redis-cli ping
 
 echo -e "${GREEN}Step 6: Installing Chromium and dependencies...${NC}"
 sudo apt install -y chromium-browser chromium-chromedriver
+
+# Install Chrome dependencies (handle different Ubuntu versions)
+echo -e "${YELLOW}Installing Chrome dependencies...${NC}"
+# Try to install packages, handling Ubuntu 24.04+ package name changes
 sudo apt install -y \
     libnss3 \
-    libatk-bridge2.0-0 \
     libdrm2 \
     libxkbcommon0 \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
     libxrandr2 \
-    libgbm1 \
-    libasound2
+    libgbm1 || true
+
+# Handle package name differences between Ubuntu versions
+# Ubuntu 24.04+ uses libatk-bridge2.0-0t64 and libasound2t64
+# Older versions use libatk-bridge2.0-0 and libasound2
+if apt-cache show libatk-bridge2.0-0t64 > /dev/null 2>&1; then
+    echo "Installing Ubuntu 24.04+ packages..."
+    sudo apt install -y libatk-bridge2.0-0t64 libasound2t64 || true
+else
+    echo "Installing older Ubuntu version packages..."
+    sudo apt install -y libatk-bridge2.0-0 libasound2 || true
+fi
 
 echo -e "${GREEN}Step 7: Installing Node.js...${NC}"
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
