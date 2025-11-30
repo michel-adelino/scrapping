@@ -4030,8 +4030,21 @@ def health_check():
 def test_query():
     """Test endpoint to debug query issues"""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get database info
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'unknown')
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        db_file = os.path.join(basedir, "availability.db")
+        db_exists = os.path.exists(db_file)
+        db_size = os.path.getsize(db_file) if db_exists else 0
+        
         city = request.args.get('city', 'NYC')
         guests = request.args.get('guests', '6')
+        
+        # Count total
+        total_all = AvailabilitySlot.query.count()
         
         # Test direct query
         query1 = AvailabilitySlot.query.filter(
@@ -4041,6 +4054,10 @@ def test_query():
         count1 = query1.count()
         slots = query1.limit(5).all()
         
+        # Test without guests filter
+        query2 = AvailabilitySlot.query.filter(AvailabilitySlot.city == city)
+        count2 = query2.count()
+        
         data = []
         for slot in slots:
             try:
@@ -4049,9 +4066,17 @@ def test_query():
                 data.append({'error': str(e), 'slot_id': slot.id})
         
         return jsonify({
+            'database_info': {
+                'uri': db_uri,
+                'file_path': db_file,
+                'file_exists': db_exists,
+                'file_size_bytes': db_size
+            },
             'city': city,
             'guests': guests,
-            'total_count': count1,
+            'total_slots_in_db': total_all,
+            'nyc_total': count2,
+            'nyc_with_guests_6': count1,
             'sample_slots': data
         })
     except Exception as e:
@@ -4303,6 +4328,19 @@ def get_data():
         # Debug logging - use both print and logger
         import logging
         logger = logging.getLogger(__name__)
+        
+        # Log database info
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'unknown')
+        debug_db = f"[API DEBUG] Database URI: {db_uri}"
+        print(debug_db, flush=True)
+        logger.info(debug_db)
+        
+        # Count total slots before filtering
+        total_before = AvailabilitySlot.query.count()
+        debug_total = f"[API DEBUG] Total slots in database before filter: {total_before}"
+        print(debug_total, flush=True)
+        logger.info(debug_total)
+        
         debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}"
         print(debug_msg, flush=True)
         logger.info(debug_msg)
@@ -4317,12 +4355,28 @@ def get_data():
             if city_normalized.upper() in ['NEW YORK', 'NY', 'NYC']:
                 # For SQLite, match exact "NYC" value (data is stored as "NYC")
                 query = query.filter(AvailabilitySlot.city == 'NYC')
+                debug_city = f"[API DEBUG] Filtering by city='NYC'"
+                print(debug_city, flush=True)
+                logger.info(debug_city)
             elif city_normalized.upper() == 'LONDON':
                 # Match exact "London" value (data is stored as "London")
                 query = query.filter(AvailabilitySlot.city == 'London')
+                debug_city = f"[API DEBUG] Filtering by city='London'"
+                print(debug_city, flush=True)
+                logger.info(debug_city)
             else:
                 # Default: exact match (case-sensitive for SQLite)
                 query = query.filter(AvailabilitySlot.city == city_normalized)
+                debug_city = f"[API DEBUG] Filtering by city='{city_normalized}'"
+                print(debug_city, flush=True)
+                logger.info(debug_city)
+        
+        # Debug: Count after city filter
+        if city:
+            count_after_city = query.count()
+            debug_count = f"[API DEBUG] Slots after city filter: {count_after_city}"
+            print(debug_count, flush=True)
+            logger.info(debug_count)
         if venue_name:
             query = query.filter(AvailabilitySlot.venue_name == venue_name)
         if date_from:
@@ -4341,6 +4395,14 @@ def get_data():
             try:
                 guests_int = int(guests)
                 query = query.filter(AvailabilitySlot.guests == guests_int)
+                debug_guests = f"[API DEBUG] Filtering by guests={guests_int}"
+                print(debug_guests, flush=True)
+                logger.info(debug_guests)
+                # Debug: Count after guests filter
+                count_after_guests = query.count()
+                debug_count_guests = f"[API DEBUG] Slots after guests filter: {count_after_guests}"
+                print(debug_count_guests, flush=True)
+                logger.info(debug_count_guests)
             except ValueError:
                 pass  # Ignore invalid guest count
         if status_filter:
