@@ -110,6 +110,10 @@ echo -e "${GREEN}Step 11: Setting up frontend dependencies...${NC}"
 cd $APP_DIR/frontend
 npm install
 
+echo -e "${GREEN}Building frontend for production...${NC}"
+npm run build
+echo -e "${GREEN}Frontend built successfully!${NC}"
+
 echo -e "${GREEN}Step 12: Creating .env file...${NC}"
 cd $APP_DIR
 if [ ! -f ".env" ]; then
@@ -203,32 +207,53 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# Frontend service
-sudo tee /etc/systemd/system/scrapping-frontend.service > /dev/null << EOF
-[Unit]
-Description=Scrapping Frontend (Vite)
-After=network.target
-
-[Service]
-Type=simple
-User=$APP_USER
-Group=$APP_USER
-WorkingDirectory=$APP_DIR/frontend
-Environment="PATH=/usr/bin:/usr/local/bin"
-ExecStart=/usr/bin/npm run dev -- --host 0.0.0.0
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Note: Frontend is served via Nginx (static files), not as a systemd service
+# The frontend is built and served from $APP_DIR/frontend/dist
 
 echo -e "${GREEN}Step 15: Enabling and starting services...${NC}"
 sudo systemctl daemon-reload
 sudo systemctl enable scrapping-flask.service
 sudo systemctl enable scrapping-celery-worker.service
 sudo systemctl enable scrapping-celery-beat.service
-sudo systemctl enable scrapping-frontend.service
+
+# Install and configure Nginx for frontend
+echo -e "${GREEN}Step 15: Installing and configuring Nginx...${NC}"
+sudo apt install -y nginx
+
+# Create Nginx configuration for frontend
+sudo tee /etc/nginx/sites-available/scrapping-frontend > /dev/null << EOF
+server {
+    listen 3000;
+    server_name _;
+
+    root $APP_DIR/frontend/dist;
+    index index.html;
+
+    # Serve static files
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # Proxy API requests to Flask backend
+    location /api {
+        proxy_pass http://127.0.0.1:8010;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+# Enable site
+sudo ln -sf /etc/nginx/sites-available/scrapping-frontend /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+
+# Test and start Nginx
+sudo nginx -t
+sudo systemctl enable nginx
+sudo systemctl start nginx
 
 echo -e "${GREEN}Step 16: Configuring firewall...${NC}"
 sudo apt install -y ufw
@@ -242,7 +267,6 @@ echo -e "${GREEN}Step 17: Starting services...${NC}"
 sudo systemctl start scrapping-flask.service
 sudo systemctl start scrapping-celery-worker.service
 sudo systemctl start scrapping-celery-beat.service
-sudo systemctl start scrapping-frontend.service
 
 echo ""
 echo -e "${GREEN}=========================================="
@@ -253,7 +277,7 @@ echo "Check service status:"
 echo "  sudo systemctl status scrapping-flask"
 echo "  sudo systemctl status scrapping-celery-worker"
 echo "  sudo systemctl status scrapping-celery-beat"
-echo "  sudo systemctl status scrapping-frontend"
+echo "  sudo systemctl status nginx"
 echo ""
 echo "View logs:"
 echo "  sudo journalctl -u scrapping-flask -f"
