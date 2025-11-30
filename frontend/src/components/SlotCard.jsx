@@ -46,7 +46,6 @@ function SlotCard({ item }) {
       }}
     >
       <div className="slot-time">{item.time || '-'}</div>
-      <div className="slot-date">{formatDate(item.date)}</div>
       <div className="slot-price">{item.price || '-'}</div>
       <div className={`slot-status ${getStatusClass(item.status)}`}>
         {item.status || '-'}
