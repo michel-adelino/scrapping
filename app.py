@@ -4409,11 +4409,11 @@ def get_data():
             query = query.filter(AvailabilitySlot.status.ilike(f'%{status_filter}%'))
         
         # Get all results - when city filter is applied, returns ALL venues in that city
-        # Order by venue name first, then date and time, so all venues are clearly visible
+        # Order by date first (newest first), then time, then venue name for consistent date alignment
         slots = query.order_by(
-            AvailabilitySlot.venue_name,
             AvailabilitySlot.date.desc(), 
-            AvailabilitySlot.time
+            AvailabilitySlot.time,
+            AvailabilitySlot.venue_name
         ).all()
         
         # Debug logging
