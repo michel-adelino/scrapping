@@ -774,12 +774,61 @@ body {
 .venue-slots {
   flex: 1;
   display: flex;
-  gap: 12px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(60, 91, 253, 0.3) transparent;
+}
+
+/* Date group within venue row - vertical stack of divider + slots */
+.venue-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: flex-start;
+  min-width: fit-content;
+}
+
+/* Inline date divider within venue row */
+.date-divider-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.date-divider-line-inline {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border), transparent);
+  min-width: 15px;
+}
+
+.date-divider-text-inline {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--primary);
+  white-space: nowrap;
+  padding: 3px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+/* Slots container for a specific date within venue row - horizontal flow */
+.venue-date-slots {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .venue-slots::-webkit-scrollbar {

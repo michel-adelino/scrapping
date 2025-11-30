@@ -62,31 +62,31 @@ function DataSection({ data, searchTerm, onSearchChange, isMultiVenueMode, autoR
 }
 
 function VenueRows({ data }) {
-  const groupedByDateAndVenue = useMemo(() => {
-    // Group by date first, then by venue
+  const groupedByVenue = useMemo(() => {
+    // Group by venue first, then by date
     const grouped = {}
     data.forEach(item => {
-      const date = item.date || 'Unknown Date'
       const venueName = item.venue_name || item.website || 'Unknown Venue'
+      const date = item.date || 'Unknown Date'
       
-      if (!grouped[date]) {
-        grouped[date] = {}
+      if (!grouped[venueName]) {
+        grouped[venueName] = {}
       }
-      if (!grouped[date][venueName]) {
-        grouped[date][venueName] = []
+      if (!grouped[venueName][date]) {
+        grouped[venueName][date] = []
       }
-      grouped[date][venueName].push(item)
+      grouped[venueName][date].push(item)
     })
     
-    // Convert to array format: [{ date, venues: [{ venueName, slots: [] }] }]
+    // Convert to array format: [{ venueName, dates: [{ date, slots: [] }] }]
     return Object.entries(grouped)
-      .sort((a, b) => new Date(b[0]) - new Date(a[0])) // Sort dates descending (newest first)
-      .map(([date, venues]) => ({
-        date,
-        venues: Object.entries(venues)
-          .sort((a, b) => a[0].localeCompare(b[0])) // Sort venues alphabetically
-          .map(([venueName, slots]) => ({
-            venueName,
+      .sort((a, b) => a[0].localeCompare(b[0])) // Sort venues alphabetically
+      .map(([venueName, dates]) => ({
+        venueName,
+        dates: Object.entries(dates)
+          .sort((a, b) => new Date(b[0]) - new Date(a[0])) // Sort dates descending (newest first)
+          .map(([date, slots]) => ({
+            date,
             slots: slots.sort((a, b) => (a.time || '').localeCompare(b.time || '')) // Sort slots by time
           }))
       }))
@@ -112,33 +112,41 @@ function VenueRows({ data }) {
     }
   }
 
+  const getTotalSlots = (dates) => {
+    return dates.reduce((sum, dateGroup) => sum + dateGroup.slots.length, 0)
+  }
+
   return (
     <div className="venue-rows-container">
-      {groupedByDateAndVenue.map((dateGroup, dateIdx) => (
-        <div key={dateGroup.date} className="date-group">
-          {/* Date Divider */}
-          <div className="date-divider">
-            <div className="date-divider-line"></div>
-            <div className="date-divider-text">{formatDate(dateGroup.date)}</div>
-            <div className="date-divider-line"></div>
-          </div>
-          
-          {/* Venues for this date */}
-          {dateGroup.venues.map(({ venueName, slots }) => (
-            <div key={`${dateGroup.date}-${venueName}`} className="venue-row">
-              <div className="venue-header">
-                <span className="venue-name">{venueName}</span>
-                <span className="venue-slot-count">({slots.length} slot{slots.length !== 1 ? 's' : ''})</span>
-              </div>
-              <div className="venue-slots">
-                {slots.map((item, idx) => (
-                  <SlotCard key={`${dateGroup.date}-${venueName}-${idx}`} item={item} />
-                ))}
-              </div>
+      {groupedByVenue.map(({ venueName, dates }) => {
+        const totalSlots = getTotalSlots(dates)
+        return (
+          <div key={venueName} className="venue-row">
+            <div className="venue-header">
+              <span className="venue-name">{venueName}</span>
+              <span className="venue-slot-count">({totalSlots} slot{totalSlots !== 1 ? 's' : ''})</span>
             </div>
-          ))}
-        </div>
-      ))}
+            <div className="venue-slots">
+              {dates.map(({ date, slots }, dateIdx) => (
+                <div key={`${venueName}-${date}`} className="venue-date-group">
+                  {/* Date Divider */}
+                  <div className="date-divider-inline">
+                    <div className="date-divider-line-inline"></div>
+                    <div className="date-divider-text-inline">{formatDate(date)}</div>
+                    <div className="date-divider-line-inline"></div>
+                  </div>
+                  {/* Slots for this date */}
+                  <div className="venue-date-slots">
+                    {slots.map((item, idx) => (
+                      <SlotCard key={`${venueName}-${date}-${idx}`} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
