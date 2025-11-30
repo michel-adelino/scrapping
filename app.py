@@ -4026,6 +4026,39 @@ def health_check():
         }), 500
 
 # API routes - prefix with /api for React frontend (also support direct routes)
+@app.route('/api/test_query')
+def test_query():
+    """Test endpoint to debug query issues"""
+    try:
+        city = request.args.get('city', 'NYC')
+        guests = request.args.get('guests', '6')
+        
+        # Test direct query
+        query1 = AvailabilitySlot.query.filter(
+            AvailabilitySlot.city == city,
+            AvailabilitySlot.guests == int(guests)
+        )
+        count1 = query1.count()
+        slots = query1.limit(5).all()
+        
+        data = []
+        for slot in slots:
+            try:
+                data.append(slot.to_dict())
+            except Exception as e:
+                data.append({'error': str(e), 'slot_id': slot.id})
+        
+        return jsonify({
+            'city': city,
+            'guests': guests,
+            'total_count': count1,
+            'sample_slots': data
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 @app.route('/api/clear_data', methods=['POST'])
 @app.route('/clear_data', methods=['POST'])  # Also support direct route
 def api_clear_data():
@@ -4267,8 +4300,12 @@ def get_data():
         guests = request.args.get('guests')  # Add guests filter
         search_term = request.args.get('search', '').lower()
         
-        # Debug logging
-        print(f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}")
+        # Debug logging - use both print and logger
+        import logging
+        logger = logging.getLogger(__name__)
+        debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}"
+        print(debug_msg, flush=True)
+        logger.info(debug_msg)
         
         # Build query
         query = AvailabilitySlot.query
@@ -4318,24 +4355,36 @@ def get_data():
         ).all()
         
         # Debug logging
-        print(f"[API DEBUG] Query returned {len(slots)} slots")
+        debug_msg = f"[API DEBUG] Query returned {len(slots)} slots"
+        print(debug_msg, flush=True)
+        logger.info(debug_msg)
         if len(slots) > 0:
-            print(f"[API DEBUG] First slot: {slots[0].venue_name}, {slots[0].city}, {slots[0].date}, guests={slots[0].guests}")
+            first_slot_msg = f"[API DEBUG] First slot: {slots[0].venue_name}, {slots[0].city}, {slots[0].date}, guests={slots[0].guests}"
+            print(first_slot_msg, flush=True)
+            logger.info(first_slot_msg)
         
         # Convert to dict and filter by search term if provided
         data = []
+        converted_count = 0
+        error_count = 0
         for slot in slots:
             try:
                 slot_dict = slot.to_dict()
                 if not slot_dict.get('booking_url'):
                     slot_dict['booking_url'] = get_booking_url_for_venue(slot_dict.get('venue_name'))
                 data.append(slot_dict)
+                converted_count += 1
             except Exception as e:
                 # Log error but continue processing other slots
-                print(f"Error converting slot {slot.id} to dict: {e}")
-                import traceback
-                traceback.print_exc()
+                error_msg = f"Error converting slot {slot.id} to dict: {e}"
+                print(error_msg, flush=True)
+                logger.error(error_msg, exc_info=True)
+                error_count += 1
                 continue
+        
+        debug_convert_msg = f"[API DEBUG] Converted {converted_count} slots, {error_count} errors"
+        print(debug_convert_msg, flush=True)
+        logger.info(debug_convert_msg)
         
         if search_term:
             data = [
@@ -4347,14 +4396,18 @@ def get_data():
                    search_term in str(item.get('status', '')).lower()
             ]
         
-        print(f"[API DEBUG] Returning {len(data)} items")
+        return_msg = f"[API DEBUG] Returning {len(data)} items (after search filter: {bool(search_term)})"
+        print(return_msg, flush=True)
+        logger.info(return_msg)
         return jsonify({
             'data': data,
             'total_count': len(data)
         })
     except Exception as e:
         import traceback
-        print(f"[API ERROR] Exception in get_data: {e}")
+        error_msg = f"[API ERROR] Exception in get_data: {e}"
+        print(error_msg, flush=True)
+        logger.error(error_msg, exc_info=True)
         traceback.print_exc()
         error_trace = traceback.format_exc()
         print(f"Error in get_data: {e}")
