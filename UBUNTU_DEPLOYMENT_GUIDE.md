@@ -64,6 +64,20 @@ GRANT ALL PRIVILEGES ON DATABASE scrapping_db TO scrapping_user;
 \q
 ```
 
+**Important for PostgreSQL 15+:** Grant schema permissions (required for creating tables):
+```bash
+sudo -u postgres psql -d scrapping_db
+```
+
+In PostgreSQL prompt:
+```sql
+GRANT USAGE ON SCHEMA public TO scrapping_user;
+GRANT CREATE ON SCHEMA public TO scrapping_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO scrapping_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO scrapping_user;
+\q
+```
+
 **Option B: SQLite (Simpler, for testing)**
 ```bash
 # SQLite comes pre-installed with Python

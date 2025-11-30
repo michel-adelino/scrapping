@@ -50,6 +50,15 @@ sudo -u postgres psql -c "CREATE DATABASE scrapping_db;" || echo "Database may a
 sudo -u postgres psql -c "CREATE USER scrapping_user WITH PASSWORD '$DB_PASSWORD';" || echo "User may already exist"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE scrapping_db TO scrapping_user;"
 
+# Grant schema permissions (required for PostgreSQL 15+)
+echo -e "${YELLOW}Granting schema permissions...${NC}"
+sudo -u postgres psql -d scrapping_db << EOF
+GRANT USAGE ON SCHEMA public TO scrapping_user;
+GRANT CREATE ON SCHEMA public TO scrapping_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO scrapping_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO scrapping_user;
+EOF
+
 echo -e "${GREEN}Step 5: Installing Redis...${NC}"
 sudo apt install -y redis-server
 sudo systemctl start redis-server
