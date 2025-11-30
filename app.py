@@ -12,7 +12,7 @@ import os
 from urllib.parse import quote_plus
 from celery import group, chord
 from celery.result import AsyncResult
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, or_
 
 from models import db, AvailabilitySlot, ScrapingTask
 
@@ -1776,6 +1776,24 @@ def scrape_spin(guests, target_date, selected_time=None):
         scraping_status['progress'] = f'Navigating to SPIN NYC reservation system...'
         scraping_status['current_date'] = target_date
         
+        # Close Elementor popup modal if present
+        try:
+            driver.sleep(2)  # Wait for popup to appear
+            driver.execute_script("""
+                var modals = document.querySelectorAll('.elementor-popup-modal');
+                modals.forEach(function(modal) {
+                    var closeBtn = modal.querySelector('.elementor-popup-modal-close, button[aria-label="Close"], [class*="close"]');
+                    if (closeBtn) {
+                        closeBtn.click();
+                    } else {
+                        modal.style.display = 'none';
+                    }
+                });
+            """)
+            driver.sleep(1)
+        except:
+            pass  # No popup, continue
+        
         driver.click('div[class="elementor-element elementor-element-16e99e3 elementor-align-justify elementor-widget elementor-widget-button"]')
         driver.sleep(4)
         
@@ -2946,6 +2964,21 @@ def scrape_puttshack(location, guests, target_date):
         scraping_status['current_date'] = target_date
         
         driver.sleep(4)
+        
+        # Close GetSiteControl widget if present
+        try:
+            driver.execute_script("""
+                var widget = document.getElementById('getsitecontrol-518774');
+                if (widget) {
+                    widget.style.display = 'none';
+                    widget.remove();
+                }
+                var allWidgets = document.querySelectorAll('getsitecontrol-widget');
+                allWidgets.forEach(function(w) { w.style.display = 'none'; w.remove(); });
+            """)
+            driver.sleep(0.5)
+        except:
+            pass  # Continue if script fails
         
         # Country selection
         driver.click('button[class="input-button svelte-9udp5p"]')
@@ -4238,7 +4271,24 @@ def get_data():
         query = AvailabilitySlot.query
         
         if city:
-            query = query.filter(AvailabilitySlot.city == city)
+            # Normalize city values for case-insensitive matching
+            city_normalized = city.strip()
+            # Handle variations: "New York" -> "NYC", "NY" -> "NYC"
+            if city_normalized.upper() in ['NEW YORK', 'NY', 'NYC']:
+                # Use case-insensitive filter for NYC variations
+                query = query.filter(
+                    or_(
+                        AvailabilitySlot.city.ilike('NYC'),
+                        AvailabilitySlot.city.ilike('New York'),
+                        AvailabilitySlot.city.ilike('NY')
+                    )
+                )
+            elif city_normalized.lower() == 'london':
+                # Use case-insensitive filter for London
+                query = query.filter(AvailabilitySlot.city.ilike('London'))
+            else:
+                # Default case-insensitive match
+                query = query.filter(AvailabilitySlot.city.ilike(city_normalized))
         if venue_name:
             query = query.filter(AvailabilitySlot.venue_name == venue_name)
         if date_from:
@@ -4262,8 +4312,13 @@ def get_data():
         if status_filter:
             query = query.filter(AvailabilitySlot.status.ilike(f'%{status_filter}%'))
         
-        # Get all results
-        slots = query.order_by(AvailabilitySlot.date.desc(), AvailabilitySlot.time).all()
+        # Get all results - when city filter is applied, returns ALL venues in that city
+        # Order by venue name first, then date and time, so all venues are clearly visible
+        slots = query.order_by(
+            AvailabilitySlot.venue_name,
+            AvailabilitySlot.date.desc(), 
+            AvailabilitySlot.time
+        ).all()
         
         # Convert to dict and filter by search term if provided
         data = []
