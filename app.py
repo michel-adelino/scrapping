@@ -220,11 +220,47 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins in developme
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', f'sqlite:///{os.path.join(basedir, "availability.db")}')
+database_url = os.getenv('DATABASE_URL', f'sqlite:///{os.path.join(basedir, "availability.db")}')
+
+# Configure SQLite for better concurrency
+# Add WAL mode and connection pooling parameters for SQLite
+if database_url.startswith('sqlite'):
+    # Add connection pool settings for SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,  # Verify connections before using
+        'pool_recycle': 3600,   # Recycle connections after 1 hour
+        'connect_args': {
+            'timeout': 30,  # 30 second timeout for database operations
+            'check_same_thread': False  # Allow multi-threaded access
+        }
+    }
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 3600
+    }
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
 db.init_app(app)
+
+# Enable WAL mode for SQLite after initialization (for better concurrent access)
+if database_url.startswith('sqlite'):
+    try:
+        with app.app_context():
+            with db.engine.connect() as conn:
+                # Enable WAL mode for SQLite (allows concurrent reads and writes)
+                conn.execute(text("PRAGMA journal_mode=WAL"))
+                # Set busy timeout to handle locks more gracefully (30 seconds)
+                conn.execute(text("PRAGMA busy_timeout=30000"))
+                conn.commit()
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Could not enable WAL mode for SQLite: {e}")
 
 # Create tables and ensure latest schema
 with app.app_context():
@@ -347,10 +383,39 @@ def get_booking_url_for_venue(venue_name, explicit_url=None):
     return build_booking_search_url(venue_name)
 
 
+# Helper function to retry database operations on lock errors
+def retry_db_operation(func, max_retries=5, delay=0.1):
+    """Retry a database operation if it fails due to database lock"""
+    import time
+    from sqlalchemy.exc import OperationalError
+    
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except OperationalError as e:
+            error_str = str(e).lower()
+            if 'locked' in error_str or 'database is locked' in error_str:
+                if attempt < max_retries - 1:
+                    # Exponential backoff: 0.1s, 0.2s, 0.4s, 0.8s, 1.6s
+                    wait_time = delay * (2 ** attempt)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Last attempt failed, raise the error
+                    raise
+            else:
+                # Not a lock error, raise immediately
+                raise
+        except Exception as e:
+            # Other errors, raise immediately
+            raise
+    return None
+
+
 # Helper function to save slot to database
 def save_slot_to_db(venue_name, date_str, time, price, status, guests, city, venue_specific_data=None, booking_url=None):
-    """Save or update availability slot in database"""
-    try:
+    """Save or update availability slot in database with retry logic for lock errors"""
+    def _save_operation():
         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date() if isinstance(date_str, str) else date_str
         effective_booking_url = get_booking_url_for_venue(venue_name, booking_url)
         
@@ -392,15 +457,21 @@ def save_slot_to_db(venue_name, date_str, time, price, status, guests, city, ven
             db.session.add(slot)
             db.session.commit()
             return slot
+    
+    try:
+        return retry_db_operation(_save_operation)
     except Exception as e:
         db.session.rollback()
-        print(f"Error saving slot to database: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error saving slot to database after retries: {e}")
+        return None
         return None
 
 # Helper function to update task status
 def update_task_status(task_id, status=None, progress=None, current_venue=None, total_slots=None, error=None):
-    """Update scraping task status in database"""
-    try:
+    """Update scraping task status in database with retry logic for lock errors"""
+    def _update_operation():
         task = ScrapingTask.query.filter_by(task_id=task_id).first()
         if task:
             if status:
@@ -416,9 +487,17 @@ def update_task_status(task_id, status=None, progress=None, current_venue=None, 
             if status in ['SUCCESS', 'FAILURE']:
                 task.completed_at = datetime.utcnow()
             db.session.commit()
+            return True
+        return False
+    
+    try:
+        return retry_db_operation(_update_operation)
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating task status: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error updating task status after retries: {e}")
+        return False
 
 # Helper function to run original scraper and save results to DB
 def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, task_id=None, **kwargs):
