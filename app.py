@@ -671,7 +671,13 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                     task.current_venue = 'Swingers (NYC)'
                     db.session.commit()
             
-            driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+            driver = Driver(        
+                uc=False,        
+                headless2=False, # server-safe true headless        
+                no_sandbox=True,        
+                disable_gpu=True,        
+                headed=True,        
+            )
             driver.get(url)
             
             # Wait for page to load and slots to appear
@@ -1555,7 +1561,13 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
     
     try:
         date_str = target_date
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.get("https://www.sevenrooms.com/landing/lawnclubnyc")
         
         scraping_status['progress'] = f'Navigating to Lawn Club NYC {option}...'
@@ -1932,7 +1944,13 @@ def scrape_five_iron_golf(guests, target_date):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         formatted_date = dt.strftime("%m/%d/%Y")
         
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.set_page_load_timeout(20)
 
         try:
@@ -2166,7 +2184,13 @@ def scrape_easybowl(guests, target_date):
         dt = datetime.strptime(target_date, "%Y-%m-%d")
         easybowl_date = dt.strftime("d-%d-%m-%Y")
         #
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.get(f"https://www.easybowl.com/bc/LET/booking")
         
         scraping_status['progress'] = f'Scraping Easybowl NYC for {target_date}...'
@@ -2370,7 +2394,13 @@ def scrape_fair_game_canary_wharf(guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.get(f"https://www.sevenrooms.com/explore/fairgame/reservations/create/search?date={target_date}&party_size={guests}")
         
         scraping_status['progress'] = f'Scraping Fair Game (Canary Wharf) for {target_date}...'
@@ -2549,7 +2579,13 @@ def scrape_clays_bar(location, guests, target_date):
 
 
     try:
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.get("https://clays.bar/")
 
         scraping_status['progress'] = f'Navigating to Clays Bar {location}...'
@@ -2957,7 +2993,13 @@ def scrape_puttshack(location, guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(uc=True, headless2=True, no_sandbox=True, disable_gpu=True)
+        driver = Driver(        
+            uc=False,        
+            headless2=False, # server-safe true headless        
+            no_sandbox=True,        
+            disable_gpu=True,        
+            headed=True,        
+        )
         driver.get("https://www.puttshack.com/book-golf")
         
         scraping_status['progress'] = f'Navigating to Puttshack {location}...'
@@ -4571,4 +4613,7 @@ if __name__ == '__main__':
     # Bind to 0.0.0.0 to allow external access (for VPS)
     # Set host='127.0.0.1' for localhost only (more secure for development)
     host = os.getenv('FLASK_HOST', '0.0.0.0')
-    app.run(debug=True, host=host, port=8010)
+    # Disable debug mode in production to reduce log volume
+    # Set FLASK_DEBUG=1 in .env for development only
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    app.run(debug=debug_mode, host=host, port=8010)

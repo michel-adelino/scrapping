@@ -75,6 +75,9 @@ else
     sudo apt install -y libatk-bridge2.0-0 libasound2 || true
 fi
 
+echo -e "${GREEN}Installing xvfb for headless display...${NC}"
+sudo apt install -y xvfb
+
 echo -e "${GREEN}Step 7: Installing Node.js 20 LTS...${NC}"
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
@@ -123,6 +126,7 @@ FLASK_APP=app.py
 FLASK_ENV=production
 FLASK_HOST=0.0.0.0
 FLASK_PORT=8010
+FLASK_DEBUG=False
 
 # Database Configuration (SQLite)
 # Database file will be created at: $APP_DIR/availability.db
@@ -159,7 +163,7 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
-ExecStart=$APP_DIR/venv/bin/python app.py
+ExecStart=/usr/bin/xvfb-run -a $APP_DIR/venv/bin/python3 app.py
 Restart=always
 RestartSec=10
 
@@ -179,7 +183,7 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
-ExecStart=$APP_DIR/venv/bin/python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
+ExecStart=/usr/bin/xvfb-run -a $APP_DIR/venv/bin/python3 -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
 Restart=always
 RestartSec=10
 
@@ -263,7 +267,20 @@ sudo ufw allow 8010/tcp  # Backend API
 echo "y" | sudo ufw enable
 sudo ufw status
 
-echo -e "${GREEN}Step 17: Starting services...${NC}"
+echo -e "${GREEN}Step 17: Configuring journald log limits...${NC}"
+# Configure journald to limit log size and prevent disk fill
+sudo tee -a /etc/systemd/journald.conf > /dev/null << 'JOURNALD_EOF'
+
+# Limit journal size to prevent disk fill (added by setup script)
+SystemMaxUse=1G
+SystemKeepFree=2G
+SystemMaxFileSize=100M
+MaxRetentionSec=7day
+JOURNALD_EOF
+sudo systemctl restart systemd-journald
+echo -e "${GREEN}Journald configured with 1GB size limit and 7-day retention${NC}"
+
+echo -e "${GREEN}Step 18: Starting services...${NC}"
 sudo systemctl start scrapping-flask.service
 sudo systemctl start scrapping-celery-worker.service
 sudo systemctl start scrapping-celery-beat.service
@@ -282,10 +299,17 @@ echo ""
 echo "View logs:"
 echo "  sudo journalctl -u scrapping-flask -f"
 echo ""
+echo "Check journal size:"
+echo "  sudo journalctl --disk-usage"
+echo ""
+echo "Clean old logs (if needed):"
+echo "  sudo journalctl --vacuum-time=7d"
+echo ""
 echo "Access your application:"
 echo "  Frontend: http://$(hostname -I | awk '{print $1}'):3000"
 echo "  Backend:  http://$(hostname -I | awk '{print $1}'):8010"
 echo ""
 echo -e "${YELLOW}Note: Please review and update the .env file if needed.${NC}"
+echo -e "${YELLOW}Debug mode is disabled by default. Set FLASK_DEBUG=True in .env for development only.${NC}"
 echo ""
 
