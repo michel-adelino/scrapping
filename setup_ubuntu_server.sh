@@ -48,8 +48,15 @@ sudo systemctl start redis-server
 sudo systemctl enable redis-server
 redis-cli ping
 
-echo -e "${GREEN}Step 6: Installing Chromium and dependencies...${NC}"
-sudo apt install -y chromium-browser chromium-chromedriver
+echo -e "${GREEN}Step 6: Installing Google Chrome (not Chromium snap/apt)...${NC}"
+
+# Remove snap Chromium if installed (snap version causes issues)
+echo -e "${YELLOW}Removing snap Chromium if installed...${NC}"
+sudo snap remove chromium 2>/dev/null || echo "No snap Chromium to remove"
+
+# Remove apt Chromium packages if installed
+echo -e "${YELLOW}Removing apt Chromium packages if installed...${NC}"
+sudo apt purge chromium-browser chromium-chromedriver -y 2>/dev/null || echo "No apt Chromium to remove"
 
 # Install Chrome dependencies (handle different Ubuntu versions)
 echo -e "${YELLOW}Installing Chrome dependencies...${NC}"
@@ -62,7 +69,8 @@ sudo apt install -y \
     libxdamage1 \
     libxfixes3 \
     libxrandr2 \
-    libgbm1 || true
+    libgbm1 \
+    wget || true
 
 # Handle package name differences between Ubuntu versions
 # Ubuntu 24.04+ uses libatk-bridge2.0-0t64 and libasound2t64
@@ -73,6 +81,32 @@ if apt-cache show libatk-bridge2.0-0t64 > /dev/null 2>&1; then
 else
     echo "Installing older Ubuntu version packages..."
     sudo apt install -y libatk-bridge2.0-0 libasound2 || true
+fi
+
+# Download and install Google Chrome from official repository
+echo -e "${GREEN}Downloading Google Chrome...${NC}"
+cd /tmp
+wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb || {
+    echo -e "${RED}Failed to download Google Chrome. Please check your internet connection.${NC}"
+    exit 1
+}
+
+echo -e "${GREEN}Installing Google Chrome...${NC}"
+sudo apt install ./google-chrome-stable_current_amd64.deb -y || {
+    echo -e "${RED}Failed to install Google Chrome.${NC}"
+    exit 1
+}
+
+# Clean up downloaded file
+rm -f google-chrome-stable_current_amd64.deb
+
+# Verify Google Chrome installation
+if command -v google-chrome &> /dev/null; then
+    echo -e "${GREEN}✓ Google Chrome installed successfully${NC}"
+    google-chrome --version
+else
+    echo -e "${RED}✗ Google Chrome installation verification failed${NC}"
+    exit 1
 fi
 
 # Install xvfb (X Virtual Framebuffer) for headless display
@@ -113,6 +147,13 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install python-dotenv  # For .env file support
 
+# Install ChromeDriver using SeleniumBase (after venv is set up)
+echo -e "${GREEN}Installing ChromeDriver using SeleniumBase...${NC}"
+source venv/bin/activate
+sbase install chromedriver || {
+    echo -e "${YELLOW}Warning: sbase install chromedriver failed. ChromeDriver may need manual installation.${NC}"
+}
+
 echo -e "${GREEN}Step 11: Setting up frontend dependencies...${NC}"
 cd $APP_DIR/frontend
 npm install
@@ -140,8 +181,8 @@ FLASK_DEBUG=False
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
 
-# Chrome Binary
-CHROME_BINARY=/usr/bin/chromium-browser
+# Chrome Binary (Google Chrome, not Chromium)
+CHROME_BINARY=/usr/bin/google-chrome
 EOF
     echo -e "${GREEN}.env file created${NC}"
 else
