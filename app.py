@@ -154,6 +154,10 @@ def create_driver_with_timeout(uc, driver_kwargs, timeout=60):
     
     raise RuntimeError("Driver creation failed for unknown reason")
 
+# Semaphore to limit concurrent Chrome instances (prevents resource exhaustion)
+import threading
+_chrome_semaphore = threading.Semaphore(10)  # Allow max 10 concurrent Chrome instances
+
 def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=True, **extra_kwargs):
     """
     Create SeleniumBase Driver with standard configuration.
@@ -185,24 +189,21 @@ def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=Tru
     # On Linux, wait a moment for Chrome to fully initialize
     if platform.system() == 'Linux':
         time.sleep(1)
-            # Set page load timeout to prevent hanging
-            driver.set_page_load_timeout(30)
-            
-            # Store semaphore release in driver cleanup
-            original_quit = driver.quit
-            def quit_with_semaphore_release():
-                try:
-                    original_quit()
-                finally:
-                    _chrome_semaphore.release()
-                    logger.info("[DRIVER] Released Chrome instance slot")
-            driver.quit = quit_with_semaphore_release
-            
-            return driver
-
-# Semaphore to limit concurrent Chrome instances (prevents resource exhaustion)
-import threading
-_chrome_semaphore = threading.Semaphore(10)  # Allow max 10 concurrent Chrome instances
+    
+    # Set page load timeout to prevent hanging
+    driver.set_page_load_timeout(30)
+    
+    # Store semaphore release in driver cleanup
+    original_quit = driver.quit
+    def quit_with_semaphore_release():
+        try:
+            original_quit()
+        finally:
+            _chrome_semaphore.release()
+            logger.info("[DRIVER] Released Chrome instance slot")
+    driver.quit = quit_with_semaphore_release
+    
+    return driver
 
 def create_driver_with_chrome_fallback(**kwargs):
     """Create SeleniumBase Driver with Chrome binary detection and fallback, with retry logic and resource limiting"""

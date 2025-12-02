@@ -209,7 +209,7 @@ Type=simple
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
-Environment="PATH=$APP_DIR/venv/bin"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$APP_DIR/venv/bin"
 ExecStart=/usr/bin/xvfb-run -a $APP_DIR/venv/bin/python3 app.py
 Restart=always
 RestartSec=10
@@ -231,7 +231,7 @@ Type=simple
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
-Environment="PATH=$APP_DIR/venv/bin"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$APP_DIR/venv/bin"
 ExecStart=/usr/bin/xvfb-run -a $APP_DIR/venv/bin/python3 -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
 Restart=always
 RestartSec=10
@@ -253,7 +253,7 @@ Type=simple
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
-Environment="PATH=$APP_DIR/venv/bin"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$APP_DIR/venv/bin"
 ExecStart=$APP_DIR/venv/bin/python3 -m celery -A celery_app beat --loglevel=info
 Restart=always
 RestartSec=10
