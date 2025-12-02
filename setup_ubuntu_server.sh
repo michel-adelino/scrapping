@@ -75,7 +75,11 @@ else
     sudo apt install -y libatk-bridge2.0-0 libasound2 || true
 fi
 
-echo -e "${GREEN}Installing xvfb for headless display...${NC}"
+# Install xvfb (X Virtual Framebuffer) for headless display
+# xvfb is required because the Driver configuration uses headed=True mode
+# (not headless2=True). Headed browsers need a display server, even on headless servers.
+# xvfb provides a virtual display that browsers can render to without a physical screen.
+echo -e "${GREEN}Installing xvfb for virtual display (required for headed browser mode)...${NC}"
 sudo apt install -y xvfb
 
 echo -e "${GREEN}Step 7: Installing Node.js 20 LTS...${NC}"
@@ -152,6 +156,8 @@ python3 -c "from app import app, db; app.app_context().push(); db.create_all()" 
 echo -e "${GREEN}Step 14: Creating systemd service files...${NC}"
 
 # Flask service
+# Uses xvfb-run because Flask may use Driver for browser automation
+# xvfb provides virtual display for headed browser mode (headed=True)
 sudo tee /etc/systemd/system/scrapping-flask.service > /dev/null << EOF
 [Unit]
 Description=Scrapping Flask Application
@@ -172,6 +178,8 @@ WantedBy=multi-user.target
 EOF
 
 # Celery Worker service
+# Uses xvfb-run because workers execute scraping tasks that use Driver
+# Workers need virtual display for browser automation (headed=True mode)
 sudo tee /etc/systemd/system/scrapping-celery-worker.service > /dev/null << EOF
 [Unit]
 Description=Scrapping Celery Worker
@@ -192,6 +200,8 @@ WantedBy=multi-user.target
 EOF
 
 # Celery Beat service
+# Does NOT use xvfb-run because Beat only schedules tasks, it doesn't execute them
+# Beat doesn't use Driver, so it doesn't need a virtual display
 sudo tee /etc/systemd/system/scrapping-celery-beat.service > /dev/null << EOF
 [Unit]
 Description=Scrapping Celery Beat Scheduler
@@ -203,7 +213,7 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
-ExecStart=$APP_DIR/venv/bin/python -m celery -A celery_app beat --loglevel=info
+ExecStart=$APP_DIR/venv/bin/python3 -m celery -A celery_app beat --loglevel=info
 Restart=always
 RestartSec=10
 
@@ -308,6 +318,11 @@ echo ""
 echo "Access your application:"
 echo "  Frontend: http://$(hostname -I | awk '{print $1}'):3000"
 echo "  Backend:  http://$(hostname -I | awk '{print $1}'):8010"
+echo ""
+echo -e "${GREEN}xvfb Configuration:${NC}"
+echo "  Flask and Celery Worker services are configured to use xvfb-run"
+echo "  This provides a virtual display for browser automation (headed mode)"
+echo "  Celery Beat does not use xvfb as it only schedules tasks"
 echo ""
 echo -e "${YELLOW}Note: Please review and update the .env file if needed.${NC}"
 echo -e "${YELLOW}Debug mode is disabled by default. Set FLASK_DEBUG=True in .env for development only.${NC}"

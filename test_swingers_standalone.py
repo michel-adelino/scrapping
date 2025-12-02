@@ -2,18 +2,75 @@
 """
 Standalone test script for Swingers NYC scraper
 No dependencies on app.py or other project files
+
+Usage:
+  Local (with display): python3 test_swingers_standalone.py [date] [guests]
+  Ubuntu Server (headless): xvfb-run -a python3 test_swingers_standalone.py [date] [guests]
+  
+Examples:
+  python3 test_swingers_standalone.py
+  python3 test_swingers_standalone.py 2025-12-25
+  python3 test_swingers_standalone.py 2025-12-25 4
+  xvfb-run -a python3 test_swingers_standalone.py 2025-12-25 6
 """
 
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from seleniumbase import Driver
 import time
+import os
+import sys
+
+def check_display_environment():
+    """
+    Check if running on headless server and provide guidance
+    Returns True if display is available or xvfb is detected, False otherwise
+    """
+    display = os.environ.get('DISPLAY')
+    
+    # Check if running under xvfb (common indicators)
+    is_xvfb = (
+        'xvfb' in os.environ.get('_', '').lower() or
+        os.path.exists('/tmp/.X11-unix') or
+        display and ':' in display
+    )
+    
+    if not display and not is_xvfb:
+        print("\n" + "=" * 70)
+        print("⚠ WARNING: No display detected!")
+        print("=" * 70)
+        print("\nThis script uses headed browser mode (headed=True) which requires a display.")
+        print("On Ubuntu servers without a physical display, you need to use xvfb-run:")
+        print("\n  xvfb-run -a python3 test_swingers_standalone.py [date] [guests]")
+        print("\nOr install and start xvfb manually:")
+        print("  sudo apt install xvfb")
+        print("  export DISPLAY=:99")
+        print("  Xvfb :99 -screen 0 1024x768x24 &")
+        print("  python3 test_swingers_standalone.py [date] [guests]")
+        print("\n" + "=" * 70)
+        response = input("\nContinue anyway? (may fail if no display available) [y/N]: ")
+        if response.lower() != 'y':
+            print("Test cancelled.")
+            return False
+        print("Continuing... (browser may fail to start)\n")
+    
+    return True
 
 def test_swingers_nyc_scraper(guests=6, target_date=None):
     """
     Standalone test function for Swingers NYC scraper
     Tests the URL construction and slot extraction logic
+    
+    Args:
+        guests: Number of guests (default: 6)
+        target_date: Target date in YYYY-MM-DD format (default: 30 days from now)
+    
+    Note: On headless Ubuntu servers, run with: xvfb-run -a python3 test_swingers_standalone.py
     """
+    # Check display environment first
+    if not check_display_environment():
+        return False
+    
     # Use a date 30 days from now if not provided
     if not target_date:
         target_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
@@ -21,6 +78,12 @@ def test_swingers_nyc_scraper(guests=6, target_date=None):
     print("=" * 70)
     print("Standalone Swingers NYC Scraper Test")
     print("=" * 70)
+    
+    # Show environment info
+    display = os.environ.get('DISPLAY', 'Not set')
+    print(f"\nEnvironment:")
+    print(f"  DISPLAY: {display}")
+    print(f"  Platform: {sys.platform}")
     
     # Parse the target date
     try:
@@ -62,10 +125,11 @@ def test_swingers_nyc_scraper(guests=6, target_date=None):
     print("Ready to test scraper")
     print("=" * 70)
     print(f"\nThis will:")
-    print(f"  1. Open a browser (headless)")
+    print(f"  1. Open a browser (headed mode with virtual display if using xvfb)")
     print(f"  2. Navigate to the URL")
     print(f"  3. Wait for slots to load")
     print(f"  4. Extract and display available slots")
+    print(f"\nNote: On Ubuntu servers, ensure you're running with: xvfb-run -a python3 ...")
     print(f"\nPress Enter to continue, or Ctrl+C to cancel...")
     
     try:
@@ -81,14 +145,27 @@ def test_swingers_nyc_scraper(guests=6, target_date=None):
         print("Starting browser and navigating to URL...")
         print("=" * 70)
         
-        driver = Driver(        
-                    uc=False,        
-                    headless2=False, 
-                    no_sandbox=True,        
-                    disable_gpu=True,        
-                    headed=True,        
-                )
-        print(f"✓ Browser started")
+        # Driver configuration matches production app.py settings
+        # Uses headed=True mode which requires a display (xvfb on headless servers)
+        print(f"✓ Creating browser driver (headed mode)...")
+        print(f"  Configuration: uc=False, headless2=False, headed=True, no_sandbox=True, disable_gpu=True")
+        try:
+            driver = Driver(        
+                        uc=False,        
+                        headless2=False, 
+                        no_sandbox=True,        
+                        disable_gpu=True,        
+                        headed=True,        
+                    )
+            print(f"✓ Browser started successfully")
+        except Exception as e:
+            print(f"\n✗ Failed to start browser: {e}")
+            print(f"\nTroubleshooting:")
+            print(f"  1. On Ubuntu server, ensure you're using: xvfb-run -a python3 ...")
+            print(f"  2. Check if xvfb is installed: sudo apt install xvfb")
+            print(f"  3. Verify DISPLAY is set: echo $DISPLAY")
+            print(f"  4. Try manually: export DISPLAY=:99 && Xvfb :99 -screen 0 1024x768x24 &")
+            raise
         
         # Step 1: Navigate to base booking page (matching original working code)
         print(f"\n✓ Step 1: Navigating to base booking page...")
@@ -357,16 +434,33 @@ def test_swingers_nyc_scraper(guests=6, target_date=None):
 
 
 if __name__ == "__main__":
-    import sys
-    
     # Parse command line arguments
     guests = 6
     target_date = None
     
     if len(sys.argv) > 1:
+        if sys.argv[1] in ['-h', '--help']:
+            print(__doc__)
+            sys.exit(0)
         target_date = sys.argv[1]
     if len(sys.argv) > 2:
-        guests = int(sys.argv[2])
+        try:
+            guests = int(sys.argv[2])
+        except ValueError:
+            print(f"Error: Invalid guests value '{sys.argv[2]}'. Must be a number.")
+            sys.exit(1)
+    
+    # Show usage reminder for Ubuntu servers
+    if not os.environ.get('DISPLAY') and sys.platform.startswith('linux'):
+        print("\n" + "=" * 70)
+        print("Ubuntu Server Usage Reminder")
+        print("=" * 70)
+        print("This script requires a display for headed browser mode.")
+        print("If you're on a headless Ubuntu server, use:")
+        print(f"  xvfb-run -a python3 {sys.argv[0]} [date] [guests]")
+        print("\nExample:")
+        print(f"  xvfb-run -a python3 {sys.argv[0]} 2025-12-25 6")
+        print("=" * 70 + "\n")
     
     # Run the test
     success = test_swingers_nyc_scraper(guests=guests, target_date=target_date)
