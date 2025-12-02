@@ -185,35 +185,138 @@ def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=Tru
     # On Linux, wait a moment for Chrome to fully initialize
     if platform.system() == 'Linux':
         time.sleep(1)
-    # Set page load timeout to prevent hanging
-    driver.set_page_load_timeout(30)
-    return driver
+            # Set page load timeout to prevent hanging
+            driver.set_page_load_timeout(30)
+            
+            # Store semaphore release in driver cleanup
+            original_quit = driver.quit
+            def quit_with_semaphore_release():
+                try:
+                    original_quit()
+                finally:
+                    _chrome_semaphore.release()
+                    logger.info("[DRIVER] Released Chrome instance slot")
+            driver.quit = quit_with_semaphore_release
+            
+            return driver
+
+# Semaphore to limit concurrent Chrome instances (prevents resource exhaustion)
+import threading
+_chrome_semaphore = threading.Semaphore(10)  # Allow max 10 concurrent Chrome instances
 
 def create_driver_with_chrome_fallback(**kwargs):
-    """Create SeleniumBase Driver with Chrome binary detection and fallback"""
+    """Create SeleniumBase Driver with Chrome binary detection and fallback, with retry logic and resource limiting"""
     import platform
     import logging
+    import time
+    from selenium.common.exceptions import SessionNotCreatedException, WebDriverException
     
     logger = logging.getLogger(__name__)
     chrome_binary = find_chrome_binary()
     
-    # Create driver with standard configuration
-    logger.info("[DRIVER] Creating driver with standard configuration...")
-    driver = Driver(
-        uc=False,
-        headless2=False,
-        no_sandbox=True,
-        disable_gpu=True,
-        headed=True,
-    )
-    logger.info("[DRIVER] Driver created successfully")
-    # On Linux, wait a moment for Chrome to fully initialize
-    if platform.system() == 'Linux':
-        import time
-        time.sleep(1)
-    # Set page load timeout to prevent hanging
-    driver.set_page_load_timeout(30)
-    return driver
+    # Acquire semaphore to limit concurrent Chrome instances
+    logger.info("[DRIVER] Waiting for available Chrome instance slot...")
+    _chrome_semaphore.acquire()
+    try:
+        # Retry logic for Chrome driver creation
+        max_retries = 5
+        base_delay = 2  # Start with 2 seconds
+        
+        for attempt in range(max_retries):
+        try:
+            # Add small random delay to prevent thundering herd
+            if attempt > 0:
+                delay = base_delay * (2 ** (attempt - 1)) + (time.time() % 1)  # Exponential backoff + jitter
+                logger.info(f"[DRIVER] Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay...")
+                time.sleep(delay)
+            
+            logger.info(f"[DRIVER] Creating driver (attempt {attempt + 1}/{max_retries})...")
+            
+            # Create driver with standard configuration
+            driver = Driver(
+                uc=False,
+                headless2=False,
+                no_sandbox=True,
+                disable_gpu=True,
+                headed=True,
+            )
+            
+            # Verify driver is actually working
+            try:
+                driver.current_url  # This will fail if Chrome crashed
+            except Exception as e:
+                logger.warning(f"[DRIVER] Driver created but not responsive: {e}")
+                try:
+                    driver.quit()
+                except:
+                    pass
+                if attempt < max_retries - 1:
+                    continue
+                else:
+                    raise
+            
+            logger.info("[DRIVER] Driver created successfully")
+            
+            # On Linux, wait a moment for Chrome to fully initialize
+            if platform.system() == 'Linux':
+                time.sleep(1)
+            
+            # Set page load timeout to prevent hanging
+            driver.set_page_load_timeout(30)
+            
+            # Store semaphore release in driver cleanup
+            original_quit = driver.quit
+            def quit_with_semaphore_release():
+                try:
+                    original_quit()
+                finally:
+                    _chrome_semaphore.release()
+                    logger.info("[DRIVER] Released Chrome instance slot")
+            driver.quit = quit_with_semaphore_release
+            
+            return driver
+            
+        except (SessionNotCreatedException, WebDriverException) as e:
+            error_msg = str(e).lower()
+            if 'chrome instance exited' in error_msg or 'session not created' in error_msg:
+                logger.warning(f"[DRIVER] Chrome instance failed (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    # Clean up any partial driver state
+                    try:
+                        if 'driver' in locals():
+                            driver.quit()
+                    except:
+                        pass
+                    continue
+                else:
+                    logger.error(f"[DRIVER] Failed to create driver after {max_retries} attempts")
+                    raise
+            else:
+                # Other WebDriver errors, raise immediately
+                logger.error(f"[DRIVER] WebDriver error: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"[DRIVER] Unexpected error creating driver: {e}")
+            if attempt < max_retries - 1:
+                try:
+                    if 'driver' in locals():
+                        driver.quit()
+                except:
+                    pass
+                continue
+            else:
+                raise
+    
+        raise RuntimeError(f"Failed to create Chrome driver after {max_retries} attempts")
+    finally:
+        # Always release semaphore if we haven't successfully created a driver
+        # (successful creation releases it in driver.quit())
+        try:
+            if 'driver' not in locals() or not hasattr(driver, 'quit'):
+                _chrome_semaphore.release()
+                logger.info("[DRIVER] Released Chrome instance slot (failed creation)")
+        except:
+            pass
 
 # Enable CORS for React frontend
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins in development
@@ -1189,14 +1292,8 @@ def scrape_swingers_uk(guests, target_date):
         
         scraping_status['progress'] = f'Loading Swingers UK availability page for {date_str}...'
         
-        # Launch browser (matching test script config)
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        # Launch browser (matching test script config) - use retry-enabled driver
+        driver = create_driver_with_chrome_fallback()
         
         driver.get(url)
         driver.sleep(5)
@@ -1280,13 +1377,7 @@ def scrape_electric_shuffle(guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.get(f"https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search/?date={str(target_date)}&halo=120&party_size={str(guests)}&start_time=ALL")
         
         scraping_status['progress'] = f'Scraping Electric Shuffle NYC for {target_date}...'
@@ -1361,14 +1452,8 @@ def scrape_electric_shuffle_london(guests, target_date):
         scraping_status['progress'] = f'Scraping Electric Shuffle London for {target_date}...'
         scraping_status['current_date'] = target_date
 
-        # Driver (matching test script config)
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        # Driver (matching test script config) - use retry-enabled driver
+        driver = create_driver_with_chrome_fallback()
 
         # Load page
         driver.get(url)
@@ -1492,13 +1577,8 @@ def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selec
     
     try:
         date_str = target_date
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        # Use retry-enabled driver creation to handle Chrome crashes
+        driver = create_driver_with_chrome_fallback()
         driver.get("https://www.sevenrooms.com/landing/lawnclubnyc")
         
         scraping_status['progress'] = f'Navigating to Lawn Club NYC {option}...'
@@ -1682,13 +1762,7 @@ def scrape_spin(guests, target_date, selected_time=None):
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
         
         logger.info("[SCRAPER] Creating Chrome driver for SPIN...")
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        driver = create_driver_with_chrome_fallback()
         logger.info("[SCRAPER] Driver created successfully")
         
         # On Linux, wait a moment for Chrome to fully initialize before navigation
@@ -1870,13 +1944,7 @@ def scrape_five_iron_golf(guests, target_date):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         formatted_date = dt.strftime("%m/%d/%Y")
         
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.set_page_load_timeout(20)
 
         try:
@@ -2003,13 +2071,7 @@ def scrape_lucky_strike(guests, target_date):
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
         
         logger.info("[SCRAPER] Creating Chrome driver for Lucky Strike...")
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        driver = create_driver_with_chrome_fallback()
         logger.info("[SCRAPER] Driver created successfully")
         
         # On Linux, wait a moment for Chrome to fully initialize before navigation
@@ -2105,13 +2167,7 @@ def scrape_easybowl(guests, target_date):
         dt = datetime.strptime(target_date, "%Y-%m-%d")
         easybowl_date = dt.strftime("d-%d-%m-%Y")
         #
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.get(f"https://www.easybowl.com/bc/LET/booking")
         
         scraping_status['progress'] = f'Scraping Easybowl NYC for {target_date}...'
@@ -2315,13 +2371,7 @@ def scrape_fair_game_canary_wharf(guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.get(f"https://www.sevenrooms.com/explore/fairgame/reservations/create/search?date={target_date}&party_size={guests}")
         
         scraping_status['progress'] = f'Scraping Fair Game (Canary Wharf) for {target_date}...'
@@ -2503,13 +2553,7 @@ def scrape_clays_bar(location, guests, target_date):
 
 
     try:
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.get("https://clays.bar/")
 
         scraping_status['progress'] = f'Navigating to Clays Bar {location}...'
@@ -2917,13 +2961,7 @@ def scrape_puttshack(location, guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(        
-            uc=False,        
-            headless2=False, # server-safe true headless        
-            no_sandbox=True,        
-            disable_gpu=True,        
-            headed=True,        
-        )
+        driver = create_driver_with_chrome_fallback()
         driver.get("https://www.puttshack.com/book-golf")
         
         scraping_status['progress'] = f'Navigating to Puttshack {location}...'
@@ -3104,14 +3142,8 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
             f"date={target_date}&group_size={guests}&preferedtime=11%3A30&preferedvenue={venue_id}"
         )
         
-        # Launch browser (matching test script config)
-        driver = Driver(
-            uc=False,
-            headless2=False,
-            no_sandbox=True,
-            disable_gpu=True,
-            headed=True,
-        )
+        # Launch browser (matching test script config) - use retry-enabled driver
+        driver = create_driver_with_chrome_fallback()
         
         driver.get(url)
         driver.sleep(30)
@@ -4276,33 +4308,58 @@ def get_task_status(task_id):
 def get_scraping_durations():
     """Get latest scraping durations for each queue: NYC today, NYC tomorrow, London today, London tomorrow"""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Get latest successful tasks for each queue
-        nyc_today_task = ScrapingTask.query.filter_by(
-            website='all_nyc_today',
-            status='SUCCESS'
-        ).order_by(ScrapingTask.completed_at.desc()).first()
+        # Use try-except for each query to prevent one failure from breaking the whole endpoint
+        nyc_today_task = None
+        nyc_tomorrow_task = None
+        london_today_task = None
+        london_tomorrow_task = None
+        last_task = None
         
-        nyc_tomorrow_task = ScrapingTask.query.filter_by(
-            website='all_nyc_tomorrow',
-            status='SUCCESS'
-        ).order_by(ScrapingTask.completed_at.desc()).first()
+        try:
+            nyc_today_task = ScrapingTask.query.filter_by(
+                website='all_nyc_today',
+                status='SUCCESS'
+            ).order_by(ScrapingTask.completed_at.desc()).first()
+        except Exception as e:
+            logger.warning(f"[API] Error fetching nyc_today_task: {e}")
         
-        london_today_task = ScrapingTask.query.filter_by(
-            website='all_london_today',
-            status='SUCCESS'
-        ).order_by(ScrapingTask.completed_at.desc()).first()
+        try:
+            nyc_tomorrow_task = ScrapingTask.query.filter_by(
+                website='all_nyc_tomorrow',
+                status='SUCCESS'
+            ).order_by(ScrapingTask.completed_at.desc()).first()
+        except Exception as e:
+            logger.warning(f"[API] Error fetching nyc_tomorrow_task: {e}")
         
-        london_tomorrow_task = ScrapingTask.query.filter_by(
-            website='all_london_tomorrow',
-            status='SUCCESS'
-        ).order_by(ScrapingTask.completed_at.desc()).first()
+        try:
+            london_today_task = ScrapingTask.query.filter_by(
+                website='all_london_today',
+                status='SUCCESS'
+            ).order_by(ScrapingTask.completed_at.desc()).first()
+        except Exception as e:
+            logger.warning(f"[API] Error fetching london_today_task: {e}")
         
-        # Get the most recent completed task with duration (for "last duration" display)
-        last_task = ScrapingTask.query.filter(
-            ScrapingTask.status == 'SUCCESS',
-            ScrapingTask.duration_seconds.isnot(None),
-            ScrapingTask.duration_seconds > 0
-        ).order_by(ScrapingTask.completed_at.desc()).first()
+        try:
+            london_tomorrow_task = ScrapingTask.query.filter_by(
+                website='all_london_tomorrow',
+                status='SUCCESS'
+            ).order_by(ScrapingTask.completed_at.desc()).first()
+        except Exception as e:
+            logger.warning(f"[API] Error fetching london_tomorrow_task: {e}")
+        
+        try:
+            # Get the most recent completed task with duration (for "last duration" display)
+            last_task = ScrapingTask.query.filter(
+                ScrapingTask.status == 'SUCCESS',
+                ScrapingTask.duration_seconds.isnot(None),
+                ScrapingTask.duration_seconds > 0
+            ).order_by(ScrapingTask.completed_at.desc()).first()
+        except Exception as e:
+            logger.warning(f"[API] Error fetching last_task: {e}")
         
         def format_task_duration(task):
             if task and task.duration_seconds:
@@ -4325,7 +4382,16 @@ def get_scraping_durations():
         
         return jsonify(durations)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        error_msg = f"[API ERROR] Exception in get_scraping_durations: {e}"
+        logger.error(error_msg, exc_info=True)
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'message': f'Error fetching scraping durations: {str(e)}'
+        }), 500
 
 
 @app.route('/status')
@@ -4368,23 +4434,22 @@ def get_data():
         guests = request.args.get('guests')  # Add guests filter
         search_term = request.args.get('search', '').lower()
         
+        # Pagination parameters - add limits to prevent timeouts
+        limit = request.args.get('limit', type=int)
+        offset = request.args.get('offset', type=int, default=0)
+        
+        # Set reasonable defaults if not provided
+        # Default limit of 10000 to prevent memory issues, but allow override
+        if limit is None:
+            limit = 10000
+        elif limit > 50000:  # Hard cap to prevent abuse
+            limit = 50000
+        
         # Debug logging - use both print and logger
         import logging
         logger = logging.getLogger(__name__)
         
-        # Log database info
-        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'unknown')
-        debug_db = f"[API DEBUG] Database URI: {db_uri}"
-        print(debug_db, flush=True)
-        logger.info(debug_db)
-        
-        # Count total slots before filtering
-        total_before = AvailabilitySlot.query.count()
-        debug_total = f"[API DEBUG] Total slots in database before filter: {total_before}"
-        print(debug_total, flush=True)
-        logger.info(debug_total)
-        
-        debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}"
+        debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}, limit={limit}, offset={offset}"
         print(debug_msg, flush=True)
         logger.info(debug_msg)
         
@@ -4414,12 +4479,6 @@ def get_data():
                 print(debug_city, flush=True)
                 logger.info(debug_city)
         
-        # Debug: Count after city filter
-        if city:
-            count_after_city = query.count()
-            debug_count = f"[API DEBUG] Slots after city filter: {count_after_city}"
-            print(debug_count, flush=True)
-            logger.info(debug_count)
         if venue_name:
             query = query.filter(AvailabilitySlot.venue_name == venue_name)
         if date_from:
@@ -4441,26 +4500,37 @@ def get_data():
                 debug_guests = f"[API DEBUG] Filtering by guests={guests_int}"
                 print(debug_guests, flush=True)
                 logger.info(debug_guests)
-                # Debug: Count after guests filter
-                count_after_guests = query.count()
-                debug_count_guests = f"[API DEBUG] Slots after guests filter: {count_after_guests}"
-                print(debug_count_guests, flush=True)
-                logger.info(debug_count_guests)
             except ValueError:
                 pass  # Ignore invalid guest count
         if status_filter:
             query = query.filter(AvailabilitySlot.status.ilike(f'%{status_filter}%'))
         
-        # Get all results - when city filter is applied, returns ALL venues in that city
+        # Get total count before pagination (for metadata)
+        # Use a more efficient count query
+        try:
+            total_count = query.count()
+        except Exception as count_error:
+            logger.warning(f"[API DEBUG] Could not get total count: {count_error}")
+            total_count = None
+        
+        # Apply pagination and ordering
         # Order by date first (newest first), then time, then venue name for consistent date alignment
-        slots = query.order_by(
+        slots_query = query.order_by(
             AvailabilitySlot.date.desc(), 
             AvailabilitySlot.time,
             AvailabilitySlot.venue_name
-        ).all()
+        )
+        
+        # Apply limit and offset
+        if offset > 0:
+            slots_query = slots_query.offset(offset)
+        slots_query = slots_query.limit(limit)
+        
+        # Execute query - this is now limited and should be fast
+        slots = slots_query.all()
         
         # Debug logging
-        debug_msg = f"[API DEBUG] Query returned {len(slots)} slots"
+        debug_msg = f"[API DEBUG] Query returned {len(slots)} slots (limit={limit}, offset={offset})"
         print(debug_msg, flush=True)
         logger.info(debug_msg)
         if len(slots) > 0:
@@ -4504,10 +4574,19 @@ def get_data():
         return_msg = f"[API DEBUG] Returning {len(data)} items (after search filter: {bool(search_term)})"
         print(return_msg, flush=True)
         logger.info(return_msg)
-        return jsonify({
+        
+        response_data = {
             'data': data,
-            'total_count': len(data)
-        })
+            'total_count': len(data),
+            'limit': limit,
+            'offset': offset
+        }
+        
+        # Add total_count if we were able to get it
+        if total_count is not None:
+            response_data['total_available'] = total_count
+        
+        return jsonify(response_data)
     except Exception as e:
         import traceback
         error_msg = f"[API ERROR] Exception in get_data: {e}"
