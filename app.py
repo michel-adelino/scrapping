@@ -631,7 +631,7 @@ def adjust_picker(driver, value_selector, increment_selector, decrement_selector
 
 @celery_app.task(bind=True, name='app.scrape_swingers_task')
 def scrape_swingers_task(self, guests, target_date, task_id=None):
-    """Swingers scraper as Celery task - uses direct URL approach"""
+    """Swingers scraper as Celery task - uses direct URL approach (updated from working test script)"""
     with app.app_context():
         try:
             # Update task status
@@ -654,13 +654,12 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
             day = dt.strftime("%d")
             month_abbr = dt.strftime("%b")
             
-            # Construct the URL with query parameters
-            # Format: https://www.swingers.club/us/locations/nyc/book-now?guests=6&search%5Bmonth%5D=11&search%5Byear%5D=2025&depart=2025-11-30
+            # Build URL (matching test script)
             query_params = {
-                'guests': str(guests),
-                'search[month]': str(month),
-                'search[year]': str(year),
-                'depart': date_str
+                "guests": str(guests),
+                "search[month]": str(month),
+                "search[year]": str(year),
+                "depart": date_str
             }
             url = f"https://www.swingers.club/us/locations/nyc/book-now?{urlencode(query_params)}"
             
@@ -671,23 +670,17 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                     task.current_venue = 'Swingers (NYC)'
                     db.session.commit()
             
-            driver = Driver(        
-                uc=False,        
-                headless2=False, # server-safe true headless        
-                no_sandbox=True,        
-                disable_gpu=True,        
-                headed=True,        
+            # Launch browser (matching test script config)
+            driver = Driver(
+                uc=False,
+                headless2=False,
+                no_sandbox=True,
+                disable_gpu=True,
+                headed=True,
             )
-            driver.get(url)
             
-            # Wait for page to load and slots to appear
-            # Try to wait for slot buttons to be present (they may load via JavaScript)
-            try:
-                # Wait for any slot button to appear (indicating slots are loaded)
-                driver.wait_for_element('button[data-day][data-month]', timeout=10)
-            except:
-                # If wait fails, just sleep and continue
-                driver.sleep(5)
+            driver.get(url)
+            driver.sleep(5)
             
             slots_count = 0
             
@@ -697,38 +690,33 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                     task.progress = f'Processing Swingers slots for {date_str}'
                     db.session.commit()
             
-            # Parse the page and find available slots
-            # Using the same selector logic as the working script:
-            # slots = soup.find_all("button",{"data-day":day,"data-month":month})
+            # Parse HTML (matching test script)
             soup = BeautifulSoup(driver.page_source, "html.parser")
             slots = soup.find_all("button", {"data-day": day, "data-month": month_abbr})
             
             for slot in slots:
                 # Status
                 status_el = slot.select_one("div.slot-search-result__low-stock")
-                if status_el:
-                    status = status_el.get_text(strip=True)
-                else:
-                    status = "Available"
+                status = status_el.get_text(strip=True) if status_el else "Available"
                 
                 # Time
                 try:
-                    time = slot.find("span", {"class": "slot-search-result__time h5"}).get_text().strip()
+                    time_val = slot.find("span", {"class": "slot-search-result__time h5"}).get_text().strip()
                 except:
-                    time = "None"
+                    time_val = "None"
                 
                 # Price
                 try:
-                    price = slot.find("span", {"class": "slot-search-result__price-label"}).get_text().strip()
+                    price_val = slot.find("span", {"class": "slot-search-result__price-label"}).get_text().strip()
                 except:
-                    price = "None"
+                    price_val = "None"
                 
                 # Save to database
                 save_slot_to_db(
                     venue_name='Swingers (NYC)',
                     date_str=date_str,
-                    time=time,
-                    price=price,
+                    time=time_val,
+                    price=price_val,
                     status=status,
                     guests=guests,
                     city='NYC',
@@ -1168,162 +1156,106 @@ def scrape_f1_arcade_task(self, guests, target_date, f1_experience, task_id=None
 
 
 def scrape_swingers_uk(guests, target_date):
-    """Swingers UK scraper function"""
+    """Swingers UK scraper function (updated from working test script)"""
     global scraping_status, scraped_data
     
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[SCRAPER] scrape_swingers_uk called with guests={guests}, target_date={target_date}")
-    
     try:
-        # Try to create driver with uc=True, fallback to regular Chrome if it fails
-        import platform
-        import time
+        # Parse date (matching test script)
+        dt = datetime.strptime(target_date, "%Y-%m-%d")
+        date_str = target_date
+        month = dt.month
+        year = dt.year
+        day = dt.strftime("%d")
+        month_abbr = dt.strftime("%b")
         
-        # On Linux, try headless=True first as headless2 might not work properly
-        if platform.system() == 'Linux':
-            driver_kwargs = {'headless': True, 'no_sandbox': True, 'disable_gpu': True}
-        else:
-            driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
+        # Build UK URL with full query params (matching test script)
+        query_params = {
+            "guests": str(guests),
+            "search[month]": str(month),
+            "search[year]": str(year),
+            "depart": date_str
+        }
+        url = f"https://www.swingers.club/uk/book-now?{urlencode(query_params)}"
         
-        # On Linux, skip uc=True entirely as it causes hanging
-        if platform.system() == 'Linux':
-            print("[SCRAPER] On Linux - skipping uc=True to avoid hanging", flush=True)
-            logger.info("[SCRAPER] On Linux - skipping uc=True to avoid hanging")
-            use_uc = False
-        else:
-            use_uc = True
+        scraping_status['progress'] = f'Loading Swingers UK availability page for {date_str}...'
         
-        logger.info(f"[SCRAPER] About to create Chrome driver with kwargs: {driver_kwargs}, uc={use_uc}")
-        print(f"[SCRAPER] About to create Chrome driver with kwargs: {driver_kwargs}, uc={use_uc}", flush=True)
+        # Launch browser (matching test script config)
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
         
-        try:
-            if use_uc:
-                print("[SCRAPER] Calling Driver(uc=True, ...) - this may take a moment...", flush=True)
-                driver = Driver(uc=True, **driver_kwargs)
-                print("[SCRAPER] Driver created with uc=True successfully!", flush=True)
-                logger.info("[SCRAPER] Driver created with uc=True successfully!")
-            else:
-                print("[SCRAPER] Calling Driver(...) without uc=True...", flush=True)
-                driver = Driver(**driver_kwargs)
-                print("[SCRAPER] Driver created without uc=True successfully!", flush=True)
-                logger.info("[SCRAPER] Driver created without uc=True successfully!")
-        except (TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
-                print(f"[SCRAPER] uc={use_uc} failed, trying without uc: {str(e)}", flush=True)
-                logger.warning(f"[SCRAPER] uc={use_uc} failed, trying without uc: {str(e)}")
-                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
-                driver = Driver(**driver_kwargs)
-                print("[SCRAPER] Driver created without uc=True", flush=True)
-                logger.info("[SCRAPER] Driver created without uc=True")
-            else:
-                raise
+        driver.get(url)
+        driver.sleep(5)
         
-        # On Linux, wait a moment for Chrome to fully initialize before navigation
-        if platform.system() == 'Linux':
-            import time
-            logger.info("[SCRAPER] Waiting for Chrome to initialize on Linux...")
-            time.sleep(1)
+        scraping_status['progress'] = f'Processing Swingers UK slots for {date_str}'
+        scraping_status['current_date'] = date_str
         
-        # Set page load timeout to prevent hanging
-        driver.set_page_load_timeout(30)
-        logger.info("[SCRAPER] Navigating to Swingers UK...")
+        # Parse available dates (matching test script)
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        dates = soup.find_all(
+            "li",
+            {"class": "slot-calendar__dates-item", "data-available": "true"}
+        )
         
-        try:
-            driver.get(f"https://www.swingers.club/uk/book-now?guests={str(guests)}")
-            logger.info("[SCRAPER] Page loaded successfully")
-        except Exception as e:
-            logger.error(f"[SCRAPER] Page load failed: {str(e)}")
-            scraping_status['progress'] = f'Page load timeout or error: {str(e)}'
-            if 'driver' in locals():
-                driver.quit()
-            raise
+        if len(dates) == 0:
+            scraping_status['progress'] = "No available dates found."
+            driver.quit()
+            return
         
-        scraping_status['progress'] = 'Starting to scrape Swingers UK availability...'
-        
-        while True:
-            soup = BeautifulSoup(driver.page_source, "html.parser")
-            dates = soup.find_all("li",{"class":"slot-calendar__dates-item","data-available":"true"})
-            
-            scraping_status['progress'] = f'Found {len(dates)} available dates on Swingers UK'
-            
-            if len(dates) == 0:
+        # Find the matching date in the calendar
+        target_li = None
+        for d in dates:
+            if d.get("data-date") == target_date:
+                target_li = d
                 break
-                
-            for i in dates:
-                date_str = i["data-date"]
-                
-                # If target_date is specified, only process that date
-                if target_date and date_str != target_date:
-                    continue
-                
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                driver.get("https://www.swingers.club" + i.find("a")["href"])
-                
-                day = dt.strftime("%d")
-                month = dt.strftime("%b")
-                
-                scraping_status['current_date'] = date_str
-                scraping_status['progress'] = f'Processing Swingers UK slots for {date_str}'
-                
-                soup = BeautifulSoup(driver.page_source, "html.parser")
-                slots = soup.find_all("button",{"data-day":day,"data-month":month})
-                
-                for slot in slots:
-                    # Status
-                    status_el = slot.select_one("div.slot-search-result__low-stock")
-                    if status_el:
-                        status = status_el.get_text(strip=True)
-                    else:
-                        status = "Available"
-                    
-                    # Time
-                    try:
-                        time = slot.find("span",{"class":"slot-search-result__time h5"}).get_text().strip()
-                    except:
-                        time = "None"
-                    
-                    # Price
-                    try:
-                        price = slot.find("span",{"class":"slot-search-result__price-label"}).get_text().strip()
-                    except:
-                        price = "None"
-                    
-                    # Store data in memory
-                    slot_data = {
-                        'date': date_str,
-                        'time': time,
-                        'price': price,
-                        'status': status,
-                        'timestamp': datetime.now().isoformat(),
-                        'website': 'Swingers (London)'
-                    }
-                    
-                    scraped_data.append(slot_data)
-                    scraping_status['total_slots_found'] = len(scraped_data)
-                
-                # If target_date is specified, break after processing it
-                if target_date and date_str == target_date:
-                    break
+        
+        if not target_li:
+            scraping_status['progress'] = f"No calendar entry found for {target_date}"
+            driver.quit()
+            return
+        
+        # Navigate to the date page
+        full_url = "https://www.swingers.club" + target_li.find("a")["href"]
+        driver.get(full_url)
+        driver.sleep(5)
+        
+        # Parse slots (matching test script)
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        slots = soup.find_all("button", {"data-day": day, "data-month": month_abbr})
+        
+        for slot in slots:
+            # Status
+            status_el = slot.select_one("div.slot-search-result__low-stock")
+            status = status_el.get_text(strip=True) if status_el else "Available"
             
-            # If target_date is specified, don't click next
-            if target_date:
-                break
-                
-            driver.sleep(5)
-            
-            # Next button
+            # Time
             try:
-                a_element = driver.find_element(
-                    "xpath",
-                    "//div[contains(@class,'slot-calendar__current-month-container')]/following::a[1]"
-                )
-                driver.execute_script("arguments[0].click();", a_element)
-                scraping_status['progress'] = 'Moving to next month on Swingers UK...'
+                time_val = slot.find("span", {"class": "slot-search-result__time h5"}).get_text(strip=True)
             except:
-                break
+                time_val = "None"
+            
+            # Price
+            try:
+                price_val = slot.find("span", {"class": "slot-search-result__price-label"}).get_text(strip=True)
+            except:
+                price_val = "None"
+            
+            # Store data in memory
+            slot_data = {
+                "date": target_date,
+                "time": time_val,
+                "price": price_val,
+                "status": status,
+                "timestamp": datetime.now().isoformat(),
+                "website": "Swingers (London)"
+            }
+            
+            scraped_data.append(slot_data)
+            scraping_status['total_slots_found'] = len(scraped_data)
         
         driver.quit()
         
@@ -1400,146 +1332,129 @@ def scrape_electric_shuffle(guests, target_date):
 
 
 def scrape_electric_shuffle_london(guests, target_date):
-    """Electric Shuffle London scraper function"""
+    """Electric Shuffle London scraper function (updated from working test script)"""
     global scraping_status, scraped_data
 
     try:
-        driver = Driver(
-            uc=True,
-            headless2=True,
-            no_sandbox=True,
-            disable_gpu=True
-        )
-
+        # Build URL (matching test script)
         url = (
-            f"https://electricshuffle.com/uk/london/book/shuffleboard?"
+            "https://electricshuffle.com/uk/london/book/shuffleboard?"
             f"preferedvenue=7&preferedtime=19%3A00&guestQuantity={guests}&date={target_date}"
         )
-
-        driver.get(url)
 
         scraping_status['progress'] = f'Scraping Electric Shuffle London for {target_date}...'
         scraping_status['current_date'] = target_date
 
-        # Let JS start loading
+        # Driver (matching test script config)
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
+
+        # Load page
+        driver.get(url)
         driver.sleep(3)
 
-        # ===============================
-        #   WAIT UNTIL SLOTS FINISH LOADING
-        # ===============================
+        # WAIT FOR JS TO LOAD SLOTS (matching test script)
         max_wait = 30
         interval = 0.5
         elapsed = 0
+        loaded = False
 
         while elapsed < max_wait:
-            html = driver.page_source
-            soup = BeautifulSoup(html, "html.parser")
+            soup = BeautifulSoup(driver.page_source, "html.parser")
 
-            loading_div = soup.select_one(".es_booking__availability__message")
+            loading_msg = soup.select_one(".es_booking__availability__message")
             slots_exist = soup.select_one("div.es_booking__availability__table-cell__wrapper")
 
-            # CASE 1: slots are present
             if slots_exist:
-                print("✔ Slots loaded")
+                loaded = True
                 break
 
-            # CASE 2: loading div text changed (means loading is done)
-            if loading_div:
-                text = loading_div.get_text(strip=True)
-                if "Loading" not in text:
-                    print("✔ Loading message disappeared")
+            if loading_msg:
+                txt = loading_msg.get_text(strip=True)
+                if "Loading" not in txt:
+                    loaded = True
                     break
 
             driver.sleep(interval)
             elapsed += interval
 
-        if elapsed >= max_wait:
-            scraping_status['progress'] = "Timeout: Slots did not load"
+        if not loaded:
+            scraping_status['progress'] = "Timeout: No slots loaded"
             driver.quit()
             return
 
-        # ===============================
-        #   PARSE THE PAGE AFTER LOADING
-        # ===============================
+        # PARSE THE PAGE (matching test script)
         soup = BeautifulSoup(driver.page_source, "html.parser")
-
-        # Form sections
         holders = soup.select("form.es_booking__availability__form")
 
         if not holders:
-            scraping_status['progress'] = "No venue sections found on Electric Shuffle London"
+            scraping_status['progress'] = "No venue sections found"
             driver.quit()
             return
 
-        scraping_status['progress'] = f"Found {len(holders)} venue sections on Electric Shuffle London"
+        scraping_status['progress'] = f"Found {len(holders)} venue sections"
 
-        # Loop through each venue section
+        # Loop through venue sections
         for holder in holders:
-
             # Venue title
-            try:
-                holder_title = holder.select_one(
-                    "div.es_booking__availability-header.es_font-body--semi-bold"
-                ).get_text(strip=True)
-            except:
-                holder_title = "Unknown Venue"
+            title = holder.select_one(
+                "div.es_booking__availability-header.es_font-body--semi-bold"
+            )
+            venue_name = title.get_text(strip=True) if title else "Unknown Venue"
 
-            # Each slot row (wrapper)
+            # Slots inside that venue
             slots = holder.select("div.es_booking__availability__table-cell__wrapper")
 
             for slot in slots:
-                date_str = target_date
-
-                # extract time (radio button "name")
+                # Extract time
                 try:
-                    time = slot.select_one("div.es_booking__availability__table-cell")["name"]
+                    time_val = slot.select_one(
+                        "div.es_booking__availability__table-cell"
+                    )["name"]
                 except:
-                    time = "None"
+                    time_val = "None"
 
-                # ----------- Extract Time Wrapper -------------
-                wrapper = slot.select_one("div.es_booking__time_wrapper")
-
+                # Extract content inside wrapper
+                wrap = slot.select_one("div.es_booking__time_wrapper")
                 desc_parts = []
 
-                if wrapper:
-                    # Get all input elements inside wrapper (both disabled + enabled)
-                    inputs = wrapper.select("input.es_booking__availability__time-slot")
+                if wrap:
+                    inputs = wrap.select("input.es_booking__availability__time-slot")
 
                     for inp in inputs:
                         label = inp.find_next("label")
 
-                        # Extract duration
+                        # Duration
                         dur_el = label.select_one(".es_booking__availability__duration")
                         duration = dur_el.get_text(strip=True) if dur_el else None
                         if duration:
-                            duration = duration.replace("mins", "min").strip()
+                            duration = duration.replace("mins", "min")
 
-                        # Extract price
+                        # Price
                         price_el = label.select_one(".es_booking__availability__price-per-person")
-                        price_text = price_el.get_text(strip=True) if price_el else None
+                        price = price_el.get_text(strip=True) if price_el else None
 
-                        # CASE 1 — DISABLED SLOT
                         if inp.has_attr("disabled"):
                             desc_parts.append("unavailable")
-
-                        # CASE 2 — ENABLED SLOT
                         else:
-                            if duration and price_text:
-                                desc_parts.append(f"{duration} {price_text}")
+                            if duration and price:
+                                desc_parts.append(f"{duration} {price}")
                             elif duration:
                                 desc_parts.append(duration)
                             else:
                                 desc_parts.append("available")
-                                
-                # Final text
+
                 desc = ", ".join(desc_parts) if desc_parts else "unavailable"
 
-
-                # ------------ Save Data ----------------------------
                 slot_data = {
-                    "date": date_str,
-                    "time": time,
-                    "price": f"{holder_title} - {desc}",
+                    "date": target_date,
+                    "time": time_val,
+                    "price": f"{venue_name} - {desc}",
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
                     "website": "Electric Shuffle (London)"
@@ -3149,51 +3064,11 @@ def scrape_puttshack(location, guests, target_date):
 
 
 def scrape_flight_club_darts(guests, target_date, venue_id="1"):
-    """Flight Club Darts (London) scraper function with venue selection"""
+    """Flight Club Darts (London) scraper function with venue selection (updated from working test script)"""
     global scraping_status, scraped_data
     
-    import platform
-    import logging
-    import sys
-    logger = logging.getLogger(__name__)
-    
     try:
-        # On Linux, skip uc=True entirely as it causes hanging
-        if platform.system() == 'Linux':
-            print("[SCRAPER] On Linux - skipping uc=True to avoid hanging", flush=True)
-            logger.info("[SCRAPER] On Linux - skipping uc=True to avoid hanging")
-            driver_kwargs = {'headless': True, 'no_sandbox': True, 'disable_gpu': True}
-            use_uc = False
-        else:
-            driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
-            use_uc = True
-        
-        print(f"[SCRAPER] Creating Chrome driver for Flight Club Darts with uc={use_uc}...", flush=True)
-        logger.info(f"[SCRAPER] Creating Chrome driver for Flight Club Darts with uc={use_uc}...")
-        
-        if use_uc:
-            driver = Driver(uc=True, **driver_kwargs)
-        else:
-            driver = Driver(**driver_kwargs)
-        
-        print("[SCRAPER] Driver created successfully!", flush=True)
-        logger.info("[SCRAPER] Driver created successfully")
-        
-        # Set page load timeout
-        driver.set_page_load_timeout(30)
-        print(f"[SCRAPER] Navigating to Flight Club Darts...", flush=True)
-        
-        try:
-            driver.get(f"https://flightclubdarts.com/book?date={target_date}&group_size={guests}&preferedtime=11%3A30&preferedvenue={venue_id}")
-            print("[SCRAPER] Page loaded successfully!", flush=True)
-        except Exception as e:
-            print(f"[SCRAPER] Page load failed: {str(e)}", flush=True)
-            logger.error(f"[SCRAPER] Page load failed: {str(e)}")
-            if 'driver' in locals():
-                driver.quit()
-            raise
-        
-        # Determine venue name based on venue_id
+        # Venue mapping (matching test script)
         venue_names = {
             "1": "Flight Club Darts",
             "2": "Flight Club Darts (Angel)",
@@ -3205,51 +3080,69 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
         scraping_status['progress'] = f'Scraping {venue_name} for {target_date}...'
         scraping_status['current_date'] = target_date
         
+        # Build URL (matching test script)
+        url = (
+            f"https://flightclubdarts.com/book?"
+            f"date={target_date}&group_size={guests}&preferedtime=11%3A30&preferedvenue={venue_id}"
+        )
+        
+        # Launch browser (matching test script config)
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
+        
+        driver.get(url)
         driver.sleep(4)
         
+        # Parse Page (matching test script)
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        holders = soup.select('div.fc_dmnbook-availability')
+        holders = soup.select("div.fc_dmnbook-availability")
         
-        if len(holders) == 0:
-            scraping_status['progress'] = f'No slots available on {venue_name}'
+        if not holders:
+            scraping_status['progress'] = "No slots found."
             driver.quit()
             return
         
         scraping_status['progress'] = f'Found {len(holders)} venue sections on {venue_name}'
         
+        # Loop through venue sections
         for holder in holders:
             try:
-                holder_title = holder.find("span",{"id":"fc_dmnbook-availability__name"}).get_text().strip()
+                title_el = holder.find("span", {"id": "fc_dmnbook-availability__name"})
+                holder_title = title_el.get_text(strip=True)
             except:
                 holder_title = "Unknown Venue"
-                
-            slots = holder.find_all("div",{"class":"fc_dmnbook-availability-tablecell tns-item"})
+            
+            slots = holder.find_all("div", {"class": "fc_dmnbook-availability-tablecell tns-item"})
             
             for slot in slots:
-                date_str = target_date
-                # Status
-                status = "Available"
-                
                 # Time
                 try:
-                    time = slot.find("div",{"class":"fc_dmnbook-availibility__time font-small"}).get_text().strip()
+                    time_val = slot.find(
+                        "div", {"class": "fc_dmnbook-availibility__time font-small"}
+                    ).get_text(strip=True)
                 except:
-                    time = "None"
-                    
+                    time_val = "None"
+                
                 # Description
                 try:
-                    desc = slot.find("div",{"class":"fc_dmnbook-time_wrapper"}).get_text().replace("\n","").strip()
+                    desc = slot.find(
+                        "div", {"class": "fc_dmnbook-time_wrapper"}
+                    ).get_text(strip=True).replace("\n", "")
                 except:
                     desc = "None"
                 
-                # Store data in memory
                 slot_data = {
-                    'date': date_str,
-                    'time': time,
-                    'price': f"{holder_title} - {desc}",
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': venue_name
+                    "date": target_date,
+                    "time": time_val,
+                    "price": f"{holder_title} - {desc}",
+                    "status": "Available",
+                    "timestamp": datetime.now().isoformat(),
+                    "website": venue_name
                 }
                 
                 scraped_data.append(slot_data)
