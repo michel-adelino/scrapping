@@ -124,12 +124,15 @@ def create_driver_with_timeout(uc, driver_kwargs, timeout=60):
     
     def create_driver():
         try:
-            logger.info(f"[DRIVER] Starting Driver creation (uc={uc})...")
-            if uc:
-                driver = Driver(uc=True, **driver_kwargs)
-            else:
-                driver = Driver(**driver_kwargs)
-            logger.info(f"[DRIVER] Driver created successfully (uc={uc})")
+            logger.info(f"[DRIVER] Starting Driver creation...")
+            driver = Driver(
+                uc=False,
+                headless2=False,
+                no_sandbox=True,
+                disable_gpu=True,
+                headed=True,
+            )
+            logger.info(f"[DRIVER] Driver created successfully")
             result_queue.put(driver)
         except Exception as e:
             logger.error(f"[DRIVER] Exception during Driver creation: {str(e)}")
@@ -153,14 +156,12 @@ def create_driver_with_timeout(uc, driver_kwargs, timeout=60):
 
 def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=True, **extra_kwargs):
     """
-    Create SeleniumBase Driver with platform-specific optimizations and error handling.
-    On Linux, uses headless=True instead of headless2=True for better compatibility.
-    Includes fallback logic for Chrome startup failures and timeout protection.
+    Create SeleniumBase Driver with standard configuration.
+    Uses standard config: uc=False, headless2=False, no_sandbox=True, disable_gpu=True, headed=True
     """
     import platform
     import logging
     import time
-    import sys
     
     logger = logging.getLogger(__name__)
     
@@ -172,58 +173,15 @@ def create_driver_safe(uc=True, headless2=True, no_sandbox=True, disable_gpu=Tru
             raise RuntimeError("Chrome is not properly installed or cannot run on this system")
         print("[DRIVER] Chrome verification passed", flush=True)
         logger.info("[DRIVER] Chrome verification passed")
-        # On Linux, skip uc=True as it often causes issues
-        print("[DRIVER] On Linux, skipping uc=True to avoid hanging issues", flush=True)
-        logger.info("[DRIVER] On Linux, skipping uc=True to avoid hanging issues")
-        uc = False
-        driver_kwargs = {'headless': True, 'no_sandbox': no_sandbox, 'disable_gpu': disable_gpu, **extra_kwargs}
-    else:
-        driver_kwargs = {'headless2': headless2, 'no_sandbox': no_sandbox, 'disable_gpu': disable_gpu, **extra_kwargs}
     
-    print(f"[DRIVER] Creating Chrome driver with kwargs: {driver_kwargs}, uc={uc}", flush=True)
-    logger.info(f"[DRIVER] Creating Chrome driver with kwargs: {driver_kwargs}, uc={uc}")
+    print("[DRIVER] Creating Chrome driver with standard configuration...", flush=True)
+    logger.info("[DRIVER] Creating Chrome driver with standard configuration...")
     
-    # Try with uc=True first if specified (but not on Linux)
-    if uc:
-        try:
-            print("[DRIVER] Attempting driver creation with uc=True...", flush=True)
-            driver = create_driver_with_timeout(uc=True, driver_kwargs=driver_kwargs, timeout=60)
-            print("[DRIVER] Driver created with uc=True successfully!", flush=True)
-            logger.info("[DRIVER] Driver created with uc=True")
-            # On Linux, wait a moment for Chrome to fully initialize
-            if platform.system() == 'Linux':
-                time.sleep(1)
-            # Set page load timeout to prevent hanging
-            driver.set_page_load_timeout(30)
-            return driver
-        except (TimeoutError, TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited', 'timeout']):
-                print(f"[DRIVER] uc=True failed, trying without uc: {str(e)}", flush=True)
-                logger.warning(f"[DRIVER] uc=True failed, trying without uc: {str(e)}")
-                # Fallback: try without uc=True
-                try:
-                    driver = create_driver_with_timeout(uc=False, driver_kwargs=driver_kwargs, timeout=60)
-                    print("[DRIVER] Driver created without uc=True successfully!", flush=True)
-                    logger.info("[DRIVER] Driver created without uc=True")
-                    # On Linux, wait a moment for Chrome to fully initialize
-                    if platform.system() == 'Linux':
-                        time.sleep(1)
-                    # Set page load timeout to prevent hanging
-                    driver.set_page_load_timeout(30)
-                    return driver
-                except Exception as e2:
-                    print(f"[DRIVER] Fallback driver creation also failed: {str(e2)}", flush=True)
-                    logger.error(f"[DRIVER] Fallback driver creation also failed: {str(e2)}")
-                    raise
-            raise
-    
-    # Create driver without uc
-    print("[DRIVER] Creating driver without uc=True...", flush=True)
-    driver = create_driver_with_timeout(uc=False, driver_kwargs=driver_kwargs, timeout=60)
+    # Create driver with standard configuration
+    driver = create_driver_with_timeout(uc=False, driver_kwargs={}, timeout=60)
     print("[DRIVER] Driver created successfully!", flush=True)
-    logger.info("[DRIVER] Driver created")
+    logger.info("[DRIVER] Driver created successfully")
+    
     # On Linux, wait a moment for Chrome to fully initialize
     if platform.system() == 'Linux':
         time.sleep(1)
@@ -239,42 +197,15 @@ def create_driver_with_chrome_fallback(**kwargs):
     logger = logging.getLogger(__name__)
     chrome_binary = find_chrome_binary()
     
-    # Try with uc=True first if specified
-    if kwargs.get('uc', False) and chrome_binary:
-        try:
-            logger.info("[DRIVER] Attempting to create driver with uc=True...")
-            # SeleniumBase should auto-detect, but we can try to help it
-            driver = Driver(**kwargs)
-            logger.info("[DRIVER] Driver created successfully with uc=True")
-            # On Linux, wait a moment for Chrome to fully initialize
-            if platform.system() == 'Linux':
-                import time
-                time.sleep(1)
-            # Set page load timeout to prevent hanging
-            driver.set_page_load_timeout(30)
-            return driver
-        except (TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
-                logger.warning(f"[DRIVER] uc=True failed, falling back to regular Chrome: {str(e)}")
-                # Fallback: try without uc=True
-                kwargs_no_uc = kwargs.copy()
-                kwargs_no_uc['uc'] = False
-                driver = Driver(**kwargs_no_uc)
-                logger.info("[DRIVER] Driver created successfully without uc=True")
-                # On Linux, wait a moment for Chrome to fully initialize
-                if platform.system() == 'Linux':
-                    import time
-                    time.sleep(1)
-                # Set page load timeout to prevent hanging
-                driver.set_page_load_timeout(30)
-                return driver
-            raise
-    
-    # Default: create driver as requested
-    logger.info("[DRIVER] Creating driver without uc=True...")
-    driver = Driver(**kwargs)
+    # Create driver with standard configuration
+    logger.info("[DRIVER] Creating driver with standard configuration...")
+    driver = Driver(
+        uc=False,
+        headless2=False,
+        no_sandbox=True,
+        disable_gpu=True,
+        headed=True,
+    )
     logger.info("[DRIVER] Driver created successfully")
     # On Linux, wait a moment for Chrome to fully initialize
     if platform.system() == 'Linux':
@@ -1270,7 +1201,13 @@ def scrape_electric_shuffle(guests, target_date):
     global scraping_status, scraped_data
     
     try:
-        driver = Driver(uc=True, headless2=False, no_sandbox=True, disable_gpu=True)
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
         driver.get(f"https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search/?date={str(target_date)}&halo=120&party_size={str(guests)}&start_time=ALL")
         
         scraping_status['progress'] = f'Scraping Electric Shuffle NYC for {target_date}...'
@@ -1339,7 +1276,7 @@ def scrape_electric_shuffle_london(guests, target_date):
         # Build URL (matching test script)
         url = (
             "https://electricshuffle.com/uk/london/book/shuffleboard?"
-            f"preferedvenue=7&preferedtime=19%3A00&guestQuantity={guests}&date={target_date}"
+            f"preferedvenue=7&preferedtime=23%3A00&guestQuantity={guests}&date={target_date}"
         )
 
         scraping_status['progress'] = f'Scraping Electric Shuffle London for {target_date}...'
@@ -1666,19 +1603,14 @@ def scrape_spin(guests, target_date, selected_time=None):
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
         
         logger.info("[SCRAPER] Creating Chrome driver for SPIN...")
-        try:
-            driver = Driver(uc=True, **driver_kwargs)
-            logger.info("[SCRAPER] Driver created with uc=True")
-        except (TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
-                logger.warning(f"[SCRAPER] uc=True failed, trying without uc: {str(e)}")
-                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
-                driver = Driver(**driver_kwargs)
-                logger.info("[SCRAPER] Driver created without uc=True")
-            else:
-                raise
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
+        logger.info("[SCRAPER] Driver created successfully")
         
         # On Linux, wait a moment for Chrome to fully initialize before navigation
         if platform.system() == 'Linux':
@@ -1992,19 +1924,14 @@ def scrape_lucky_strike(guests, target_date):
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
         
         logger.info("[SCRAPER] Creating Chrome driver for Lucky Strike...")
-        try:
-            driver = Driver(uc=True, **driver_kwargs)
-            logger.info("[SCRAPER] Driver created with uc=True")
-        except (TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
-                logger.warning(f"[SCRAPER] uc=True failed, trying without uc: {str(e)}")
-                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
-                driver = Driver(**driver_kwargs)
-                logger.info("[SCRAPER] Driver created without uc=True")
-            else:
-                raise
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
+        logger.info("[SCRAPER] Driver created successfully")
         
         # On Linux, wait a moment for Chrome to fully initialize before navigation
         if platform.system() == 'Linux':
@@ -2391,13 +2318,16 @@ def scrape_fair_game_city(guests, target_date):
             driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
             use_uc = True
         
-        print(f"[SCRAPER] Creating Chrome driver for Fair Game City with uc={use_uc}...", flush=True)
-        logger.info(f"[SCRAPER] Creating Chrome driver for Fair Game City with uc={use_uc}...")
+        print(f"[SCRAPER] Creating Chrome driver for Fair Game City...", flush=True)
+        logger.info(f"[SCRAPER] Creating Chrome driver for Fair Game City...")
         
-        if use_uc:
-            driver = Driver(uc=True, **driver_kwargs)
-        else:
-            driver = Driver(**driver_kwargs)
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
         
         print("[SCRAPER] Driver created successfully!", flush=True)
         logger.info("[SCRAPER] Driver created successfully")
@@ -3077,6 +3007,15 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
         }
         venue_name = venue_names.get(venue_id, "Flight Club Darts")
         
+        # Map venue_id to expected holder_title (location name from the page)
+        holder_title_map = {
+            "1": "Bloomsbury, London",
+            "2": "Angel, London",
+            "3": "Shoreditch, London",
+            "4": "Victoria, London"
+        }
+        expected_holder_title = holder_title_map.get(venue_id, "Bloomsbury, London")
+        
         scraping_status['progress'] = f'Scraping {venue_name} for {target_date}...'
         scraping_status['current_date'] = target_date
         
@@ -3096,7 +3035,7 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
         )
         
         driver.get(url)
-        driver.sleep(4)
+        driver.sleep(30)
         
         # Parse Page (matching test script)
         soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -3107,15 +3046,20 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
             driver.quit()
             return
         
-        scraping_status['progress'] = f'Found {len(holders)} venue sections on {venue_name}'
+        scraping_status['progress'] = f'Found {len(holders)} venue sections, filtering for {expected_holder_title}'
         
-        # Loop through venue sections
+        # Loop through venue sections and filter by holder_title
+        slots_found = 0
         for holder in holders:
             try:
                 title_el = holder.find("span", {"id": "fc_dmnbook-availability__name"})
-                holder_title = title_el.get_text(strip=True)
+                holder_title = title_el.get_text(strip=True) if title_el else "Unknown Venue"
             except:
                 holder_title = "Unknown Venue"
+            
+            # Only process slots from the matching holder_title
+            if holder_title != expected_holder_title:
+                continue  # Skip holders that don't match the expected location
             
             slots = holder.find_all("div", {"class": "fc_dmnbook-availability-tablecell tns-item"})
             
@@ -3146,7 +3090,10 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
                 }
                 
                 scraped_data.append(slot_data)
+                slots_found += 1
                 scraping_status['total_slots_found'] = len(scraped_data)
+        
+        scraping_status['progress'] = f'Found {slots_found} slots for {venue_name} ({expected_holder_title})'
         
         driver.quit()
         
@@ -3165,47 +3112,21 @@ def scrape_f1_arcade(guests, target_date, f1_experience):
         import logging
         logger = logging.getLogger(__name__)
         
-        # On Linux, try headless=True first as headless2 might not work properly
-        if platform.system() == 'Linux':
-            driver_kwargs = {'headless': True, 'no_sandbox': True, 'disable_gpu': True}
-        else:
-            driver_kwargs = {'headless2': True, 'no_sandbox': True, 'disable_gpu': True}
+        logger.info(f"[SCRAPER] Creating Chrome driver for F1 Arcade...")
+        print(f"[SCRAPER] Creating Chrome driver for F1 Arcade...", flush=True)
         
-        # On Linux, skip uc=True entirely as it causes hanging
-        if platform.system() == 'Linux':
-            print("[SCRAPER] On Linux - skipping uc=True to avoid hanging", flush=True)
-            logger.info("[SCRAPER] On Linux - skipping uc=True to avoid hanging")
-            use_uc = False
-        else:
-            use_uc = True
+        driver = Driver(
+            uc=False,
+            headless2=False,
+            no_sandbox=True,
+            disable_gpu=True,
+            headed=True,
+        )
+        print("[SCRAPER] Driver created successfully!", flush=True)
+        logger.info("[SCRAPER] Driver created successfully")
         
-        logger.info(f"[SCRAPER] Creating Chrome driver for F1 Arcade with uc={use_uc}...")
-        print(f"[SCRAPER] Creating Chrome driver for F1 Arcade with uc={use_uc}...", flush=True)
-        
-        try:
-            if use_uc:
-                print("[SCRAPER] Calling Driver(uc=True, ...) - this may take a moment...", flush=True)
-                driver = Driver(uc=True, **driver_kwargs)
-                print("[SCRAPER] Driver created with uc=True successfully!", flush=True)
-                logger.info("[SCRAPER] Driver created with uc=True")
-            else:
-                print("[SCRAPER] Calling Driver(...) without uc=True...", flush=True)
-                driver = Driver(**driver_kwargs)
-                print("[SCRAPER] Driver created without uc=True successfully!", flush=True)
-                logger.info("[SCRAPER] Driver created without uc=True")
-        except (TypeError, Exception) as e:
-            error_str = str(e).lower()
-            if any(term in error_str for term in ['binary location', 'binary_location', 'session not created', 
-                                                   'devtoolsactiveport', 'chrome not reachable', 'chrome instance exited']):
-                print(f"[SCRAPER] uc={use_uc} failed, trying without uc: {str(e)}", flush=True)
-                logger.warning(f"[SCRAPER] uc={use_uc} failed, trying without uc: {str(e)}")
-                # Fallback: try without uc=True if Chrome binary detection fails or session creation fails
-                driver = Driver(**driver_kwargs)
-                print("[SCRAPER] Driver created without uc=True", flush=True)
-                logger.info("[SCRAPER] Driver created without uc=True")
-            else:
-                raise
-        
+        driver.sleep(10)
+
         # On Linux, wait a moment for Chrome to fully initialize before navigation
         if platform.system() == 'Linux':
             import time
