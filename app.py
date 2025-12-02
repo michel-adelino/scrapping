@@ -3578,9 +3578,109 @@ def refresh_all_venues_task(self):
             raise e
 
 
+@celery_app.task(bind=True, name='app.update_parent_task_duration')
+def update_parent_task_duration(self, results, parent_task_id=None, total_tasks=None):
+    """Callback task to update parent task duration when all child tasks complete
+    
+    Args:
+        results: List of results from all child tasks (provided by Celery chord as first positional arg)
+        parent_task_id: ID of the parent task to update (passed via .s() kwargs)
+        total_tasks: Total number of child tasks that were executed (passed via .s() kwargs)
+    """
+    with app.app_context():
+        import time
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Extract parent_task_id and total_tasks from kwargs if not provided directly
+            # Celery chord passes results as first positional arg, kwargs via .s() go to self.request.kwargs
+            if not parent_task_id:
+                parent_task_id = self.request.kwargs.get('parent_task_id') or (self.request.args[1] if len(self.request.args) > 1 else None)
+            if not total_tasks:
+                total_tasks = self.request.kwargs.get('total_tasks') or (self.request.args[2] if len(self.request.args) > 2 else None)
+            
+            if not parent_task_id:
+                logger.error(f"[DURATION_CALLBACK] No parent_task_id provided! Request args: {self.request.args}, kwargs: {self.request.kwargs}")
+                return
+            
+            # Use results length as fallback for total_tasks
+            total_tasks = total_tasks or (len(results) if results else 0)
+            
+            logger.info(f"[DURATION_CALLBACK] All {total_tasks} child tasks completed. Updating parent task {parent_task_id}...")
+            
+            # Get the parent task
+            task = ScrapingTask.query.filter_by(task_id=parent_task_id).first()
+            if not task:
+                logger.error(f"[DURATION_CALLBACK] Parent task {parent_task_id} not found!")
+                return
+            
+            # Calculate total duration from when the parent task was created
+            if task.created_at:
+                end_time = datetime.utcnow()
+                duration_timedelta = end_time - task.created_at
+                duration_seconds = duration_timedelta.total_seconds()
+                duration_minutes = duration_seconds / 60
+                
+                # Count successful and failed tasks from results
+                # Results from chord is a list of AsyncResult objects or actual return values
+                successful = 0
+                failed = 0
+                if results:
+                    for r in results:
+                        # Handle AsyncResult objects
+                        if hasattr(r, 'successful'):
+                            try:
+                                if r.successful():
+                                    successful += 1
+                                else:
+                                    failed += 1
+                            except:
+                                failed += 1
+                        # Handle direct return values (dict, None, etc.)
+                        elif r is not None:
+                            successful += 1
+                        else:
+                            failed += 1
+                else:
+                    # If no results provided, assume all completed (chord only calls callback when all done)
+                    successful = total_tasks
+                
+                # Update parent task with final duration
+                task.duration_seconds = duration_seconds
+                task.completed_at = end_time
+                task.status = 'SUCCESS'
+                task.progress = f'All {total_tasks} scraping tasks completed! ({successful} successful, {failed} failed)'
+                db.session.commit()
+                
+                logger.info(f"[DURATION_CALLBACK] ✅ Updated parent task {parent_task_id}")
+                logger.info(f"[DURATION_CALLBACK] ⏱️  Total duration: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
+                logger.info(f"[DURATION_CALLBACK] 📊 Tasks: {successful} successful, {failed} failed out of {total_tasks} total")
+            else:
+                logger.warning(f"[DURATION_CALLBACK] Parent task {parent_task_id} has no created_at timestamp!")
+                task.status = 'SUCCESS'
+                task.completed_at = datetime.utcnow()
+                task.progress = f'All {total_tasks} scraping tasks completed successfully!'
+                db.session.commit()
+                
+        except Exception as e:
+            logger.error(f"[DURATION_CALLBACK] Error updating parent task duration: {e}", exc_info=True)
+            # Try to at least mark the task as completed
+            try:
+                parent_id = parent_task_id or self.request.kwargs.get('parent_task_id')
+                if parent_id:
+                    task = ScrapingTask.query.filter_by(task_id=parent_id).first()
+                    if task:
+                        task.status = 'SUCCESS'
+                        task.completed_at = datetime.utcnow()
+                        db.session.commit()
+            except:
+                pass
+
+
 @celery_app.task(bind=True, name='app.scrape_all_venues_task')
 def scrape_all_venues_task(self, city, guests, target_date, task_id=None, options=None):
-    """Scrape all venues in a city for one or more dates simultaneously using Celery group"""
+    """Scrape all venues in a city for one or more dates simultaneously using Celery chord"""
     with app.app_context():
         import time
         import uuid
@@ -3690,47 +3790,46 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
                         )
                     )
             
-            # Execute all tasks in parallel using group
-            # Note: We don't wait for results synchronously (Celery doesn't allow result.get() within a task)
-            # Instead, all individual venue tasks save their results directly to the database
-            job = group(venue_tasks)
-            result = job.apply_async()
+            total_tasks = len(venue_tasks)
+            logger.info(f"[SCRAPE_ALL] Created {total_tasks} venue-date tasks")
             
-            logger.info(f"[SCRAPE_ALL] All {len(venue_tasks)} venue-date tasks submitted to queue")
+            # Execute all tasks in parallel using chord with callback to track completion
+            # The callback will update the parent task's duration when all child tasks finish
+            # Note: Celery chord passes results as first positional arg to the callback
+            # We pass parent_task_id and total_tasks as kwargs via .s() - these will be accessible
+            # via self.request.kwargs in the callback function
+            callback = update_parent_task_duration.s(parent_task_id=task_id, total_tasks=total_tasks)
+            job = chord(venue_tasks)(callback)
+            
+            # Store the chord result for potential future use
+            logger.info(f"[SCRAPE_ALL] Chord job created with ID: {job.id if hasattr(job, 'id') else 'N/A'}")
+            
+            logger.info(f"[SCRAPE_ALL] All {total_tasks} venue-date tasks submitted to queue with completion callback")
             logger.info(f"[SCRAPE_ALL] Tasks will execute in parallel and save results to database independently")
+            logger.info(f"[SCRAPE_ALL] Duration tracking: Started at {task.created_at}, will be updated when all tasks complete")
             
-            # Don't wait for results - individual tasks save to DB
-            # The parent task completes immediately after submitting child tasks
-            venue_results = {}
-            total_slots = 0  # Will be calculated from DB later if needed
-            
-            # Calculate duration
+            # Calculate submission duration (just for logging)
             end_time = time.time()
-            duration_seconds = end_time - start_time
-            duration_minutes = duration_seconds / 60
-            
-            logger.info(f"[SCRAPE_ALL] Submitted {len(venue_tasks)} scraping tasks for {city_name} venues across {len(target_dates)} date(s)")
-            logger.info(f"[SCRAPE_ALL] ⏱️  Task submission duration: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)")
-            logger.info(f"[SCRAPE_ALL] Individual venue tasks are now running in parallel and saving results to database")
+            submission_duration = end_time - start_time
+            logger.info(f"[SCRAPE_ALL] ⏱️  Task submission duration: {submission_duration:.2f} seconds")
             
             # Mark task as submitted (not completed - child tasks are still running)
             task = ScrapingTask.query.filter_by(task_id=task_id).first()
             if task:
                 task.status = 'SUBMITTED'
-                task.progress = f'Submitted {len(venue_tasks)} scraping tasks for {len(venues)} {city_name} venues across {len(target_dates)} dates. Tasks are running in parallel.'
-                # Don't set completed_at or duration_seconds yet - child tasks are still running
+                task.progress = f'Submitted {total_tasks} scraping tasks for {len(venues)} {city_name} venues across {len(target_dates)} dates. Tasks are running in parallel. Duration will be tracked until all tasks complete.'
                 db.session.commit()
                 logger.info(f"[SCRAPE_ALL] ✅ Task marked as SUBMITTED: {task.website} (task_id: {task_id})")
             else:
-                logger.error(f"[SCRAPE_ALL] ❌ Task {task_id} not found in database, cannot save duration!")
+                logger.error(f"[SCRAPE_ALL] ❌ Task {task_id} not found in database!")
                 logger.error(f"[SCRAPE_ALL] Available task_ids: {[t.task_id for t in ScrapingTask.query.limit(5).all()]}")
             
             return {
                 'status': 'submitted', 
-                'tasks_submitted': len(venue_tasks),
+                'tasks_submitted': total_tasks,
                 'venues': len(venues), 
                 'dates': len(target_dates),
-                'message': f'Submitted {len(venue_tasks)} scraping tasks. Results will be saved to database as tasks complete.'
+                'message': f'Submitted {total_tasks} scraping tasks. Results will be saved to database as tasks complete. Duration tracking enabled.'
             }
             
         except Exception as e:
@@ -4119,13 +4218,21 @@ def get_scraping_durations():
             status='SUCCESS'
         ).order_by(ScrapingTask.completed_at.desc()).first()
         
+        # Get the most recent completed task with duration (for "last duration" display)
+        last_task = ScrapingTask.query.filter(
+            ScrapingTask.status == 'SUCCESS',
+            ScrapingTask.duration_seconds.isnot(None),
+            ScrapingTask.duration_seconds > 0
+        ).order_by(ScrapingTask.completed_at.desc()).first()
+        
         def format_task_duration(task):
             if task and task.duration_seconds:
                 return {
                     'duration_seconds': task.duration_seconds,
                     'duration_minutes': round(task.duration_seconds / 60, 2),
                     'completed_at': task.completed_at.isoformat() if task.completed_at else None,
-                    'total_slots': task.total_slots_found
+                    'total_slots': task.total_slots_found,
+                    'website': task.website
                 }
             return None
         
@@ -4133,7 +4240,8 @@ def get_scraping_durations():
             'nyc_today': format_task_duration(nyc_today_task),
             'nyc_tomorrow': format_task_duration(nyc_tomorrow_task),
             'london_today': format_task_duration(london_today_task),
-            'london_tomorrow': format_task_duration(london_tomorrow_task)
+            'london_tomorrow': format_task_duration(london_tomorrow_task),
+            'last_duration': format_task_duration(last_task)
         }
         
         return jsonify(durations)

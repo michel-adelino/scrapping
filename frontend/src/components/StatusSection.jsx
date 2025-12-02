@@ -5,7 +5,8 @@ function StatusSection({ stats }) {
     nyc_today: null, 
     nyc_tomorrow: null, 
     london_today: null, 
-    london_tomorrow: null 
+    london_tomorrow: null,
+    last_duration: null
   })
 
   useEffect(() => {
@@ -39,7 +40,17 @@ function StatusSection({ stats }) {
     if (minutes < 1) {
       return `${Math.round(minutes * 60)}s`
     }
-    return `${minutes.toFixed(1)}m`
+    if (minutes < 60) {
+      return `${minutes.toFixed(1)}m`
+    }
+    const hours = Math.floor(minutes / 60)
+    const mins = Math.round(minutes % 60)
+    return `${hours}h ${mins}m`
+  }
+  
+  const formatDurationShort = (durationData) => {
+    if (!durationData || !durationData.duration_minutes) return '-'
+    return formatDuration(durationData.duration_minutes)
   }
 
   return (
@@ -56,6 +67,40 @@ function StatusSection({ stats }) {
       <div className="status-text">
         Background scraping runs automatically every 15 minutes. Use Search Database to view results.
       </div>
+
+      {durations.last_duration && (
+        <div style={{
+          marginTop: '16px',
+          padding: '12px 16px',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '4px'
+          }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+              ⏱️ Last Scraping Duration
+            </span>
+            <span style={{ fontSize: '18px', fontWeight: '700', color: '#2563eb' }}>
+              {formatDurationShort(durations.last_duration)}
+            </span>
+          </div>
+          {durations.last_duration.completed_at && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+              Completed: {new Date(durations.last_duration.completed_at).toLocaleString()}
+            </div>
+          )}
+          {durations.last_duration.website && (
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              Task: {durations.last_duration.website}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="stats-grid">
         <div className="stat-card">

@@ -24,7 +24,7 @@ function App() {
   const [isMultiVenueMode, setIsMultiVenueMode] = useState(false)
   const [currentFilters, setCurrentFilters] = useState({})
   const [currentGuestsFilter, setCurrentGuestsFilter] = useState(null)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const [stats, setStats] = useState({
     totalSlots: 0,
     availableSlots: 0,
