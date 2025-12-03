@@ -13,17 +13,17 @@ sudo systemctl restart scrapping-celery-worker
 
 ### Start All Services
 ```bash
-sudo systemctl start scrapping-flask scrapping-celery-worker scrapping-celery-beat scrapping-frontend
+sudo systemctl start scrapping-flask scrapping-celery-worker scrapping-celery-beat
 ```
 
 ### Stop All Services
 ```bash
-sudo systemctl stop scrapping-flask scrapping-celery-worker scrapping-celery-beat scrapping-frontend
+sudo systemctl stop scrapping-flask scrapping-celery-worker scrapping-celery-beat
 ```
 
 ### Restart All Services
 ```bash
-sudo systemctl restart scrapping-flask scrapping-celery-worker scrapping-celery-beat scrapping-frontend
+sudo systemctl restart scrapping-flask scrapping-celery-worker scrapping-celery-beat
 ```
 
 ### Check Status
@@ -31,12 +31,11 @@ sudo systemctl restart scrapping-flask scrapping-celery-worker scrapping-celery-
 sudo systemctl status scrapping-flask
 sudo systemctl status scrapping-celery-worker
 sudo systemctl status scrapping-celery-beat
-sudo systemctl status scrapping-frontend
 ```
 
 ### Enable Auto-Start on Boot
 ```bash
-sudo systemctl enable scrapping-flask scrapping-celery-worker scrapping-celery-beat scrapping-frontend
+sudo systemctl enable scrapping-flask scrapping-celery-worker scrapping-celery-beat
 ```
 
 ## View Logs
@@ -53,9 +52,6 @@ sudo journalctl -u scrapping-celery-worker -f
 
 # Celery Beat
 sudo journalctl -u scrapping-celery-beat -f
-
-# Frontend
-sudo journalctl -u scrapping-frontend -f
 ```
 
 ### View Last N Lines
@@ -141,7 +137,7 @@ sudo systemctl restart scrapping-flask scrapping-celery-worker scrapping-celery-
 
 ### Check if Services are Running
 ```bash
-sudo systemctl status scrapping-flask scrapping-celery-worker scrapping-celery-beat scrapping-frontend
+sudo systemctl status scrapping-flask scrapping-celery-worker scrapping-celery-beat
 ```
 
 ### Check Ports
