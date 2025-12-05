@@ -58,7 +58,7 @@ const VENUE_NAME_MAP = {
   'f1_arcade': 'F1 Arcade'
 }
 
-function SearchPanel({ onSearch, onClear }) {
+function SearchPanel({ onSearch, onClear, isLoading = false }) {
   const [website, setWebsite] = useState('swingers_nyc')
   const [guests, setGuests] = useState(6)
   const [targetDate, setTargetDate] = useState('')
@@ -245,9 +245,9 @@ function SearchPanel({ onSearch, onClear }) {
           </div>
 
           <div className="search-actions">
-            <button type="submit" className="primary-btn">
-              <span>🔍</span>
-              Search Database
+            <button type="submit" className="primary-btn" disabled={isLoading}>
+              <span>{isLoading ? '⏳' : '🔍'}</span>
+              {isLoading ? 'Loading...' : 'Search Database'}
             </button>
             <button type="button" className="ghost-btn" onClick={onClear}>
               <span>🗑️</span>

@@ -32,6 +32,7 @@ function App() {
     currentWebsite: '-'
   })
   const [toasts, setToasts] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const showToast = useCallback((message, type = 'error', duration = 5000) => {
     const id = Date.now() + Math.random()
@@ -64,6 +65,7 @@ function App() {
   }, [])
 
   const fetchData = useCallback(async (filters = {}, guests = null) => {
+    setIsLoading(true)
     try {
       // Guests filter is now handled by backend, but we can also filter client-side as fallback
       const url = buildQueryUrl(filters)
@@ -139,6 +141,8 @@ function App() {
       console.error('Error fetching data:', error)
       const errorMessage = error.message || 'Unknown error occurred'
       showToast(`Error loading data: ${errorMessage}`, 'error')
+    } finally {
+      setIsLoading(false)
     }
   }, [buildQueryUrl, showToast])
 
@@ -211,7 +215,7 @@ function App() {
         <p>Choose a city, set your date and group size, then let the scraper do the work.</p>
       </header>
 
-      <SearchPanel onSearch={handleSearch} onClear={handleClearData} />
+      <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />
 
       <StatusSection stats={stats} />
 
