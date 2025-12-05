@@ -224,65 +224,81 @@ def create_driver_with_chrome_fallback(**kwargs):
         base_delay = 2  # Start with 2 seconds
         
         for attempt in range(max_retries):
-        try:
-            # Add small random delay to prevent thundering herd
-            if attempt > 0:
-                delay = base_delay * (2 ** (attempt - 1)) + (time.time() % 1)  # Exponential backoff + jitter
-                logger.info(f"[DRIVER] Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay...")
-                time.sleep(delay)
-            
-            logger.info(f"[DRIVER] Creating driver (attempt {attempt + 1}/{max_retries})...")
-            
-            # Create driver with standard configuration
-            driver = Driver(
-                uc=False,
-                headless2=False,
-                no_sandbox=True,
-                disable_gpu=True,
-                headed=True,
-            )
-            
-            # Verify driver is actually working
             try:
-                driver.current_url  # This will fail if Chrome crashed
-            except Exception as e:
-                logger.warning(f"[DRIVER] Driver created but not responsive: {e}")
+                # Add small random delay to prevent thundering herd
+                if attempt > 0:
+                    delay = base_delay * (2 ** (attempt - 1)) + (time.time() % 1)  # Exponential backoff + jitter
+                    logger.info(f"[DRIVER] Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay...")
+                    time.sleep(delay)
+                
+                logger.info(f"[DRIVER] Creating driver (attempt {attempt + 1}/{max_retries})...")
+                
+                # Create driver with standard configuration
+                driver = Driver(
+                    uc=False,
+                    headless2=False,
+                    no_sandbox=True,
+                    disable_gpu=True,
+                    headed=True,
+                )
+                
+                # Verify driver is actually working
                 try:
-                    driver.quit()
-                except:
-                    pass
-                if attempt < max_retries - 1:
-                    continue
+                    driver.current_url  # This will fail if Chrome crashed
+                except Exception as e:
+                    logger.warning(f"[DRIVER] Driver created but not responsive: {e}")
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    if attempt < max_retries - 1:
+                        continue
+                    else:
+                        raise
+                
+                logger.info("[DRIVER] Driver created successfully")
+                
+                # On Linux, wait a moment for Chrome to fully initialize
+                if platform.system() == 'Linux':
+                    time.sleep(1)
+                
+                # Set page load timeout to prevent hanging
+                driver.set_page_load_timeout(30)
+                
+                # Store semaphore release in driver cleanup
+                original_quit = driver.quit
+                def quit_with_semaphore_release():
+                    try:
+                        original_quit()
+                    finally:
+                        _chrome_semaphore.release()
+                        logger.info("[DRIVER] Released Chrome instance slot")
+                driver.quit = quit_with_semaphore_release
+                
+                return driver
+                
+            except (SessionNotCreatedException, WebDriverException) as e:
+                error_msg = str(e).lower()
+                if 'chrome instance exited' in error_msg or 'session not created' in error_msg:
+                    logger.warning(f"[DRIVER] Chrome instance failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        # Clean up any partial driver state
+                        try:
+                            if 'driver' in locals():
+                                driver.quit()
+                        except:
+                            pass
+                        continue
+                    else:
+                        logger.error(f"[DRIVER] Failed to create driver after {max_retries} attempts")
+                        raise
                 else:
+                    # Other WebDriver errors, raise immediately
+                    logger.error(f"[DRIVER] WebDriver error: {e}")
                     raise
-            
-            logger.info("[DRIVER] Driver created successfully")
-            
-            # On Linux, wait a moment for Chrome to fully initialize
-            if platform.system() == 'Linux':
-                time.sleep(1)
-            
-            # Set page load timeout to prevent hanging
-            driver.set_page_load_timeout(30)
-            
-            # Store semaphore release in driver cleanup
-            original_quit = driver.quit
-            def quit_with_semaphore_release():
-                try:
-                    original_quit()
-                finally:
-                    _chrome_semaphore.release()
-                    logger.info("[DRIVER] Released Chrome instance slot")
-            driver.quit = quit_with_semaphore_release
-            
-            return driver
-            
-        except (SessionNotCreatedException, WebDriverException) as e:
-            error_msg = str(e).lower()
-            if 'chrome instance exited' in error_msg or 'session not created' in error_msg:
-                logger.warning(f"[DRIVER] Chrome instance failed (attempt {attempt + 1}/{max_retries}): {e}")
+            except Exception as e:
+                logger.error(f"[DRIVER] Unexpected error creating driver: {e}")
                 if attempt < max_retries - 1:
-                    # Clean up any partial driver state
                     try:
                         if 'driver' in locals():
                             driver.quit()
@@ -290,23 +306,7 @@ def create_driver_with_chrome_fallback(**kwargs):
                         pass
                     continue
                 else:
-                    logger.error(f"[DRIVER] Failed to create driver after {max_retries} attempts")
                     raise
-            else:
-                # Other WebDriver errors, raise immediately
-                logger.error(f"[DRIVER] WebDriver error: {e}")
-                raise
-        except Exception as e:
-            logger.error(f"[DRIVER] Unexpected error creating driver: {e}")
-            if attempt < max_retries - 1:
-                try:
-                    if 'driver' in locals():
-                        driver.quit()
-                except:
-                    pass
-                continue
-            else:
-                raise
     
         raise RuntimeError(f"Failed to create Chrome driver after {max_retries} attempts")
     finally:
@@ -1393,7 +1393,8 @@ def scrape_electric_shuffle(guests, target_date):
             driver.quit()
             return
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.find_all('div','sc-imWYAI cTOWnZ')
+        parent = soup.find('div', {'data-test': 'reservation-availability-grid-primary'})
+        slots = parent.find_all('div', class_='sc-imWYAI cTOWnZ') if parent else []
         print(slots)
         if len(slots) == 0:
             scraping_status['progress'] = 'No slots available on Electric Shuffle NYC'
