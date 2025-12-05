@@ -1573,7 +1573,7 @@ def scrape_electric_shuffle_london(guests, target_date):
             driver.quit()
         raise e
 
-def scrape_lawn_club(guests, target_date, option="Curling Lawns & Cabins", selected_time=None, selected_duration=None):
+def scrape_lawn_club(guests, target_date, option="Indoor Gaming Lawns", selected_time=None, selected_duration=None):
     """Lawn Club NYC scraper function"""
     global scraping_status, scraped_data
     
@@ -4482,7 +4482,18 @@ def get_data():
                 logger.info(debug_city)
         
         if venue_name:
-            query = query.filter(AvailabilitySlot.venue_name == venue_name)
+            # Special handling for Lawn Club NYC - it stores venue names with options like
+            # "Lawn Club NYC (Curling Lawns & Cabins)", so we need to use LIKE pattern matching
+            if venue_name == 'Lawn Club NYC':
+                query = query.filter(AvailabilitySlot.venue_name.like('Lawn Club NYC%'))
+                debug_venue = f"[API DEBUG] Filtering by venue_name LIKE 'Lawn Club NYC%'"
+                print(debug_venue, flush=True)
+                logger.info(debug_venue)
+            else:
+                query = query.filter(AvailabilitySlot.venue_name == venue_name)
+                debug_venue = f"[API DEBUG] Filtering by venue_name='{venue_name}'"
+                print(debug_venue, flush=True)
+                logger.info(debug_venue)
         if date_from:
             try:
                 date_from_obj = datetime.strptime(date_from, "%Y-%m-%d").date()
