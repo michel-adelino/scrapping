@@ -84,7 +84,7 @@ function VenueRows({ data }) {
       .map(([venueName, dates]) => ({
         venueName,
         dates: Object.entries(dates)
-          .sort((a, b) => new Date(b[0]) - new Date(a[0])) // Sort dates descending (newest first)
+          .sort((a, b) => new Date(a[0]) - new Date(b[0])) // Sort dates ascending (oldest first - today to 30 days later)
           .map(([date, slots]) => ({
             date,
             slots: slots.sort((a, b) => (a.time || '').localeCompare(b.time || '')) // Sort slots by time

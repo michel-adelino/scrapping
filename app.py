@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from bs4 import BeautifulSoup
 from seleniumbase import Driver
 from time import sleep
@@ -447,10 +447,10 @@ VENUE_BOOKING_URLS = {
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
     'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
-    'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
-    'Clays Bar (The City)': 'https://clays.bar/book',
-    'Clays Bar (Birmingham)': 'https://clays.bar/book',
-    'Clays Bar (Soho)': 'https://clays.bar/book',
+    'Clays Bar (Canary Wharf)': 'https://clays.bar/',
+    'Clays Bar (The City)': 'https://clays.bar/',
+    'Clays Bar (Birmingham)': 'https://clays.bar/',
+    'Clays Bar (Soho)': 'https://clays.bar/',
     'Puttshack (Bank)': 'https://www.puttshack.com/book-golf',
     'Puttshack (Lakeside)': 'https://www.puttshack.com/book-golf',
     'Puttshack (White City)': 'https://www.puttshack.com/book-golf',
@@ -1403,7 +1403,6 @@ def scrape_electric_shuffle(guests, target_date):
         scraping_status['progress'] = f'Found {len(slots)} available slots on Electric Shuffle NYC'
         
         for slot in slots:
-            date_str = target_date
             # Status
             status = "Available"
             
@@ -1445,11 +1444,15 @@ def scrape_electric_shuffle_london(guests, target_date):
     global scraping_status, scraped_data
 
     try:
+        date_str = target_date
         # Build URL (matching test script)
         url = (
             "https://electricshuffle.com/uk/london/book/shuffleboard?"
             f"preferedvenue=7&preferedtime=23%3A00&guestQuantity={guests}&date={target_date}"
         )
+        
+        # Booking URL to save in database - same format as the URL used for scraping
+        booking_url = url
 
         scraping_status['progress'] = f'Scraping Electric Shuffle London for {target_date}...'
         scraping_status['current_date'] = target_date
@@ -1560,7 +1563,8 @@ def scrape_electric_shuffle_london(guests, target_date):
                     "price": f"{venue_name} - {desc}",
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Electric Shuffle (London)"
+                    "website": "Electric Shuffle (London)",
+                    "booking_url": booking_url  # URL with date, guests, and venue parameters
                 }
 
                 scraped_data.append(slot_data)
@@ -1670,6 +1674,14 @@ def scrape_lawn_club(guests, target_date, option="Indoor Gaming Lawns", selected
                 raise RuntimeError(f"Could not set Lawn Club duration to {normalized_duration}")
             driver.sleep(0.3)
         
+        # Wait a moment to ensure URL has updated with all selections
+        driver.sleep(0.5)
+        
+        # Capture the booking URL after all selections (date, guests, time, duration)
+        # This is the URL that opens the date/guest selection page for the specific option
+        booking_url = driver.current_url
+        print(f"[Lawn Club] Captured booking URL: {booking_url}")
+        
         # Search for availability
         try:
             driver.click('button[data-test="sr-search-button"]')
@@ -1732,7 +1744,8 @@ def scrape_lawn_club(guests, target_date, option="Indoor Gaming Lawns", selected
                 'price': desc,  # Using description as price for consistency
                 'status': status,
                 'timestamp': datetime.now().isoformat(),
-                'website': f'Lawn Club NYC ({option})'
+                'website': f'Lawn Club NYC ({option})',
+                'booking_url': booking_url  # URL to the date/guest selection page for this option
             }
             
             scraped_data.append(slot_data)
@@ -2373,8 +2386,12 @@ def scrape_fair_game_canary_wharf(guests, target_date):
     global scraping_status, scraped_data
     
     try:
+        date_str = target_date
+        # Build booking URL with date and guests parameters
+        booking_url = f"https://www.sevenrooms.com/explore/fairgame/reservations/create/search?date={target_date}&party_size={guests}"
+        
         driver = create_driver_with_chrome_fallback()
-        driver.get(f"https://www.sevenrooms.com/explore/fairgame/reservations/create/search?date={target_date}&party_size={guests}")
+        driver.get(booking_url)
         
         scraping_status['progress'] = f'Scraping Fair Game (Canary Wharf) for {target_date}...'
         scraping_status['current_date'] = target_date
@@ -2392,7 +2409,6 @@ def scrape_fair_game_canary_wharf(guests, target_date):
             return
         
         for slot in slots:
-            date_str = target_date
             # Status
             status = "Available"
             
@@ -2415,7 +2431,8 @@ def scrape_fair_game_canary_wharf(guests, target_date):
                 'price': desc,  # Using description as price for consistency
                 'status': status,
                 'timestamp': datetime.now().isoformat(),
-                'website': 'Fair Game (Canary Wharf)'
+                'website': 'Fair Game (Canary Wharf)',
+                'booking_url': booking_url  # URL with date and guests parameters
             }
             
             scraped_data.append(slot_data)
@@ -2467,8 +2484,12 @@ def scrape_fair_game_city(guests, target_date):
         driver.set_page_load_timeout(30)
         print(f"[SCRAPER] Navigating to Fair Game City...", flush=True)
         
+        date_str = target_date
+        # Build booking URL with date and guests parameters
+        booking_url = f"https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search/?date={target_date}&party_size={guests}"
+        
         try:
-            driver.get(f"https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search/?date={target_date}&party_size={guests}")
+            driver.get(booking_url)
             print("[SCRAPER] Page loaded successfully!", flush=True)
         except Exception as e:
             print(f"[SCRAPER] Page load failed: {str(e)}", flush=True)
@@ -2493,7 +2514,6 @@ def scrape_fair_game_city(guests, target_date):
             return
         
         for slot in slots:
-            date_str = target_date
             # Status
             status = "Available"
             
@@ -2516,7 +2536,8 @@ def scrape_fair_game_city(guests, target_date):
                 'price': desc,
                 'status': status,
                 'timestamp': datetime.now().isoformat(),
-                'website': 'Fair Game (City)'
+                'website': 'Fair Game (City)',
+                'booking_url': booking_url  # URL with date and guests parameters
             }
             
             scraped_data.append(slot_data)
@@ -4526,10 +4547,17 @@ def get_data():
             logger.warning(f"[API DEBUG] Could not get total count: {count_error}")
             total_count = None
         
+        # Apply default date filter: show slots from today to 30 days later if no date filters provided
+        if not date_from and not date_to:
+            today = date.today()
+            date_30_days_later = today + timedelta(days=30)
+            query = query.filter(AvailabilitySlot.date >= today)
+            query = query.filter(AvailabilitySlot.date <= date_30_days_later)
+        
         # Apply pagination and ordering
-        # Order by date first (newest first), then time, then venue name for consistent date alignment
+        # Order by date first (oldest first - today to 30 days later), then time, then venue name for consistent date alignment
         slots_query = query.order_by(
-            AvailabilitySlot.date.desc(), 
+            AvailabilitySlot.date.asc(), 
             AvailabilitySlot.time,
             AvailabilitySlot.venue_name
         )

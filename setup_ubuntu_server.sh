@@ -131,9 +131,6 @@ echo "You can use:"
 echo "  - Git: cd $APP_DIR && git clone <your-repo> ."
 echo "  - SCP: scp -r /path/to/scrapping/* $APP_USER@$(hostname -I | awk '{print $1}'):$APP_DIR/"
 echo ""
-echo -e "${YELLOW}Important: Do NOT use sudo when copying files.${NC}"
-echo -e "${YELLOW}If you used sudo, the script will fix ownership automatically.${NC}"
-echo ""
 read -p "Press Enter after you've copied the files to continue..."
 
 if [ ! -f "$APP_DIR/app.py" ]; then
@@ -141,10 +138,6 @@ if [ ! -f "$APP_DIR/app.py" ]; then
     echo "Please copy your project files and run this script again."
     exit 1
 fi
-
-# Ensure all files in APP_DIR are owned by the user (in case files were copied with sudo)
-echo -e "${YELLOW}Fixing ownership of application directory...${NC}"
-sudo chown -R $APP_USER:$APP_USER $APP_DIR
 
 echo -e "${GREEN}Step 10: Setting up Python virtual environment...${NC}"
 cd $APP_DIR
@@ -162,17 +155,7 @@ sbase install chromedriver || {
 }
 
 echo -e "${GREEN}Step 11: Setting up frontend dependencies...${NC}"
-# Ensure frontend directory and all contents are owned by the user
-echo -e "${YELLOW}Fixing ownership of frontend directory...${NC}"
-sudo chown -R $APP_USER:$APP_USER $APP_DIR/frontend 2>/dev/null || true
-
-# Ensure npm cache directory is accessible
-echo -e "${YELLOW}Ensuring npm cache permissions...${NC}"
-mkdir -p ~/.npm
-chmod 755 ~/.npm 2>/dev/null || true
-
 cd $APP_DIR/frontend
-echo -e "${YELLOW}Installing npm dependencies...${NC}"
 npm install
 
 echo -e "${GREEN}Building frontend for production...${NC}"
