@@ -3165,6 +3165,9 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
             f"date={target_date}&group_size={guests}&preferedtime=11%3A30&preferedvenue={venue_id}"
         )
         
+        # Booking URL to save in database - same format as the URL used for scraping
+        booking_url = url
+        
         # Launch browser (matching test script config) - use retry-enabled driver
         driver = create_driver_with_chrome_fallback()
         
@@ -3220,7 +3223,8 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
                     "price": f"{holder_title} - {desc}",
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": venue_name
+                    "website": venue_name,
+                    "booking_url": booking_url  # URL with date, guests, and venue parameters
                 }
                 
                 scraped_data.append(slot_data)
