@@ -184,6 +184,39 @@ body {
   outline: none;
 }
 
+.location-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.location-btn {
+  flex: 1;
+  padding: 14px 18px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.location-btn:hover {
+  border-color: var(--primary);
+  background: rgba(60, 91, 253, 0.05);
+}
+
+.location-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
 .primary-btn,
 .ghost-btn {
   width: 100%;
@@ -440,61 +473,6 @@ body {
   margin-top: 18px;
 }
 
-.scraping-durations {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-}
-
-.duration-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.duration-card {
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px;
-  transition: all 0.2s ease;
-}
-
-.duration-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(60, 91, 253, 0.1);
-}
-
-.duration-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.duration-icon {
-  font-size: 20px;
-}
-
-.duration-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.duration-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--primary);
-  margin-bottom: 8px;
-}
-
-.duration-details {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
-}
 
 .stat-card {
   border: 1px solid var(--border);
@@ -754,6 +732,17 @@ body {
   color: var(--text);
   font-size: 16px;
   line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.venue-image {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+  object-fit: cover;
+  margin-top: auto;
 }
 
 .venue-slot-count {

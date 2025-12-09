@@ -414,9 +414,17 @@ scraped_data = []
 NYC_VENUES = [
     'swingers_nyc',
     'electric_shuffle_nyc',
-    'lawn_club_nyc',
+    'lawn_club_nyc_indoor_gaming',
+    'lawn_club_nyc_curling_lawns',
+    'lawn_club_nyc_croquet_lawns',
     'spin_nyc',
-    'five_iron_golf_nyc',
+    'five_iron_golf_nyc_fidi',
+    'five_iron_golf_nyc_flatiron',
+    'five_iron_golf_nyc_grand_central',
+    'five_iron_golf_nyc_herald_square',
+    'five_iron_golf_nyc_long_island_city',
+    'five_iron_golf_nyc_upper_east_side',
+    'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
     'easybowl_nyc'
 ]
@@ -436,13 +444,21 @@ LONDON_VENUES = [
 ]
 
 VENUE_BOOKING_URLS = {
-    'Swingers (NYC)': 'https://www.swingers.club/us/locations/nyc/book-now',
-    'Swingers (London)': 'https://www.swingers.club/uk/book-now',
+    'Swingers (NYC)': 'https://www.swingers.club/us/locations/nyc/book-now/packages',
+    'Swingers (London)': 'https://www.swingers.club/book-christmas-golf-swingersexperience',
     'Electric Shuffle (NYC)': 'https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search',
     'Electric Shuffle (London)': 'https://electricshuffle.com/uk/london/book',
-    'Lawn Club NYC': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'Lawn Club (Indoor Gaming)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'Lawn Club (Curling Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'SPIN (NYC)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
-    'Five Iron Golf (NYC)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - FiDi)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Flatiron)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Grand Central)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Herald Square)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Long Island City)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Upper East Side)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (NYC - Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
     'Lucky Strike (NYC)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
@@ -455,7 +471,7 @@ VENUE_BOOKING_URLS = {
     'Puttshack (Lakeside)': 'https://www.puttshack.com/book-golf',
     'Puttshack (White City)': 'https://www.puttshack.com/book-golf',
     'Puttshack (Watford)': 'https://www.puttshack.com/book-golf',
-    'Flight Club Darts': 'https://flightclubdarts.com/book',
+    'Flight Club Darts (Bloomsbury)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Angel)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Shoreditch)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Victoria)': 'https://flightclubdarts.com/book',
@@ -470,10 +486,80 @@ def build_booking_search_url(venue_name):
     return f"https://www.google.com/search?q={query}"
 
 
-def get_booking_url_for_venue(venue_name, explicit_url=None):
+def build_swingers_booking_url(venue_name, date_str, time_str, guests):
+    """Build booking URL for Swingers venues with proper parameters."""
+    # Convert time to 24-hour format (HH:MM)
+    def convert_time_to_24h(time_str):
+        """Convert time string to 24-hour format (HH:MM)."""
+        if not time_str or time_str == "None":
+            return "12:00"
+        
+        # Remove extra spaces and normalize
+        time_str = time_str.strip().upper()
+        
+        # Handle formats like "9:00 PM", "9PM", "21:00", etc.
+        import re
+        # Pattern for "HH:MM AM/PM" or "HH:MMAM/PM"
+        match = re.search(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', time_str)
+        if match:
+            hours = int(match.group(1))
+            minutes = int(match.group(2)) if match.group(2) else 0
+            ampm = match.group(3)
+            
+            if ampm == 'PM' and hours != 12:
+                hours += 12
+            elif ampm == 'AM' and hours == 12:
+                hours = 0
+            
+            return f"{hours:02d}:{minutes:02d}"
+        
+        # If already in 24-hour format, return as-is
+        match = re.search(r'(\d{1,2}):(\d{2})', time_str)
+        if match:
+            return f"{int(match.group(1)):02d}:{match.group(2)}"
+        
+        return "12:00"
+    
+    time_24h = convert_time_to_24h(time_str)
+    
+    if venue_name == 'Swingers (NYC)':
+        # NYC booking URL template
+        base_url = "https://www.swingers.club/us/locations/nyc/book-now/packages"
+        params = {
+            'product': 'd0e356d4-d74f-4931-a77e-c659648448e1',
+            'company': '9e7ef1d1-5a53-4fe6-89b9-e8026e068e4b',
+            'venue': 'NoMad',
+            'guests': str(guests),
+            'startDate': date_str,
+            'startTime': time_24h
+        }
+        return f"{base_url}?{urlencode(params)}"
+    elif venue_name == 'Swingers (London)':
+        # London booking URL template
+        base_url = "https://www.swingers.club/book-christmas-golf-swingersexperience"
+        params = {
+            'product': 'f2e36466-ee99-4b05-978a-b8bda848fdfd',
+            'company': 'd3855ef8-3656-4a5c-953d-7e6fe41f581e',
+            'venue': 'West End',
+            'guests': str(guests),
+            'startDate': date_str,
+            'startTime': time_24h
+        }
+        return f"{base_url}?{urlencode(params)}"
+    else:
+        return None
+
+
+def get_booking_url_for_venue(venue_name, explicit_url=None, date_str=None, time_str=None, guests=None):
     """Return the deepest known booking URL for a venue, or fall back to search."""
     if explicit_url:
         return explicit_url
+    
+    # For Swingers venues, build dynamic booking URL
+    if venue_name in ['Swingers (NYC)', 'Swingers (London)']:
+        if date_str and time_str and guests:
+            return build_swingers_booking_url(venue_name, date_str, time_str, guests)
+    
     if not venue_name:
         return None
     # Direct match
@@ -521,7 +607,7 @@ def save_slot_to_db(venue_name, date_str, time, price, status, guests, city, ven
     """Save or update availability slot in database with retry logic for lock errors"""
     def _save_operation():
         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date() if isinstance(date_str, str) else date_str
-        effective_booking_url = get_booking_url_for_venue(venue_name, booking_url)
+        effective_booking_url = get_booking_url_for_venue(venue_name, booking_url, date_str, time, guests)
         
         # Check if slot already exists
         existing = AvailabilitySlot.query.filter_by(
@@ -660,7 +746,15 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
             else:
                 item_city = 'London'
         
-        booking_url = item.get('booking_url') or VENUE_BOOKING_URLS.get(item_venue_name) or VENUE_BOOKING_URLS.get(venue_name)
+        # Build booking URL - use item's booking_url, or build dynamically for Swingers, or fall back to static URL
+        booking_url = item.get('booking_url')
+        if not booking_url and item_venue_name in ['Swingers (NYC)', 'Swingers (London)']:
+            date_str = item.get('date', '')
+            time_str = item.get('time', '')
+            if date_str and time_str:
+                booking_url = build_swingers_booking_url(item_venue_name, date_str, time_str, guests)
+        if not booking_url:
+            booking_url = VENUE_BOOKING_URLS.get(item_venue_name) or VENUE_BOOKING_URLS.get(venue_name)
 
         venue_specific = item.get('venue_specific_data') if isinstance(item.get('venue_specific_data'), dict) else item.get('venue_specific_data')
 
@@ -825,6 +919,9 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                 except:
                     price_val = "None"
                 
+                # Build booking URL with proper parameters
+                booking_url = build_swingers_booking_url('Swingers (NYC)', date_str, time_val, guests)
+                
                 # Save to database
                 save_slot_to_db(
                     venue_name='Swingers (NYC)',
@@ -834,7 +931,7 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
                     status=status,
                     guests=guests,
                     city='NYC',
-                    booking_url=driver.current_url
+                    booking_url=booking_url
                 )
                 slots_count += 1
                 
@@ -943,24 +1040,30 @@ def scrape_electric_shuffle_london_task(self, guests, target_date, task_id=None)
 
 
 @celery_app.task(bind=True, name='app.scrape_lawn_club_task')
-def scrape_lawn_club_task(self, guests, target_date, option, task_id=None, selected_time=None, selected_duration=None):
+def scrape_lawn_club_task(self, guests, target_date, option='indoor_gaming', task_id=None, selected_time=None, selected_duration=None):
     """Lawn Club scraper as Celery task"""
     with app.app_context():
         try:
-            venue_name = f'Lawn Club NYC ({option})'
+            from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
+            venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
             if task_id:
                 update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
             
+            # Create a wrapper function that calls scrape_lawn_club with option
+            def scraper_wrapper():
+                from scrapers import lawn_club
+                global scraping_status, scraped_data
+                lawn_club.scraping_status = scraping_status
+                lawn_club.scraped_data = scraped_data
+                return lawn_club.scrape_lawn_club(guests, target_date, option, selected_time, selected_duration)
+            
             slots_saved = run_scraper_and_save_to_db(
-                scrape_lawn_club,
+                scraper_wrapper,
                 venue_name,
                 'NYC',
                 guests,
                 guests,
                 target_date,
-                option,
-                selected_time,
-                selected_duration,
                 task_id=task_id
             )
             
@@ -1004,16 +1107,24 @@ def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None
 
 
 @celery_app.task(bind=True, name='app.scrape_five_iron_golf_task')
-def scrape_five_iron_golf_task(self, guests, target_date, task_id=None):
-    """Five Iron Golf scraper as Celery task"""
+def scrape_five_iron_golf_task(self, guests, target_date, task_id=None, location='fidi'):
+    """Five Iron Golf scraper as Celery task for a specific location"""
     with app.app_context():
         try:
+            from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
+            
+            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+            
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Five Iron Golf...', current_venue='Five Iron Golf (NYC)')
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            # Create a wrapper function that calls scrape_five_iron_golf with location
+            def scrape_with_location():
+                return scrape_five_iron_golf(guests, target_date, location)
             
             slots_saved = run_scraper_and_save_to_db(
-                scrape_five_iron_golf,
-                'Five Iron Golf (NYC)',
+                scrape_with_location,
+                venue_name,
                 'NYC',
                 guests,
                 guests,
@@ -1209,12 +1320,12 @@ def scrape_flight_club_darts_task(self, guests, target_date, venue_id, task_id=N
     with app.app_context():
         try:
             venue_names = {
-                "1": "Flight Club Darts",
+                "1": "Flight Club Darts (Bloomsbury)",
                 "2": "Flight Club Darts (Angel)",
                 "3": "Flight Club Darts (Shoreditch)",
                 "4": "Flight Club Darts (Victoria)"
             }
-            venue_name = venue_names.get(venue_id, "Flight Club Darts")
+            venue_name = venue_names.get(venue_id, "Flight Club Darts (Bloomsbury)")
             
             if task_id:
                 update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
@@ -1352,6 +1463,9 @@ def scrape_swingers_uk(guests, target_date):
             except:
                 price_val = "None"
             
+            # Build booking URL with proper parameters
+            booking_url = build_swingers_booking_url('Swingers (London)', target_date, time_val, guests)
+            
             # Store data in memory
             slot_data = {
                 "date": target_date,
@@ -1359,7 +1473,8 @@ def scrape_swingers_uk(guests, target_date):
                 "price": price_val,
                 "status": status,
                 "timestamp": datetime.now().isoformat(),
-                "website": "Swingers (London)"
+                "website": "Swingers (London)",
+                "booking_url": booking_url
             }
             
             scraped_data.append(slot_data)
@@ -1532,6 +1647,13 @@ def scrape_electric_shuffle_london(guests, target_date):
                 if wrap:
                     inputs = wrap.select("input.es_booking__availability__time-slot")
 
+                    # Check if all inputs have disabled attribute
+                    all_disabled = len(inputs) > 0 and all(inp.has_attr("disabled") for inp in inputs)
+                    
+                    # If all are disabled, skip this time slot
+                    if all_disabled:
+                        continue
+
                     for inp in inputs:
                         label = inp.find_next("label")
 
@@ -1577,186 +1699,23 @@ def scrape_electric_shuffle_london(guests, target_date):
             driver.quit()
         raise e
 
-def scrape_lawn_club(guests, target_date, option="Indoor Gaming Lawns", selected_time=None, selected_duration=None):
-    """Lawn Club NYC scraper function"""
-    global scraping_status, scraped_data
+def scrape_lawn_club(guests, target_date, option='indoor_gaming', selected_time=None, selected_duration=None):
+    """Lawn Club NYC scraper function - wrapper for option-based scraper"""
+    # Import the scraper module to access its functions
+    from scrapers import lawn_club
     
-    try:
-        date_str = target_date
-        # Use retry-enabled driver creation to handle Chrome crashes
-        driver = create_driver_with_chrome_fallback()
-        driver.get("https://www.sevenrooms.com/landing/lawnclubnyc")
-        
-        scraping_status['progress'] = f'Navigating to Lawn Club NYC {option}...'
-        
-        driver.click(f'//a[contains(text(), "{option}")]')
-        
-        try:
-            driver.wait_for_element('button[data-test="sr-calendar-date-button"]', timeout=30)
-        except Exception as e:
-            scraping_status['progress'] = 'Page did not load properly for Lawn Club'
-            driver.quit()
-            return
-        
-        scraping_status['progress'] = f'Setting date to {target_date} and guests to {guests}...'
-        scraping_status['current_date'] = target_date
-        
-        # Navigate to the correct date
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        formatted = dt.strftime("%a, %b ") + str(dt.day)
-        
-        while True:
-            temp = BeautifulSoup(driver.page_source, "html.parser")
-            current_date_el = temp.find("button", {"data-test": "sr-calendar-date-button"})
-            if not current_date_el:
-                break
-            current_date = current_date_el.find_all("div")[0].get_text()
-            print(f"Current date: {current_date}, Target: {formatted}")
-            if str(formatted) == current_date:
-                break
-            try:
-                driver.click('button[aria-label="increment Date"]')
-            except:
-                break
-        
-        # Set guest count - first decrement to minimum
-        while True:
-            try:
-                driver.click('button[aria-label="decrement Guests"]')
-            except:
-                break
-        
-        # Then increment to desired count
-        while True:
-            temp = BeautifulSoup(driver.page_source, "html.parser")
-            guest_button = temp.find("button", {"data-test": "sr-guest-count-button"})
-            if not guest_button:
-                break
-            current_guests = guest_button.find_all("div")[0].get_text().strip()
-            if str(guests) == current_guests:
-                break
-            
-            try:
-                try:
-                    driver.click('button[aria-label="increment Guests"]')
-                except:
-                    driver.click('button[aria-label="increment Guest"]')
-            except:
-                break
-        
-        normalized_time = normalize_time_value(selected_time)
-        if normalized_time:
-            scraping_status['progress'] = f'Selecting Lawn Club time {normalized_time}...'
-            if not adjust_picker(
-                driver,
-                'button[data-test="sr-time-button"]',
-                'button[aria-label="increment Time"]',
-                'button[aria-label="decrement Time"]',
-                LAWN_CLUB_TIME_OPTIONS,
-                normalized_time,
-                normalize_time_value
-            ):
-                raise RuntimeError(f"Could not set Lawn Club time to {normalized_time}")
-            driver.sleep(0.3)
-        
-        normalized_duration = normalize_duration_value(selected_duration)
-        if normalized_duration:
-            scraping_status['progress'] = f'Selecting Lawn Club duration {normalized_duration}...'
-            if not adjust_picker(
-                driver,
-                'button[data-test="sr-duration-picker"]',
-                'button[aria-label="increment duration"]',
-                'button[aria-label="decrement duration"]',
-                LAWN_CLUB_DURATION_OPTIONS,
-                normalized_duration,
-                normalize_duration_value
-            ):
-                raise RuntimeError(f"Could not set Lawn Club duration to {normalized_duration}")
-            driver.sleep(0.3)
-        
-        # Wait a moment to ensure URL has updated with all selections
-        driver.sleep(0.5)
-        
-        # Capture the booking URL after all selections (date, guests, time, duration)
-        # This is the URL that opens the date/guest selection page for the specific option
-        booking_url = driver.current_url
-        print(f"[Lawn Club] Captured booking URL: {booking_url}")
-        
-        # Search for availability
-        try:
-            driver.click('button[data-test="sr-search-button"]')
-            driver.sleep(4)
-        except Exception as e:
-            scraping_status['progress'] = 'Could not click search button'
-            driver.quit()
-            return
-        
-        scraping_status['progress'] = 'Searching for available slots on Lawn Club...'
-        
-        # Wait a bit more for results to load
-        driver.sleep(2)
-        
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        
-        # Try to find the slots container - handle case where it might not exist
-        slots_container = soup.find('div', {'class': 'sc-huFNyZ cINeur'})
-        if not slots_container:
-            # Try alternative selectors
-            slots_container = soup.find('div', class_=lambda x: x and 'sc-huFNyZ' in x)
-            if not slots_container:
-                # Try finding any container with time slots
-                slots_container = soup.find('div', {'data-test': 'sr-time-slot-list'})
-        
-        if not slots_container:
-            scraping_status['progress'] = 'No slots available on Lawn Club or page structure changed'
-            driver.quit()
-            return
-        
-        slots = slots_container.find_all('button')
-        
-        scraping_status['progress'] = f'Found {len(slots)} available slots on Lawn Club'
-        
-        if len(slots) == 0:
-            scraping_status['progress'] = 'No slots available on Lawn Club'
-            driver.quit()
-            return
-        
-        for slot in slots:
-            # Status
-            status = "Available"
-            
-            # Time
-            try:
-                time = slot.find_all("div")[0].get_text().strip()
-            except:
-                time = "None"
-                
-            # Description (using as price equivalent)
-            try:
-                desc = slot.find_all("div")[1].get_text().strip()
-            except:
-                desc = "None"
-            
-            # Store data in memory
-            slot_data = {
-                'date': date_str,
-                'time': time,
-                'price': desc,  # Using description as price for consistency
-                'status': status,
-                'timestamp': datetime.now().isoformat(),
-                'website': f'Lawn Club NYC ({option})',
-                'booking_url': booking_url  # URL to the date/guest selection page for this option
-            }
-            
-            scraped_data.append(slot_data)
-            scraping_status['total_slots_found'] = len(scraped_data)
-        
-        driver.quit()
-        
-    except Exception as e:
-        if 'driver' in locals():
-            driver.quit()
-        raise e
+    # Set up global variables for the scraper
+    global scraping_status, scraped_data
+    lawn_club.scraping_status = scraping_status
+    lawn_club.scraped_data = scraped_data
+    
+    # Call the option-based scraper
+    result = lawn_club.scrape_lawn_club(guests, target_date, option, selected_time, selected_duration)
+    
+    # Update global scraped_data
+    scraped_data = lawn_club.scraped_data
+    
+    return result
 
 
 def scrape_spin(guests, target_date, selected_time=None):
@@ -1950,117 +1909,23 @@ def scrape_spin(guests, target_date, selected_time=None):
         raise e
 
 
-def scrape_five_iron_golf(guests, target_date):
-    """Five Iron Golf NYC scraper function"""
-    global scraping_status, scraped_data
+def scrape_five_iron_golf(guests, target_date, location='fidi'):
+    """Five Iron Golf NYC scraper function - wrapper for location-based scraper"""
+    # Import the scraper module to access its functions
+    from scrapers import five_iron_golf
     
-    try:
-        date_str = target_date
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        formatted_date = dt.strftime("%m/%d/%Y")
-        
-        driver = create_driver_with_chrome_fallback()
-        driver.set_page_load_timeout(20)
-
-        try:
-            driver.get("https://booking.fiveirongolf.com/session-length")
-        except Exception:
-            scraping_status["progress"] = "Page load timeout. Continuing..."
-        
-        scraping_status['progress'] = f'Navigating to Five Iron Golf NYC...'
-        scraping_status['current_date'] = target_date
-        
-        try:
-            driver.wait_for_element('div[role="combobox"][id="location-select"]', timeout=30)
-        except Exception:
-            scraping_status['progress'] = 'Page did not load properly for Five Iron Golf'
-            driver.quit()
-            return
-        
-        # Select location
-        driver.click('div[role="combobox"][id="location-select"]')
-        driver.sleep(3)
-        driver.js_click('//li[normalize-space()="NYC - FiDi"]')
-        
-        scraping_status['progress'] = f'Setting date to {target_date}...'
-        
-        # Set date
-        date_input = driver.find_element("css selector", 'input[placeholder="mm/dd/yyyy"]')
-        date_input.send_keys(Keys.CONTROL, "a")
-        date_input.send_keys(Keys.DELETE)
-        driver.type('input[placeholder="mm/dd/yyyy"]', formatted_date)
-        
-        # Set party size
-        scraping_status['progress'] = f'Setting party size to {guests}...'
-        
-        driver.click('div[role="combobox"][id="party_size_select"]')
-        driver.js_click(f'//li[normalize-space()="{guests}"]')
-        
-        driver.sleep(7)
-        
-        scraping_status['progress'] = 'Searching for available slots on Five Iron Golf...'
-        
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
-        
-        scraping_status['progress'] = f'Found {len(slots)} available slots on Five Iron Golf'
-        
-        if len(slots) == 0:
-            scraping_status['progress'] = 'No slots available on Five Iron Golf'
-            driver.quit()
-            return
-        
-        for slot in slots:
-            status = "Available"
-            
-            # Extract time
-            try:
-                time = slot.find_previous_sibling("h5").get_text(strip=True)
-            except:
-                time = "None"
-            
-            # Extract each duration + price separately
-            buttons = slot.select("button.MuiToggleButton-root")
-            
-            for btn in buttons:
-                try:
-                    duration = btn.contents[0].strip()      # "2 hours"
-                except:
-                    duration = "None"
-                
-                price_el = btn.select_one("p")
-                price = price_el.get_text(strip=True) if price_el else ""
-
-                # ❗ Skip rows where price is missing
-                if not price:
-                    continue
-
-                # Convert "2 hours" → "2h"
-                dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
-
-                # Final format: "2h : $58"
-                desc = f"{dur_clean} : {price}"
-
-                slot_data = {
-                    'date': date_str,
-                    'time': time,
-                    'price': desc,
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': 'Five Iron Golf (NYC)'
-                }
-
-                scraped_data.append(slot_data)
-                scraping_status['total_slots_found'] = len(scraped_data)
-
-
-        
-        driver.quit()
-        
-    except Exception as e:
-        if 'driver' in locals():
-            driver.quit()
-        raise e
+    # Set up global variables for the scraper
+    global scraping_status, scraped_data
+    five_iron_golf.scraping_status = scraping_status
+    five_iron_golf.scraped_data = scraped_data
+    
+    # Call the location-based scraper
+    result = five_iron_golf.scrape_five_iron_golf(guests, target_date, location)
+    
+    # Update global scraped_data
+    scraped_data = five_iron_golf.scraped_data
+    
+    return result
 
 
 def scrape_lucky_strike(guests, target_date):
@@ -3140,12 +3005,12 @@ def scrape_flight_club_darts(guests, target_date, venue_id="1"):
     try:
         # Venue mapping (matching test script)
         venue_names = {
-            "1": "Flight Club Darts",
+            "1": "Flight Club Darts (Bloomsbury)",
             "2": "Flight Club Darts (Angel)",
             "3": "Flight Club Darts (Shoreditch)",
             "4": "Flight Club Darts (Victoria)"
         }
-        venue_name = venue_names.get(venue_id, "Flight Club Darts")
+        venue_name = venue_names.get(venue_id, "Flight Club Darts (Bloomsbury)")
         
         # Map venue_id to expected holder_title (location name from the page)
         holder_title_map = {
@@ -3520,22 +3385,40 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'swingers_london': 'Swingers (London)',
                 'electric_shuffle_nyc': 'Electric Shuffle (NYC)',
                 'electric_shuffle_london': 'Electric Shuffle (London)',
-                'lawn_club_nyc': 'Lawn Club NYC',
+                'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
+                'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
+                'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
                 'spin_nyc': 'SPIN (NYC)',
-                'five_iron_golf_nyc': 'Five Iron Golf (NYC)',
+                'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
+                'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
+                'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
+                'five_iron_golf_nyc_herald_square': 'Five Iron Golf (NYC - Herald Square)',
+                'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
+                'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
+                'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
                 'lucky_strike_nyc': 'Lucky Strike (NYC)',
                 'easybowl_nyc': 'Easybowl (NYC)',
                 'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
                 'fair_game_city': 'Fair Game (City)',
                 'clays_bar': f'Clays Bar ({clays_location or "Canary Wharf"})',
                 'puttshack': f'Puttshack ({puttshack_location or "Bank"})',
-                'flight_club_darts': 'Flight Club Darts',
+                'flight_club_darts': 'Flight Club Darts (Bloomsbury)',
                 'flight_club_darts_angel': 'Flight Club Darts (Angel)',
                 'flight_club_darts_shoreditch': 'Flight Club Darts (Shoreditch)',
                 'flight_club_darts_victoria': 'Flight Club Darts (Victoria)',
                 'f1_arcade': 'F1 Arcade'
             }
-            venue_name = venue_name_map.get(website, website.replace('_', ' ').title())
+            # Handle Lawn Club and Five Iron Golf venue names dynamically
+            if website.startswith('lawn_club_nyc_'):
+                from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
+                option = website.replace('lawn_club_nyc_', '')
+                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+            elif website.startswith('five_iron_golf_nyc_'):
+                from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
+                location = website.replace('five_iron_golf_nyc_', '')
+                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+            else:
+                venue_name = venue_name_map.get(website, website.replace('_', ' ').title())
             
             # Call appropriate scraper (using original functions but intercepting results)
             # We'll modify the approach to call scrapers and save to DB directly
@@ -3559,10 +3442,13 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                     raise ValueError("Electric Shuffle London requires a specific target date")
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_electric_shuffle_london_task")
                 result = scrape_electric_shuffle_london_task(guests, target_date, task_id)
-            elif website == 'lawn_club_nyc':
+            elif website.startswith('lawn_club_nyc_'):
                 if not target_date:
                     raise ValueError("Lawn Club NYC requires a specific target date")
-                option = lawn_club_option or "Curling Lawns & Cabins"
+                # Extract option from website name (e.g., 'lawn_club_nyc_indoor_gaming' -> 'indoor_gaming')
+                option = website.replace('lawn_club_nyc_', '')
+                from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
+                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_lawn_club_task with option {option}")
                 venue_specific = {'lawn_club_option': option, 'lawn_club_time': lawn_club_time, 'lawn_club_duration': lawn_club_duration}
                 result = scrape_lawn_club_task(guests, target_date, option, task_id, lawn_club_time, lawn_club_duration)
@@ -3571,11 +3457,13 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                     raise ValueError("SPIN NYC requires a specific target date")
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_spin_task")
                 result = scrape_spin_task(guests, target_date, task_id, spin_time)
-            elif website == 'five_iron_golf_nyc':
+            elif website.startswith('five_iron_golf_nyc_'):
                 if not target_date:
                     raise ValueError("Five Iron Golf NYC requires a specific target date")
-                logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task")
-                result = scrape_five_iron_golf_task(guests, target_date, task_id)
+                # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
+                location = website.replace('five_iron_golf_nyc_', '')
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task with location {location}")
+                result = scrape_five_iron_golf_task(guests, target_date, task_id, location)
             elif website == 'lucky_strike_nyc':
                 if not target_date:
                     raise ValueError("Lucky Strike NYC requires a specific target date")
@@ -3610,7 +3498,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_puttshack_task(location, guests, target_date, task_id)
             elif website == 'flight_club_darts':
                 if not target_date:
-                    raise ValueError("Flight Club Darts requires a specific target date")
+                    raise ValueError("Flight Club Darts (Bloomsbury) requires a specific target date")
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_flight_club_darts_task with venue_id 1")
                 result = scrape_flight_club_darts_task(guests, target_date, "1", task_id)
             elif website == 'flight_club_darts_angel':
@@ -3670,45 +3558,51 @@ def refresh_all_venues_task(self):
             today = date.today()
             dates_to_refresh = [today + timedelta(days=i) for i in range(30)]  # 30 days from today
             
-            guests = 6  # Default guest count
+            # Scrape for guests 2-8 (7 different guest counts)
+            guest_counts = list(range(2, 9))  # [2, 3, 4, 5, 6, 7, 8]
             
             # Split 30 days into smaller chunks for better performance
-            # 6 chunks of 5 days each = 12 tasks total (6 for NYC, 6 for London)
+            # 6 chunks of 5 days each
             days_per_chunk = 5
             num_chunks = (len(dates_to_refresh) + days_per_chunk - 1) // days_per_chunk  # Ceiling division
             
             logger.info(f"[REFRESH] Starting refresh for {len(dates_to_refresh)} dates (30 days from today)")
             logger.info(f"[REFRESH] Date range: {dates_to_refresh[0]} to {dates_to_refresh[-1]}")
+            logger.info(f"[REFRESH] Guest counts: {guest_counts}")
             logger.info(f"[REFRESH] Splitting into {num_chunks} chunks of ~{days_per_chunk} days each")
             logger.info(f"[REFRESH] NYC venues: {NYC_VENUES}")
             logger.info(f"[REFRESH] London venues: {LONDON_VENUES}")
             
             tasks_created = 0
             
-            # Schedule tasks for NYC in chunks
-            for chunk_idx in range(num_chunks):
-                start_idx = chunk_idx * days_per_chunk
-                end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
-                chunk_dates = dates_to_refresh[start_idx:end_idx]
-                date_strings = [d.isoformat() for d in chunk_dates]
+            # Schedule tasks for each guest count
+            for guests in guest_counts:
+                logger.info(f"[REFRESH] Scheduling tasks for {guests} guests...")
                 
-                logger.info(f"[REFRESH] Scheduling NYC venues for chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
-                scrape_all_venues_task.delay('NYC', guests, date_strings, None, None)
-                tasks_created += 1
-            
-            # Schedule tasks for London in chunks
-            for chunk_idx in range(num_chunks):
-                start_idx = chunk_idx * days_per_chunk
-                end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
-                chunk_dates = dates_to_refresh[start_idx:end_idx]
-                date_strings = [d.isoformat() for d in chunk_dates]
+                # Schedule tasks for NYC in chunks
+                for chunk_idx in range(num_chunks):
+                    start_idx = chunk_idx * days_per_chunk
+                    end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
+                    chunk_dates = dates_to_refresh[start_idx:end_idx]
+                    date_strings = [d.isoformat() for d in chunk_dates]
+                    
+                    logger.info(f"[REFRESH] Scheduling NYC venues for {guests} guests, chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
+                    scrape_all_venues_task.delay('NYC', guests, date_strings, None, None)
+                    tasks_created += 1
                 
-                logger.info(f"[REFRESH] Scheduling London venues for chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
-                scrape_all_venues_task.delay('London', guests, date_strings, None, None)
-                tasks_created += 1
+                # Schedule tasks for London in chunks
+                for chunk_idx in range(num_chunks):
+                    start_idx = chunk_idx * days_per_chunk
+                    end_idx = min(start_idx + days_per_chunk, len(dates_to_refresh))
+                    chunk_dates = dates_to_refresh[start_idx:end_idx]
+                    date_strings = [d.isoformat() for d in chunk_dates]
+                    
+                    logger.info(f"[REFRESH] Scheduling London venues for {guests} guests, chunk {chunk_idx + 1}/{num_chunks} ({len(chunk_dates)} dates: {chunk_dates[0]} to {chunk_dates[-1]})")
+                    scrape_all_venues_task.delay('London', guests, date_strings, None, None)
+                    tasks_created += 1
             
             logger.info(f"[REFRESH] All refresh tasks scheduled successfully ({tasks_created} tasks total)")
-            return {'status': 'success', 'dates_refreshed': len(dates_to_refresh), 'tasks_created': tasks_created, 'chunks': num_chunks}
+            return {'status': 'success', 'dates_refreshed': len(dates_to_refresh), 'tasks_created': tasks_created, 'chunks': num_chunks, 'guest_counts': guest_counts}
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
@@ -4021,19 +3915,22 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
             if not target_date:
                 raise ValueError("Electric Shuffle London requires a specific target date")
             scrape_electric_shuffle_london(guests, target_date)
-        elif website == 'lawn_club_nyc':
+        elif website.startswith('lawn_club_nyc_'):
             if not target_date:
                 raise ValueError("Lawn Club NYC requires a specific target date")
-            option = lawn_club_option or "Curling Lawns & Cabins"
+            # Extract option from website name (e.g., 'lawn_club_nyc_indoor_gaming' -> 'indoor_gaming')
+            option = website.replace('lawn_club_nyc_', '')
             scrape_lawn_club(guests, target_date, option, lawn_club_time, lawn_club_duration)
         elif website == 'spin_nyc':
             if not target_date:
                 raise ValueError("SPIN NYC requires a specific target date")
             scrape_spin(guests, target_date, spin_time)
-        elif website == 'five_iron_golf_nyc':
+        elif website.startswith('five_iron_golf_nyc_'):
             if not target_date:
                 raise ValueError("Five Iron Golf NYC requires a specific target date")
-            scrape_five_iron_golf(guests, target_date)
+            # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
+            location = website.replace('five_iron_golf_nyc_', '')
+            scrape_five_iron_golf(guests, target_date, location)
         elif website == 'lucky_strike_nyc':
             if not target_date:
                 raise ValueError("Lucky Strike NYC requires a specific target date")
@@ -4062,7 +3959,7 @@ def scrape_restaurants(guests, target_date, website, lawn_club_option=None, lawn
             scrape_puttshack(location, guests, target_date)
         elif website == 'flight_club_darts':
             if not target_date:
-                raise ValueError("Flight Club Darts requires a specific target date")
+                raise ValueError("Flight Club Darts (Bloomsbury) requires a specific target date")
             scrape_flight_club_darts(guests, target_date, "1")
         elif website == 'flight_club_darts_angel':
             if not target_date:
@@ -4211,8 +4108,11 @@ def run_scraper():
         return jsonify({'error': 'Missing required parameters'}), 400
     
     required_date_websites = [
-        'electric_shuffle_nyc', 'electric_shuffle_london', 'lawn_club_nyc', 'spin_nyc', 
-        'five_iron_golf_nyc', 'lucky_strike_nyc', 'easybowl_nyc',
+        'electric_shuffle_nyc', 'electric_shuffle_london', 'lawn_club_nyc_indoor_gaming', 'lawn_club_nyc_curling_lawns', 'lawn_club_nyc_croquet_lawns', 'spin_nyc', 
+        'five_iron_golf_nyc_fidi', 'five_iron_golf_nyc_flatiron', 'five_iron_golf_nyc_grand_central',
+        'five_iron_golf_nyc_herald_square', 'five_iron_golf_nyc_long_island_city',
+        'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
+        'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
         'flight_club_darts', 'flight_club_darts_angel', 'flight_club_darts_shoreditch', 
         'flight_club_darts_victoria', 'f1_arcade', 'all_new_york', 'all_london'
@@ -4221,19 +4121,38 @@ def run_scraper():
     if website in required_date_websites and not target_date:
         if website in ['all_new_york', 'all_london']:
             return jsonify({'error': f'{website.replace("_", " ").title()} requires a specific target date'}), 400
+        # Check if it's a Five Iron Golf location
+        if website.startswith('five_iron_golf_nyc_'):
+            from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
+            location = website.replace('five_iron_golf_nyc_', '')
+            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf NYC')
+            return jsonify({'error': f'{venue_name} requires a specific target date'}), 400
+        if website.startswith('lawn_club_nyc_'):
+            from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
+            option = website.replace('lawn_club_nyc_', '')
+            venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+            return jsonify({'error': f'{venue_name} requires a specific target date'}), 400
         website_names = {
             'electric_shuffle_nyc': 'Electric Shuffle NYC',
             'electric_shuffle_london': 'Electric Shuffle London',
-            'lawn_club_nyc': 'Lawn Club NYC',
+            'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
+            'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
+            'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
             'spin_nyc': 'SPIN NYC',
-            'five_iron_golf_nyc': 'Five Iron Golf NYC',
+            'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
+            'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
+            'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
+            'five_iron_golf_nyc_herald_square': 'Five Iron Golf (NYC - Herald Square)',
+            'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
+            'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
+            'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
             'lucky_strike_nyc': 'Lucky Strike NYC',
             'easybowl_nyc': 'Easybowl NYC',
             'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
             'fair_game_city': 'Fair Game (City)',
             'clays_bar': 'Clays Bar',
             'puttshack': 'Puttshack',
-            'flight_club_darts': 'Flight Club Darts',
+            'flight_club_darts': 'Flight Club Darts (Bloomsbury)',
             'flight_club_darts_angel': 'Flight Club Darts (Angel)',
             'flight_club_darts_shoreditch': 'Flight Club Darts (Shoreditch)',
             'flight_club_darts_victoria': 'Flight Club Darts (Victoria)',
@@ -4507,11 +4426,12 @@ def get_data():
                 logger.info(debug_city)
         
         if venue_name:
-            # Special handling for Lawn Club NYC - it stores venue names with options like
-            # "Lawn Club NYC (Curling Lawns & Cabins)", so we need to use LIKE pattern matching
-            if venue_name == 'Lawn Club NYC':
-                query = query.filter(AvailabilitySlot.venue_name.like('Lawn Club NYC%'))
-                debug_venue = f"[API DEBUG] Filtering by venue_name LIKE 'Lawn Club NYC%'"
+            # Special handling for Lawn Club - it stores venue names with options like
+            # "Lawn Club (Indoor Gaming)", "Lawn Club (Curling Lawns)", "Lawn Club (Croquet Lawns)"
+            # so we need to use LIKE pattern matching
+            if venue_name and venue_name.startswith('Lawn Club'):
+                query = query.filter(AvailabilitySlot.venue_name.like('Lawn Club%'))
+                debug_venue = f"[API DEBUG] Filtering by venue_name LIKE 'Lawn Club%'"
                 print(debug_venue, flush=True)
                 logger.info(debug_venue)
             else:

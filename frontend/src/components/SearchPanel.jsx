@@ -28,7 +28,7 @@ const VENUE_INFO = {
   'fair_game_city': { name: 'Fair Game (City)', description: 'Games and entertainment. Requires a specific target date.' },
   'clays_bar': { name: 'Clays Bar', description: 'Clay shooting and bar. Requires a specific target date.' },
   'puttshack': { name: 'Puttshack', description: 'Mini golf and entertainment. Requires a specific target date.' },
-  'flight_club_darts': { name: 'Flight Club Darts', description: 'Darts and entertainment. Requires a specific target date.' },
+  'flight_club_darts': { name: 'Flight Club Darts (Bloomsbury)', description: 'Darts and entertainment. Requires a specific target date.' },
   'flight_club_darts_angel': { name: 'Flight Club Darts (Angel)', description: 'Darts and entertainment. Requires a specific target date.' },
   'flight_club_darts_shoreditch': { name: 'Flight Club Darts (Shoreditch)', description: 'Darts and entertainment. Requires a specific target date.' },
   'flight_club_darts_victoria': { name: 'Flight Club Darts (Victoria)', description: 'Darts and entertainment. Requires a specific target date.' },
@@ -51,7 +51,7 @@ const VENUE_NAME_MAP = {
   'fair_game_city': 'Fair Game (City)',
   'clays_bar': 'Clays Bar',
   'puttshack': 'Puttshack',
-  'flight_club_darts': 'Flight Club Darts',
+  'flight_club_darts': 'Flight Club Darts (Bloomsbury)',
   'flight_club_darts_angel': 'Flight Club Darts (Angel)',
   'flight_club_darts_shoreditch': 'Flight Club Darts (Shoreditch)',
   'flight_club_darts_victoria': 'Flight Club Darts (Victoria)',
@@ -59,7 +59,7 @@ const VENUE_NAME_MAP = {
 }
 
 function SearchPanel({ onSearch, onClear, isLoading = false }) {
-  const [website, setWebsite] = useState('swingers_nyc')
+  const [location, setLocation] = useState('all_new_york') // 'all_new_york' or 'all_london'
   const [guests, setGuests] = useState(6)
   const [targetDate, setTargetDate] = useState('')
   const [targetDateEnabled, setTargetDateEnabled] = useState(false)
@@ -71,8 +71,8 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
   const [puttshackLocation, setPuttshackLocation] = useState('Bank')
   const [f1Experience, setF1Experience] = useState('Team Racing')
 
-  const venueInfo = VENUE_INFO[website] || VENUE_INFO['swingers_nyc']
-  const requiresDate = !['swingers_nyc', 'swingers_london', 'all_new_york', 'all_london'].includes(website)
+  const venueInfo = VENUE_INFO[location] || VENUE_INFO['all_new_york']
+  const requiresDate = false // Always false since we're only showing all_new_york or all_london
 
   const getDefaultDateFilters = () => {
     const today = new Date()
@@ -90,41 +90,22 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     
     // For "All New York" and "All London", don't apply date filters by default
     // User can still specify a date if they want
-    const isMultiVenue = website === 'all_new_york' || website === 'all_london'
+    const isMultiVenue = true // Always true since we only have all_new_york or all_london
     
-    if (isMultiVenue) {
-      // For multi-venue searches, only apply date filter if user explicitly selects a date
-      if (targetDate && targetDateEnabled) {
-        filters.date_from = targetDate
-        filters.date_to = targetDate
-      }
-      // Otherwise, no date filter - show all available slots
-    } else {
-      // For single venue searches, use default date range (today/tomorrow)
-      const defaultFilters = getDefaultDateFilters()
-      filters.date_from = defaultFilters.date_from
-      filters.date_to = defaultFilters.date_to
-      
-      // Override with user-selected date if specified
-      if (targetDate && targetDateEnabled) {
-        filters.date_from = targetDate
-        filters.date_to = targetDate
-      }
+    // For multi-venue searches, only apply date filter if user explicitly selects a date
+    if (targetDate && targetDateEnabled) {
+      filters.date_from = targetDate
+      filters.date_to = targetDate
     }
+    // Otherwise, no date filter - show all available slots
 
     // Add venue/city filter
-    if (website === 'all_new_york') {
+    if (location === 'all_new_york') {
       filters.city = 'NYC'
       delete filters.venue_name
-    } else if (website === 'all_london') {
+    } else if (location === 'all_london') {
       filters.city = 'London'
       delete filters.venue_name
-    } else {
-      const venueName = VENUE_NAME_MAP[website]
-      if (venueName) {
-        filters.venue_name = venueName
-      }
-      delete filters.city
     }
 
     // Add guests filter
@@ -157,41 +138,22 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
       <form onSubmit={handleSearch}>
         <div className="search-panel">
           <div className="input-card">
-            <label htmlFor="website">Location / Venue</label>
-            <div className="input-field">
-              <span className="icon">📍</span>
-              <select
-                id="website"
-                className="form-control"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                required
+            <label>Location</label>
+            <div className="location-buttons">
+              <button
+                type="button"
+                className={`location-btn ${location === 'all_new_york' ? 'active' : ''}`}
+                onClick={() => setLocation('all_new_york')}
               >
-                <optgroup label="🗽 NEW YORK CITY">
-                  <option value="all_new_york">All New York</option>
-                  <option value="swingers_nyc">Swingers</option>
-                  <option value="electric_shuffle_nyc">Electric Shuffle</option>
-                  <option value="lawn_club_nyc">Lawn Club NYC</option>
-                  <option value="spin_nyc">SPIN</option>
-                  <option value="five_iron_golf_nyc">Five Iron Golf</option>
-                  <option value="lucky_strike_nyc">Lucky Strike Chelsea Piers</option>
-                  <option value="easybowl_nyc">Easybowl</option>
-                </optgroup>
-                <optgroup label="🇬🇧 LONDON">
-                  <option value="all_london">All London</option>
-                  <option value="swingers_london">Swingers</option>
-                  <option value="electric_shuffle_london">Electric Shuffle</option>
-                  <option value="fair_game_canary_wharf">Fair Game (Canary Wharf)</option>
-                  <option value="fair_game_city">Fair Game (City)</option>
-                  <option value="clays_bar">Clays Bar</option>
-                  <option value="puttshack">Puttshack</option>
-                  <option value="flight_club_darts">Flight Club Darts</option>
-                  <option value="flight_club_darts_angel">Flight Club Darts (Angel)</option>
-                  <option value="flight_club_darts_shoreditch">Flight Club Darts (Shoreditch)</option>
-                  <option value="flight_club_darts_victoria">Flight Club Darts (Victoria)</option>
-                  <option value="f1_arcade">F1 Arcade</option>
-                </optgroup>
-              </select>
+                🗽 New York
+              </button>
+              <button
+                type="button"
+                className={`location-btn ${location === 'all_london' ? 'active' : ''}`}
+                onClick={() => setLocation('all_london')}
+              >
+                🇬🇧 London
+              </button>
             </div>
           </div>
 
@@ -247,11 +209,11 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
           <div className="search-actions">
             <button type="submit" className="primary-btn" disabled={isLoading}>
               <span>{isLoading ? '⏳' : '🔍'}</span>
-              {isLoading ? 'Loading...' : 'Search Database'}
+              {isLoading ? 'Loading...' : 'Search'}
             </button>
             <button type="button" className="ghost-btn" onClick={onClear}>
               <span>🗑️</span>
-              Clear Data
+              Clear
             </button>
           </div>
         </div>
@@ -265,12 +227,12 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
             disabled={requiresDate}
           />
           <label htmlFor="targetDateEnabled">
-            {requiresDate ? `Target Date (required for ${venueInfo.name})` : 'Scrape specific date only (optional for Swingers)'}
+            Filter by specific date
           </label>
         </div>
 
         <div className="options-grid">
-          {website === 'lawn_club_nyc' && (
+          {false && location === 'lawn_club_nyc' && (
             <>
               <div className="option-card">
                 <label htmlFor="lawnClubOption">Lawn Club Experience</label>
@@ -288,7 +250,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
             </>
           )}
 
-          {website === 'clays_bar' && (
+          {false && location === 'clays_bar' && (
             <div className="option-card">
               <label htmlFor="claysLocation">Clays Bar Location</label>
               <select
@@ -305,7 +267,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
             </div>
           )}
 
-          {website === 'puttshack' && (
+          {false && location === 'puttshack' && (
             <div className="option-card">
               <label htmlFor="puttshackLocation">Puttshack Location</label>
               <select
@@ -322,7 +284,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
             </div>
           )}
 
-          {website === 'f1_arcade' && (
+          {false && location === 'f1_arcade' && (
             <div className="option-card">
               <label htmlFor="f1Experience">F1 Arcade Experience</label>
               <select
@@ -344,10 +306,6 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
           )}
         </div>
 
-        <div className="website-info">
-          <h3>{venueInfo.name}</h3>
-          <p>{venueInfo.description}</p>
-        </div>
       </form>
     </div>
   )

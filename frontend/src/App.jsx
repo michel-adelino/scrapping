@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import SearchPanel from './components/SearchPanel'
-import StatusSection from './components/StatusSection'
 import DataSection from './components/DataSection'
 import ToastContainer from './components/ToastContainer'
 import './App.css'
@@ -25,12 +24,6 @@ function App() {
   const [currentFilters, setCurrentFilters] = useState({})
   const [currentGuestsFilter, setCurrentGuestsFilter] = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(false)
-  const [stats, setStats] = useState({
-    totalSlots: 0,
-    availableSlots: 0,
-    currentDate: '-',
-    currentWebsite: '-'
-  })
   const [toasts, setToasts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -119,24 +112,6 @@ function App() {
       setTableData(data)
       setCurrentFilters(filters)
       setCurrentGuestsFilter(guests ? parseInt(guests, 10) : null)
-
-      // Update stats
-      const availableCount = data.filter(item => 
-        (item.status || '').toLowerCase() === 'available'
-      ).length
-      
-      // Get unique venues for display
-      const uniqueVenues = [...new Set(data.map(item => item.venue_name || item.website || 'Unknown'))]
-      const venueDisplay = uniqueVenues.length > 0 
-        ? (uniqueVenues.length === 1 ? uniqueVenues[0] : `${uniqueVenues.length} venues`)
-        : '-'
-      
-      setStats({
-        totalSlots: data.length,
-        availableSlots: availableCount,
-        currentDate: data.length > 0 ? data[0].date : '-',
-        currentWebsite: venueDisplay
-      })
     } catch (error) {
       console.error('Error fetching data:', error)
       const errorMessage = error.message || 'Unknown error occurred'
@@ -159,12 +134,6 @@ function App() {
     try {
       await fetch(`${API_BASE}/clear_data`, { method: 'POST' })
       setTableData([])
-      setStats({
-        totalSlots: 0,
-        availableSlots: 0,
-        currentDate: '-',
-        currentWebsite: '-'
-      })
       showToast('Data cleared successfully', 'success', 3000)
     } catch (error) {
       showToast(`Error clearing data: ${error.message}`, 'error')
@@ -185,11 +154,12 @@ function App() {
     return () => clearInterval(interval)
   }, [autoRefresh, currentFilters, currentGuestsFilter, fetchData, getDefaultDateFilters])
 
-  // Initial load - load today and tomorrow data with default 6 guests
+  // Initial load - load All NYC data without date filter, with default 6 guests
   useEffect(() => {
-    const defaultFilters = getDefaultDateFilters()
+    const defaultFilters = { city: 'NYC' } // Load All NYC without date selection
+    setIsMultiVenueMode(true) // Set multi-venue mode for All NYC
     fetchData(defaultFilters, 6) // Default to 6 guests
-  }, [fetchData, getDefaultDateFilters])
+  }, [fetchData])
 
   const filteredData = searchTerm
     ? tableData.filter(item => {
@@ -209,15 +179,13 @@ function App() {
       <header className="page-header">
         <div className="page-eyebrow">
           <span>🍽️</span>
-          <span>Live Availability Scraper</span>
+          <span>Live Availability</span>
         </div>
         <h1>Find venues with available slots in seconds</h1>
-        <p>Choose a city, set your date and group size, then let the scraper do the work.</p>
+        <p>Choose a city, set your date and group size, then search for available slots.</p>
       </header>
 
       <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />
-
-      <StatusSection stats={stats} />
 
       <DataSection
         data={filteredData}

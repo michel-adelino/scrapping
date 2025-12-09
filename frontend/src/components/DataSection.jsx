@@ -21,7 +21,7 @@ function DataSection({ data, searchTerm, onSearchChange, isMultiVenueMode, autoR
   return (
     <div className="data-section">
       <div className="data-header">
-        <div className="data-title">Live Availability Data</div>
+        <div className="data-title">Live Availability</div>
         <div className="data-actions">
           <label>
             <input
@@ -48,7 +48,7 @@ function DataSection({ data, searchTerm, onSearchChange, isMultiVenueMode, autoR
         {filteredData.length === 0 ? (
           <div className="no-data">
             {data.length === 0
-              ? 'No data available. Start scraping to see live results.'
+              ? 'No data available. Search to see available slots.'
               : 'No matching results. Try a different search.'}
           </div>
         ) : isMultiVenueMode ? (
@@ -112,19 +112,18 @@ function VenueRows({ data }) {
     }
   }
 
-  const getTotalSlots = (dates) => {
-    return dates.reduce((sum, dateGroup) => sum + dateGroup.slots.length, 0)
-  }
-
   return (
     <div className="venue-rows-container">
       {groupedByVenue.map(({ venueName, dates }) => {
-        const totalSlots = getTotalSlots(dates)
         return (
           <div key={venueName} className="venue-row">
             <div className="venue-header">
               <span className="venue-name">{venueName}</span>
-              <span className="venue-slot-count">({totalSlots} slot{totalSlots !== 1 ? 's' : ''})</span>
+              <img 
+                src="/sample.webp" 
+                alt={venueName}
+                className="venue-image"
+              />
             </div>
             <div className="venue-slots">
               {dates.map(({ date, slots }, dateIdx) => (

@@ -115,7 +115,7 @@ def test_all_scrapers():
         ('fair_game_city', "Fair Game City", {}),
         ('clays_bar', "Clays Bar", {'clays_location': "Canary Wharf"}),
         ('puttshack', "Puttshack", {'puttshack_location': "Bank"}),
-        ('flight_club_darts', "Flight Club Darts", {}),
+        ('flight_club_darts', "Flight Club Darts (Bloomsbury)", {}),
         ('f1_arcade', "F1 Arcade", {'f1_experience': "Team Racing"}),
     ]
     
@@ -162,7 +162,7 @@ def test_single_scraper(scraper_name):
         'fair_game_city': ("Fair Game City", {}),
         'clays_bar': ("Clays Bar", {'clays_location': "Canary Wharf"}),
         'puttshack': ("Puttshack", {'puttshack_location': "Bank"}),
-        'flight_club_darts': ("Flight Club Darts", {}),
+        'flight_club_darts': ("Flight Club Darts (Bloomsbury)", {}),
         'f1_arcade': ("F1 Arcade", {'f1_experience': "Team Racing"}),
     }
     
