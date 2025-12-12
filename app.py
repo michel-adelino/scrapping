@@ -127,14 +127,13 @@ NYC_VENUES = [
     'lawn_club_nyc_curling_lawns',
     'lawn_club_nyc_croquet_lawns',
     'spin_nyc',
-    # Five Iron Golf venues - COMMENTED OUT (temporarily disabled)
-    # 'five_iron_golf_nyc_fidi',
-    # 'five_iron_golf_nyc_flatiron',
-    # 'five_iron_golf_nyc_grand_central',
-    # 'five_iron_golf_nyc_herald_square',
-    # 'five_iron_golf_nyc_long_island_city',
-    # 'five_iron_golf_nyc_upper_east_side',
-    # 'five_iron_golf_nyc_rockefeller_center',
+    'five_iron_golf_nyc_fidi',
+    'five_iron_golf_nyc_flatiron',
+    'five_iron_golf_nyc_grand_central',
+    'five_iron_golf_nyc_herald_square',
+    'five_iron_golf_nyc_long_island_city',
+    'five_iron_golf_nyc_upper_east_side',
+    'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
     'easybowl_nyc'
 ]
@@ -586,10 +585,9 @@ def run_scraper():
     required_date_websites = [
         'electric_shuffle_nyc', 'electric_shuffle_london', 'lawn_club_nyc_indoor_gaming', 
         'lawn_club_nyc_curling_lawns', 'lawn_club_nyc_croquet_lawns', 'spin_nyc', 
-        # Five Iron Golf venues - COMMENTED OUT (temporarily disabled)
-        # 'five_iron_golf_nyc_fidi', 'five_iron_golf_nyc_flatiron', 'five_iron_golf_nyc_grand_central',
-        # 'five_iron_golf_nyc_herald_square', 'five_iron_golf_nyc_long_island_city',
-        # 'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
+        'five_iron_golf_nyc_fidi', 'five_iron_golf_nyc_flatiron', 'five_iron_golf_nyc_grand_central',
+        'five_iron_golf_nyc_herald_square', 'five_iron_golf_nyc_long_island_city',
+        'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
         'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
         'flight_club_darts', 'f1_arcade', 'all_new_york', 'all_london'
@@ -1697,22 +1695,14 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                     raise ValueError("SPIN NYC requires a specific target date")
                 result = scrape_spin_task(guests, target_date, task_id, spin_time)
             elif website.startswith('five_iron_golf_nyc_'):
-                # Five Iron Golf venues are currently disabled
-                logger.warning(f"[VENUE_TASK] {website}: Five Iron Golf venues are currently disabled (commented out)")
-                return {
-                    'status': 'skipped',
-                    'slots_found': 0,
-                    'message': 'Five Iron Golf venues are temporarily disabled'
-                }
-                # OLD CODE (commented out):
-                # if not target_date:
-                #     raise ValueError("Five Iron Golf NYC requires a specific target date")
-                # # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
-                # location = website.replace('five_iron_golf_nyc_', '')
-                # from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
-                # venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
-                # logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task with location {location}")
-                # result = scrape_five_iron_golf_task(guests, target_date, task_id, location)
+                if not target_date:
+                    raise ValueError("Five Iron Golf NYC requires a specific target date")
+                # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
+                location = website.replace('five_iron_golf_nyc_', '')
+                from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
+                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task with location {location}")
+                result = scrape_five_iron_golf_task(guests, target_date, task_id, location)
             elif website == 'lucky_strike_nyc':
                 if not target_date:
                     raise ValueError("Lucky Strike NYC requires a specific target date")

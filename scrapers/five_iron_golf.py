@@ -30,381 +30,100 @@ FIVE_IRON_VENUE_NAMES = {
 }
 
 
-# def scrape_five_iron_golf(guests, target_date, location='fidi'):
-#     """
-#     Five Iron Golf scraper function for a specific location
-    
-#     Args:
-#         guests: Number of guests
-#         target_date: Target date in YYYY-MM-DD format
-#         location: Location identifier (fidi, flatiron, grand_central, etc.)
-    
-#     Returns:
-#         List of slot dictionaries
-#     """
-#     results = []
-    
-#     # Get location display name and venue name
-#     location_display = FIVE_IRON_LOCATIONS.get(location, 'NYC - FiDi')
-#     venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
-    
-#     try:
-#         date_str = target_date
-#         dt = datetime.strptime(date_str, "%Y-%m-%d")
-#         formatted_date = dt.strftime("%m/%d/%Y")
-        
-#         with BaseScraper() as scraper:
-#             scraper.page.set_default_timeout(60000)
-            
-#             try:
-#                 scraper.goto("https://booking.fiveirongolf.com/session-length", timeout=60000, wait_until="networkidle")
-#                 scraper.wait_for_timeout(8000)  # Wait for page to fully render
-#             except Exception:
-#                 logger.info("Page load timeout. Continuing...")
-            
-#             logger.info(f'Navigating to Five Iron Golf {location_display}...')
-            
-#             try:
-#                 scraper.wait_for_selector('div[role="combobox"][id="location-select"]', timeout=60000)
-#                 scraper.wait_for_timeout(3000)  # Additional wait for dropdown to be ready
-#             except Exception:
-#                 logger.info(f'Page did not load properly for Five Iron Golf {location_display}')
-#                 return results
-            
-#             # Select location
-#             scraper.click('div[role="combobox"][id="location-select"]')
-#             scraper.wait_for_timeout(4000)  # Increased wait for dropdown to open
-            
-#             # Wait for location option to be available
-#             try:
-#                 scraper.wait_for_selector(f'//li[normalize-space()="{location_display}"]', timeout=30000)
-#             except Exception:
-#                 logger.warning(f"Location option '{location_display}' not found")
-            
-#             scraper.click(f'//li[normalize-space()="{location_display}"]')
-#             scraper.wait_for_timeout(3000)  # Wait for location selection to apply
-            
-#             logger.info(f'Setting date to {target_date}...')
-            
-#             # Set date - wait for date input to be available
-#             try:
-#                 scraper.wait_for_selector('input[placeholder="mm/dd/yyyy"]', timeout=30000)
-#             except Exception:
-#                 logger.warning("Date input not found")
-            
-#             date_input = scraper.locator('input[placeholder="mm/dd/yyyy"]')
-#             date_input.click()
-#             scraper.wait_for_timeout(500)
-#             date_input.fill('')  # Clear
-#             scraper.wait_for_timeout(500)
-#             date_input.fill(formatted_date)
-#             scraper.wait_for_timeout(2000)  # Wait for date to be set
-            
-#             # Set party size
-#             logger.info(f'Setting party size to {guests}...')
-            
-#             try:
-#                 scraper.wait_for_selector('div[role="combobox"][id="party_size_select"]', timeout=30000)
-#             except Exception:
-#                 logger.warning("Party size selector not found")
-            
-#             scraper.click('div[role="combobox"][id="party_size_select"]')
-#             scraper.wait_for_timeout(3000)  # Wait for dropdown to open
-            
-#             # Wait for party size option to be available
-#             try:
-#                 scraper.wait_for_selector(f'//li[normalize-space()="{guests}"]', timeout=30000)
-#             except Exception:
-#                 logger.warning(f"Party size option '{guests}' not found")
-            
-#             scraper.click(f'//li[normalize-space()="{guests}"]')
-#             scraper.wait_for_timeout(5000)  # Wait for party size selection to apply
-            
-#             # Wait for slots to load after all selections
-#             logger.info(f'Searching for available slots on Five Iron Golf {location_display}...')
-            
-#             try:
-#                 scraper.wait_for_selector('div.MuiToggleButtonGroup-root', timeout=45000)
-#             except Exception:
-#                 logger.warning("Slot container not found, continuing anyway...")
-            
-#             scraper.wait_for_timeout(5000)  # Increased wait for slots to fully render
-            
-#             content = scraper.get_content()
-#             soup = BeautifulSoup(content, "html.parser")
-#             slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
-            
-#             logger.info(f'Found {len(slots)} available slots on Five Iron Golf {location_display}')
-            
-#             if len(slots) == 0:
-#                 logger.info(f'No slots available on Five Iron Golf {location_display}')
-#                 return results
-            
-#             for slot in slots:
-#                 status = "Available"
-                
-#                 # Extract time
-#                 try:
-#                     time = slot.find_previous_sibling("h5").get_text(strip=True)
-#                 except:
-#                     time = "None"
-                
-#                 # Extract each duration + price separately
-#                 buttons = slot.select("button.MuiToggleButton-root")
-                
-#                 for btn in buttons:
-#                     try:
-#                         duration = btn.contents[0].strip()  # "2 hours"
-#                     except:
-#                         duration = "None"
-                    
-#                     price_el = btn.select_one("p")
-#                     price = price_el.get_text(strip=True) if price_el else ""
-
-#                     # Skip rows where price is missing
-#                     if not price:
-#                         continue
-
-#                     # Convert "2 hours" → "2h"
-#                     dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
-
-#                     # Final format: "2h : $58"
-#                     desc = f"{dur_clean} : {price}"
-
-#                     slot_data = {
-#                         'date': date_str,
-#                         'time': time,
-#                         'price': desc,
-#                         'status': status,
-#                         'timestamp': datetime.now().isoformat(),
-#                         'website': venue_name
-#                     }
-
-#                     results.append(slot_data)
-        
-#         return results
-        
-#     except Exception as e:
-#         logger.error(f"Error scraping Five Iron Golf: {e}", exc_info=True)
-#         raise e
-
-
-
-
-
 def scrape_five_iron_golf(guests, target_date, location='fidi'):
     """
-    Five Iron Golf scraper function for a specific location
-    
-    Args:
-        guests: Number of guests
-        target_date: Target date in YYYY-MM-DD format
-        location: Location identifier (fidi, flatiron, grand_central, etc.)
-    
-    Returns:
-        List of slot dictionaries
+    Five Iron Golf scraper using DIRECT API (no duplicates).
+    Uses locationId = 4388c520-a4de-4d49-b812-e2cb4badf667
     """
+
     results = []
-    
-    # Get location display name and venue name
-    location_display = FIVE_IRON_LOCATIONS.get(location, 'NYC - FiDi')
-    venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
-    
+    unique_set = set()  # prevent duplicates
+
+    # location_id = "4388c520-a4de-4d49-b812-e2cb4badf667"
+    location_id = "31f9eb4b-7fa7-4073-9c36-132b626c8b7e"
+    venue_name = "Five Iron Golf (Custom Location)"
+
     try:
-        date_str = target_date
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        formatted_date = dt.strftime("%m/%d/%Y")
-        
+        dt = datetime.strptime(target_date, "%Y-%m-%d")
+        api_date = dt.strftime("%Y-%m-%d")
+
         with BaseScraper() as scraper:
-            scraper.page.set_default_timeout(60000)
+            page = scraper.page
 
-            # ⚡ Try loading but stop early
-            try:
-                scraper.goto(
-                    "https://booking.fiveirongolf.com/session-length",
-                    timeout=5000,                   # very small timeout
-                    wait_until="domcontentloaded"   # do NOT wait for networkidle
-                )
-            except Exception:
-                logger.info("Page load timeout. Continuing...")
-                
-            # scraper.page.evaluate("window.stop()")
-            logger.info(f'Navigating to Five Iron Golf {location_display}...')
-            
-            try:
-                # Wait for dropdown to appear (full 60 seconds)
-                scraper.page.locator('div[role="combobox"][id="location-select"]').wait_for(
-                    timeout=60000,
-                    state="visible"
-                )
-                print("[DEBUG] Location dropdown is visible")
-                scraper.wait_for_timeout(2000)  # small safety delay
-            except Exception as e:
-                print("[ERROR] Dropdown load failure:", e)
-                logger.info(f'Page did not load properly for Five Iron Golf {location_display}')
-                return results
-            
-            # Select location - improved for headless Ubuntu
-            scraper.click('div[role="combobox"][id="location-select"]')
-            scraper.wait_for_timeout(2000)  # Wait for dropdown to start opening
-            
-            # Wait for dropdown menu to be visible (ul element)
-            try:
-                scraper.wait_for_selector('ul[role="listbox"]', timeout=10000)
-                scraper.wait_for_timeout(1000)  # Additional wait for items to render
-            except Exception as e:
-                logger.warning(f"Dropdown menu not found: {e}")
-            
-            # Wait for location option to be available and visible
-            location_selector = f'//li[normalize-space()="{location_display}"]'
-            try:
-                # Wait for element to be attached and visible
-                scraper.page.wait_for_selector(location_selector, timeout=30000, state="visible")
-                scraper.wait_for_timeout(500)  # Small delay to ensure it's clickable
-            except Exception as e:
-                logger.warning(f"Location option '{location_display}' not found or not visible: {e}")
-                # Try to find all available locations for debugging
+            # try:
+            #     scraper.goto("https://booking.fiveirongolf.com", timeout=5000, wait_until="domcontentloaded")
+            # except:
+            #     pass
+
+            api_url = (
+                "https://api.booking.fiveirongolf.com/appointments/available/simulator"
+                f"?locationId={location_id}"
+                f"&partySize={guests}"
+                f"&startDateTime={api_date}"
+                f"&endDateTime={api_date}"
+            )
+
+            print("[DEBUG] API URL:", api_url)
+
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "origin": "https://booking.fiveirongolf.com",
+                "referer": "https://booking.fiveirongolf.com/",
+                "cache-control": "no-cache",
+                "pragma": "no-cache",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-site",
+                "x-variant": "fiveIron",
+                "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                "sec-ch-ua-mobile": "?1",
+                "sec-ch-ua-platform": '"Android"',
+                "user-agent": (
+                    "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36"
+                ),
+            }
+
+            resp = page.request.get(api_url, headers=headers, timeout=30000)
+            data = resp.json()
+
+            print(f"[DEBUG] API returned {len(data)} entries")
+
+            for entry in data:
+                raw_time = entry.get("time")
+
                 try:
-                    all_locations = scraper.page.query_selector_all('ul[role="listbox"] li')
-                    available = [li.inner_text() for li in all_locations[:5]]  # First 5 for debugging
-                    logger.warning(f"Available location options (first 5): {available}")
+                    dt2 = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                    time_str = dt2.strftime("%I:%M %p")
                 except:
-                    pass
-                raise
-            
-            # Scroll element into view before clicking (important for headless)
-            try:
-                element = scraper.page.locator(location_selector)
-                element.scroll_into_view_if_needed()
-                scraper.wait_for_timeout(300)
-            except Exception as e:
-                logger.debug(f"Could not scroll element into view: {e}")
-            
-            # Click the location option - try regular click first, fallback to JS click
-            try:
-                scraper.click(location_selector)
-            except Exception as click_error:
-                logger.warning(f"Regular click failed, trying JavaScript click: {click_error}")
-                # Fallback: Use JavaScript click (more reliable in headless mode)
-                try:
-                    scraper.page.evaluate(f"""
-                        () => {{
-                            const items = Array.from(document.querySelectorAll('ul[role="listbox"] li'));
-                            const target = items.find(li => li.textContent.trim() === '{location_display}');
-                            if (target) {{
-                                target.click();
-                                return true;
-                            }}
-                            return false;
-                        }}
-                    """)
-                    logger.info("Location selected using JavaScript click")
-                except Exception as js_error:
-                    logger.error(f"JavaScript click also failed: {js_error}")
-                    raise click_error  # Raise original error
-            
-            scraper.wait_for_timeout(3000)  # Wait for location selection to apply
-            
-            logger.info(f'Setting date to {target_date}...')
-            
-            # Set date - wait for date input to be available
-            try:
-                scraper.wait_for_selector('input[placeholder="mm/dd/yyyy"]', timeout=30000)
-            except Exception:
-                logger.warning("Date input not found")
-            
-            date_input = scraper.locator('input[placeholder="mm/dd/yyyy"]')
-            date_input.click()
-            scraper.wait_for_timeout(500)
-            date_input.fill('')  # Clear
-            scraper.wait_for_timeout(500)
-            date_input.fill(formatted_date)
-            scraper.wait_for_timeout(2000)  # Wait for date to be set
-            
-            # Set party size
-            logger.info(f'Setting party size to {guests}...')
-            
-            try:
-                scraper.wait_for_selector('div[role="combobox"][id="party_size_select"]', timeout=30000)
-            except Exception:
-                logger.warning("Party size selector not found")
-            
-            scraper.click('div[role="combobox"][id="party_size_select"]')
-            scraper.wait_for_timeout(3000)  # Wait for dropdown to open
-            
-            # Wait for party size option to be available
-            try:
-                scraper.wait_for_selector(f'//li[normalize-space()="{guests}"]', timeout=30000)
-            except Exception:
-                logger.warning(f"Party size option '{guests}' not found")
-            
-            scraper.click(f'//li[normalize-space()="{guests}"]')
-            scraper.wait_for_timeout(5000)  # Wait for party size selection to apply
-            
-            # Wait for slots to load after all selections
-            logger.info(f'Searching for available slots on Five Iron Golf {location_display}...')
-            
-            try:
-                scraper.wait_for_selector('div.MuiToggleButtonGroup-root', timeout=45000)
-            except Exception:
-                logger.warning("Slot container not found, continuing anyway...")
-            
-            scraper.wait_for_timeout(5000)  # Increased wait for slots to fully render
-            
-            content = scraper.get_content()
-            soup = BeautifulSoup(content, "html.parser")
-            slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
-            
-            logger.info(f'Found {len(slots)} available slots on Five Iron Golf {location_display}')
-            
-            if len(slots) == 0:
-                logger.info(f'No slots available on Five Iron Golf {location_display}')
-                return results
-            
-            for slot in slots:
-                status = "Available"
-                
-                # Extract time
-                try:
-                    time = slot.find_previous_sibling("h5").get_text(strip=True)
-                except:
-                    time = "None"
-                
-                # Extract each duration + price separately
-                buttons = slot.select("button.MuiToggleButton-root")
-                
-                for btn in buttons:
-                    try:
-                        duration = btn.contents[0].strip()  # "2 hours"
-                    except:
-                        duration = "None"
-                    
-                    price_el = btn.select_one("p")
-                    price = price_el.get_text(strip=True) if price_el else ""
+                    time_str = "N/A"
 
-                    # Skip rows where price is missing
-                    if not price:
-                        continue
+                for block in entry.get("availabilities", []):
+                    for d in block.get("durations", []):
+                        mins = d.get("duration", 0)
+                        cost = d.get("cost", 0)
 
-                    # Convert "2 hours" → "2h"
-                    dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
+                        hours = mins / 60
+                        dur_str = f"{int(hours)}h" if hours.is_integer() else f"{hours}h"
 
-                    # Final format: "2h : $58"
-                    desc = f"{dur_clean} : {price}"
+                        # Deduplication key
+                        key = (time_str, dur_str, cost)
 
-                    slot_data = {
-                        'date': date_str,
-                        'time': time,
-                        'price': desc,
-                        'status': status,
-                        'timestamp': datetime.now().isoformat(),
-                        'website': venue_name
-                    }
+                        if key in unique_set:
+                            continue
+                        unique_set.add(key)
 
-                    results.append(slot_data)
-        
+                        results.append({
+                            "date": target_date,
+                            "time": time_str,
+                            "price": f"{dur_str} : ${cost}",
+                            "status": "Available",
+                            "timestamp": datetime.now().isoformat(),
+                            "website": venue_name
+                        })
+
         return results
-        
+
     except Exception as e:
         logger.error(f"Error scraping Five Iron Golf: {e}", exc_info=True)
         raise e

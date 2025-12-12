@@ -97,8 +97,13 @@ def scrape_flight_club_darts(guests, target_date, venue_id=None):
                     print(f"[DEBUG] Skipping section: {section_title} (not matching {expected_section})")
                     continue
 
-                # Map section title to venue name
-                venue_name = section_to_venue_map.get(section_title, f"Flight Club Darts ({section_title})")
+                # Only process sections that are in our allowed list (the 4 specific locations)
+                if section_title not in section_to_venue_map:
+                    print(f"[DEBUG] Skipping section: {section_title} (not in allowed locations list)")
+                    continue
+
+                # Map section title to venue name (guaranteed to exist due to check above)
+                venue_name = section_to_venue_map[section_title]
 
                 print(f"\n=== SECTION: {section_title} -> Venue: {venue_name} ===")
 

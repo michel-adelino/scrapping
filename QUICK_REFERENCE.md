@@ -329,6 +329,23 @@ LIMIT 5;
 
 -- View scraping tasks
 SELECT task_id, website, status, guests, target_date, created_at FROM scraping_tasks ORDER BY created_at DESC LIMIT 20;
+
+-- Delete unwanted Flight Club Darts locations (keep only Angel, Bloomsbury, Shoreditch, Victoria)
+-- First, check what Flight Club Darts venues exist
+SELECT DISTINCT venue_name FROM availability_slots WHERE venue_name LIKE 'Flight Club Darts%';
+
+-- Delete all Flight Club Darts records EXCEPT the 4 allowed locations
+DELETE FROM availability_slots 
+WHERE venue_name LIKE 'Flight Club Darts%' 
+AND venue_name NOT IN (
+    'Flight Club Darts (Angel)',
+    'Flight Club Darts (Bloomsbury)',
+    'Flight Club Darts (Shoreditch)',
+    'Flight Club Darts (Victoria)'
+);
+
+-- Verify deletion (should only show the 4 allowed locations)
+SELECT DISTINCT venue_name FROM availability_slots WHERE venue_name LIKE 'Flight Club Darts%';
 ```
 
 ## Database Backup (SQLite)
