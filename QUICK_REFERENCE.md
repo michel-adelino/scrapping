@@ -187,6 +187,15 @@ python -m playwright --version
 python -c "from playwright.sync_api import sync_playwright; print('Playwright OK')"
 ```
 
+### Install Playwright Browsers (if missing)
+If you get errors like "Executable doesn't exist at /home/user/.cache/ms-playwright/chromium-...", run:
+```bash
+cd /opt/backend-scraper  # or /opt/scrapping
+source venv/bin/activate
+python -m playwright install chromium
+# This downloads the browser binaries (may take a few minutes)
+```
+
 ### Check Chrome
 ```bash
 google-chrome --version

@@ -23,7 +23,7 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 # Variables
-APP_DIR="/opt/backend-scraper"
+APP_DIR="/opt/scrapping"
 APP_USER=$(whoami)
 
 echo -e "${GREEN}Step 1: Updating system packages...${NC}"
@@ -117,16 +117,34 @@ echo -e "${GREEN}Step 7: Creating application directory...${NC}"
 sudo mkdir -p $APP_DIR
 sudo chown $APP_USER:$APP_USER $APP_DIR
 
-echo -e "${YELLOW}Step 8: Please copy your project files to $APP_DIR${NC}"
-echo "You can use:"
-echo "  - Git: cd $APP_DIR && git clone <your-repo> ."
-echo "  - SCP: scp -r /path/to/backend/* $APP_USER@$(hostname -I | awk '{print $1}'):$APP_DIR/"
+echo -e "${YELLOW}Step 8: Copying project files to $APP_DIR${NC}"
 echo ""
-read -p "Press Enter after you've copied the files to continue..."
+echo "Option 1: If you're running this script from the scrapping folder, files will be copied automatically"
+echo "Option 2: Copy files manually using one of these methods:"
+echo "  - Git: cd $APP_DIR && git clone <your-repo> ."
+echo "  - SCP: scp -r /path/to/scrapping/* $APP_USER@$(hostname -I | awk '{print $1}'):$APP_DIR/"
+echo "  - Rsync: rsync -avz /path/to/scrapping/ $APP_USER@$(hostname -I | awk '{print $1}'):$APP_DIR/"
+echo ""
+
+# Try to auto-detect if we're in the scrapping directory
+CURRENT_DIR=$(pwd)
+if [ -f "$CURRENT_DIR/app.py" ] && [ -f "$CURRENT_DIR/requirements.txt" ]; then
+    echo -e "${GREEN}Detected scrapping folder at $CURRENT_DIR${NC}"
+    echo -e "${GREEN}Copying files to $APP_DIR...${NC}"
+    sudo mkdir -p $APP_DIR
+    sudo cp -r $CURRENT_DIR/* $APP_DIR/ 2>/dev/null || {
+        echo -e "${YELLOW}Some files may have failed to copy. Continuing...${NC}"
+    }
+    sudo chown -R $APP_USER:$APP_USER $APP_DIR
+else
+    echo -e "${YELLOW}Not in scrapping folder. Please copy files manually.${NC}"
+    read -p "Press Enter after you've copied the files to continue..."
+fi
 
 if [ ! -f "$APP_DIR/app.py" ]; then
     echo -e "${RED}Error: app.py not found in $APP_DIR${NC}"
-    echo "Please copy your project files and run this script again."
+    echo "Please ensure the scrapping folder contents are in $APP_DIR"
+    echo "You can copy them with: sudo cp -r /path/to/scrapping/* $APP_DIR/"
     exit 1
 fi
 
@@ -141,9 +159,13 @@ pip install python-dotenv  # For .env file support
 # Install Playwright browsers
 echo -e "${GREEN}Installing Playwright browsers...${NC}"
 source venv/bin/activate
+echo -e "${YELLOW}This may take a few minutes as it downloads browser binaries...${NC}"
 python -m playwright install chromium || {
-    echo -e "${YELLOW}Warning: Playwright browser installation failed. May need manual installation.${NC}"
+    echo -e "${RED}Error: Playwright browser installation failed!${NC}"
+    echo -e "${YELLOW}Try running manually: cd $APP_DIR && source venv/bin/activate && python -m playwright install chromium${NC}"
+    exit 1
 }
+echo -e "${GREEN}✓ Playwright browsers installed successfully${NC}"
 
 echo -e "${GREEN}Step 10: Creating .env file...${NC}"
 cd $APP_DIR
