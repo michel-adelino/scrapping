@@ -82,13 +82,14 @@ NYC_VENUES = [
     'lawn_club_nyc_curling_lawns',
     'lawn_club_nyc_croquet_lawns',
     'spin_nyc',
-    'five_iron_golf_nyc_fidi',
-    'five_iron_golf_nyc_flatiron',
-    'five_iron_golf_nyc_grand_central',
-    'five_iron_golf_nyc_herald_square',
-    'five_iron_golf_nyc_long_island_city',
-    'five_iron_golf_nyc_upper_east_side',
-    'five_iron_golf_nyc_rockefeller_center',
+    # Five Iron Golf venues - COMMENTED OUT (temporarily disabled)
+    # 'five_iron_golf_nyc_fidi',
+    # 'five_iron_golf_nyc_flatiron',
+    # 'five_iron_golf_nyc_grand_central',
+    # 'five_iron_golf_nyc_herald_square',
+    # 'five_iron_golf_nyc_long_island_city',
+    # 'five_iron_golf_nyc_upper_east_side',
+    # 'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
     'easybowl_nyc'
 ]
