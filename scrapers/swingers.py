@@ -360,13 +360,32 @@ def scrape_swingers_uk(guests, target_date):
             except:
                 pass
 
-            scraper.page.evaluate("window.stop()")
+            # Stop loading - with error handling for navigation race conditions
+            try:
+                scraper.page.evaluate("window.stop()")
+            except Exception as e:
+                # Page may have navigated away - this is OK, continue
+                if "Execution context was destroyed" not in str(e) and "navigation" not in str(e).lower():
+                    raise
+                logger.debug(f"Page navigated during stop() call, continuing: {e}")
+
+            # Wait a bit longer for calendar to render in headless mode
+            scraper.wait_for_timeout(3000)
 
             # ---- WAIT FOR CALENDAR RENDER ----
-            try:
-                scraper.wait_for_selector("li.slot-calendar__dates-item", timeout=10000)
-            except:
-                logger.warning("Calendar dates not found.")
+            # Try multiple times with increasing wait times for headless mode
+            calendar_found = False
+            for attempt in range(3):
+                try:
+                    scraper.wait_for_selector("li.slot-calendar__dates-item", timeout=15000)
+                    calendar_found = True
+                    break
+                except:
+                    logger.debug(f"Calendar not found on attempt {attempt + 1}, waiting longer...")
+                    scraper.wait_for_timeout(2000)
+            
+            if not calendar_found:
+                logger.warning("Calendar dates not found after multiple attempts.")
 
             content = scraper.get_content()
             soup = BeautifulSoup(content, "html.parser")
