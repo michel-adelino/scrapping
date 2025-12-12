@@ -19,11 +19,9 @@ const API_BASE = getApiBase()
 
 function App() {
   const [tableData, setTableData] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [isMultiVenueMode, setIsMultiVenueMode] = useState(false)
   const [currentFilters, setCurrentFilters] = useState({})
   const [currentGuestsFilter, setCurrentGuestsFilter] = useState(null)
-  const [autoRefresh, setAutoRefresh] = useState(false)
   const [toasts, setToasts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -140,39 +138,12 @@ function App() {
     }
   }, [showToast])
 
-  // Auto-refresh effect
-  useEffect(() => {
-    if (!autoRefresh) return
-
-    const interval = setInterval(() => {
-      const filters = Object.keys(currentFilters).length > 0 
-        ? currentFilters 
-        : getDefaultDateFilters()
-      fetchData(filters, currentGuestsFilter)
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [autoRefresh, currentFilters, currentGuestsFilter, fetchData, getDefaultDateFilters])
-
   // Initial load - load All NYC data without date filter, with default 6 guests
   useEffect(() => {
     const defaultFilters = { city: 'NYC', guests: 6 } // Load All NYC without date selection, with 6 guests
     setIsMultiVenueMode(true) // Set multi-venue mode for All NYC
     fetchData(defaultFilters, 6) // Default to 6 guests
   }, [fetchData])
-
-  const filteredData = searchTerm
-    ? tableData.filter(item => {
-        const haystack = [
-          item.venue_name || item.website,
-          item.date,
-          item.time,
-          item.price,
-          item.status
-        ].map(part => (part || '').toString().toLowerCase()).join(' ')
-        return haystack.includes(searchTerm.toLowerCase())
-      })
-    : tableData
 
   return (
     <div className="app-shell">
@@ -188,12 +159,8 @@ function App() {
       <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />
 
       <DataSection
-        data={filteredData}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        data={tableData}
         isMultiVenueMode={isMultiVenueMode}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

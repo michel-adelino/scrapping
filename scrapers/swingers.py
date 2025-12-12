@@ -218,7 +218,7 @@ def scrape_swingers_uk(guests, target_date):
                     "price": price_val,
                     "status": status,
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Swingers (NYC)"
+                    "website": "Swingers (London)"
                 }
                 results.append(slot_data) 
         return results

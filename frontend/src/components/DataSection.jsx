@@ -2,59 +2,22 @@ import { useMemo } from 'react'
 import SlotCard from './SlotCard'
 import DataTable from './DataTable'
 
-function DataSection({ data, searchTerm, onSearchChange, isMultiVenueMode, autoRefresh, onAutoRefreshChange }) {
-  const filteredData = useMemo(() => {
-    if (!searchTerm) return data
-    
-    return data.filter(item => {
-      const haystack = [
-        item.venue_name || item.website,
-        item.date,
-        item.time,
-        item.price,
-        item.status
-      ].map(part => (part || '').toString().toLowerCase()).join(' ')
-      return haystack.includes(searchTerm.toLowerCase())
-    })
-  }, [data, searchTerm])
-
+function DataSection({ data, isMultiVenueMode }) {
   return (
     <div className="data-section">
       <div className="data-header">
         <div className="data-title">Live Availability</div>
-        <div className="data-actions">
-          <label>
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => onAutoRefreshChange(e.target.checked)}
-            />
-            {' '}Auto-refresh
-          </label>
-          <div className="data-search">
-            <span>🔎</span>
-            <input
-              type="text"
-              placeholder="Search results..."
-              aria-label="Search results"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-          </div>
-        </div>
       </div>
 
       <div className="auto-scroll">
-        {filteredData.length === 0 ? (
+        {data.length === 0 ? (
           <div className="no-data">
-            {data.length === 0
-              ? 'No data available. Search to see available slots.'
-              : 'No matching results. Try a different search.'}
+            No data available. Use the search panel to find available slots.
           </div>
         ) : isMultiVenueMode ? (
-          <VenueRows data={filteredData} />
+          <VenueRows data={data} />
         ) : (
-          <DataTable data={filteredData} />
+          <DataTable data={data} />
         )}
       </div>
     </div>
@@ -82,10 +45,10 @@ const VENUE_IMAGE_MAP = {
   'Easybowl (NYC)': 'sample.webp', // Add image if available
   'Fair Game (Canary Wharf)': 'Fairgame.webp',
   'Fair Game (City)': 'Fairgame.webp',
-  'Clays Bar (Canary Wharf)': 'sample.webp', // Add image if available
-  'Clays Bar (The City)': 'sample.webp', // Add image if available
-  'Clays Bar (Birmingham)': 'sample.webp', // Add image if available
-  'Clays Bar (Soho)': 'sample.webp', // Add image if available
+  'Clays Bar (Canary Wharf)': 'Clays.webp', // Add image if available
+  'Clays Bar (The City)': 'Clays.webp', // Add image if available
+  'Clays Bar (Birmingham)': 'Clays.webp', // Add image if available
+  'Clays Bar (Soho)': 'Clays.webp', // Add image if available
   'Puttshack (Bank)': 'Puttshack.webp',
   'Puttshack (Lakeside)': 'Puttshack.webp',
   'Puttshack (White City)': 'Puttshack.webp',

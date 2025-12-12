@@ -306,6 +306,60 @@ sqlite3 /opt/scrapping/availability.db "SELECT city, guests, COUNT(*) FROM avail
 
 # Check if tasks have run for guest counts 7 and 8
 sqlite3 /opt/scrapping/availability.db "SELECT guests, COUNT(*) as tasks, SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful FROM scraping_tasks WHERE guests IN (7, 8) GROUP BY guests;"
+
+# ============================================
+# Update Five Iron Golf "Custom Location" Records
+# ============================================
+
+# First, check how many records have "Custom Location"
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE venue_name = 'Five Iron Golf (Custom Location)';"
+
+# View sample of Custom Location records
+sqlite3 /opt/scrapping/availability.db "SELECT id, venue_name, city, date, time, guests, last_updated FROM availability_slots WHERE venue_name = 'Five Iron Golf (Custom Location)' LIMIT 10;"
+
+# OPTION 1: Delete all "Custom Location" records (RECOMMENDED)
+# This will allow the system to re-scrape with correct location names
+sqlite3 /opt/scrapping/availability.db "DELETE FROM availability_slots WHERE venue_name = 'Five Iron Golf (Custom Location)';"
+
+# OPTION 2: If you want to manually update to a specific location (NOT RECOMMENDED - you can't determine which location each record belongs to)
+# Example: Update all to FiDi (but this is probably wrong for other locations)
+# sqlite3 /opt/scrapping/availability.db "UPDATE availability_slots SET venue_name = 'Five Iron Golf (NYC - FiDi)' WHERE venue_name = 'Five Iron Golf (Custom Location)';"
+
+# After deletion, verify the records are gone
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE venue_name LIKE 'Five Iron Golf%';"
+
+# Check all Five Iron Golf venue names (should show proper location names after re-scraping)
+sqlite3 /opt/scrapping/availability.db "SELECT DISTINCT venue_name FROM availability_slots WHERE venue_name LIKE 'Five Iron Golf%' ORDER BY venue_name;"
+
+# ============================================
+# Fix Swingers London Records
+# ============================================
+
+# Step 1: Check current Swingers records to see the issue
+# This shows all Swingers records grouped by venue_name and city
+sqlite3 /opt/scrapping/availability.db "SELECT venue_name, city, COUNT(*) FROM availability_slots WHERE venue_name LIKE 'Swingers%' GROUP BY venue_name, city ORDER BY city, venue_name;"
+
+# Step 2: Check how many WRONG records exist (Swingers NYC name but London city)
+# These are the ones that need to be fixed
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE venue_name = 'Swingers (NYC)' AND city = 'London';"
+
+# Step 3: Verify legitimate Swingers NYC records are safe (should have city = 'NYC')
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE venue_name = 'Swingers (NYC)' AND city = 'NYC';"
+
+# Step 4: Delete the wrong records (they will be re-scraped correctly with the fixed code)
+# This is safer than UPDATE because there might be duplicate conflicts with existing Swingers (London) records
+sqlite3 /opt/scrapping/availability.db "DELETE FROM availability_slots WHERE venue_name = 'Swingers (NYC)' AND city = 'London';"
+
+# Alternative: If you want to try updating (may fail if duplicates exist):
+# sqlite3 /opt/scrapping/availability.db "UPDATE availability_slots SET venue_name = 'Swingers (London)' WHERE venue_name = 'Swingers (NYC)' AND city = 'London';"
+# If this gives UNIQUE constraint error, use DELETE instead (above)
+
+# Step 5: Verify the fix worked correctly
+sqlite3 /opt/scrapping/availability.db "SELECT venue_name, city, COUNT(*) FROM availability_slots WHERE venue_name LIKE 'Swingers%' GROUP BY venue_name, city ORDER BY city, venue_name;"
+
+# Expected result after fix:
+# Swingers (London) | London | [count]  <- Fixed records
+# Swingers (NYC)    | NYC    | [count]  <- Legitimate NYC records (untouched)
 ```
 
 ### Useful SQL Queries (inside sqlite3)
