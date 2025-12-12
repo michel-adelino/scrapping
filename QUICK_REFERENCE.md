@@ -139,10 +139,22 @@ sudo systemctl restart backend-scraper-flask backend-scraper-celery-worker backe
 
 ### How Cycles Work
 1. **Beat starts**: Automatically triggers first cycle
-2. **Tasks created**: 4,830 tasks created and shuffled
-3. **Execution**: Tasks run in parallel (concurrency=10 by default)
-4. **Auto-chaining**: When cycle completes, next cycle starts automatically
-5. **Continuous**: Cycles continue until worker/beat stops
+2. **Tasks created**: 4,830 tasks created in order: venue × guest × date
+3. **Tasks shuffled**: All tasks are randomly shuffled to interleave different venues/guests/dates
+4. **Execution**: Tasks run in PARALLEL (not sequentially) based on worker concurrency setting
+   - With concurrency=10: 10 tasks run simultaneously
+   - With concurrency=100: 100 tasks run simultaneously
+5. **Order**: Tasks execute in SHUFFLED/RANDOM order (not sequential by guest count)
+   - Example: Task for Swingers NYC, 7 guests, Dec 20 might run before Swingers NYC, 2 guests, Dec 19
+   - This interleaves requests to different websites and reduces IP blocking risk
+6. **Auto-chaining**: When cycle completes, next cycle starts automatically
+7. **Continuous**: Cycles continue until worker/beat stops
+
+### Task Execution Details
+- **Guest counts**: Tasks for guests 2, 3, 4, 5, 6, 7, 8 are all created and shuffled together
+- **Execution order**: RANDOM (shuffled) - not sequential by guest count
+- **Parallel execution**: Multiple tasks run simultaneously based on concurrency setting
+- **Example**: With 100 workers, up to 100 tasks can run at the same time, regardless of guest count
 
 ### Check Cycle Status
 ```bash
@@ -151,6 +163,15 @@ sudo journalctl -u backend-scraper-celery-worker | grep "REFRESH"
 
 # View task completion logs
 sudo journalctl -u backend-scraper-celery-worker | grep "Current cycle completed"
+
+# Check if tasks for specific guest counts are being executed
+sudo journalctl -u backend-scraper-celery-worker | grep -E "guests.*[78]|7 guests|8 guests"
+
+# Check task distribution by guest count in logs
+sudo journalctl -u backend-scraper-celery-worker | grep "Expected tasks per guest count"
+
+# Check database for guest count distribution
+sqlite3 /opt/scrapping/availability.db "SELECT guests, COUNT(*) as count FROM availability_slots GROUP BY guests ORDER BY guests;"
 ```
 
 ## Troubleshooting
