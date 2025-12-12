@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 #   - Memory exhaustion (check with: free -h)
 #   - File descriptor limits (check with: ulimit -n)
 #   - CPU saturation
-_browser_semaphore = threading.Semaphore(35)  # Allow max 35 concurrent browser instances (good for 100 workers)
+_browser_semaphore = threading.Semaphore(20)  
 
 # Global Playwright instance (one per process)
 _playwright_instance = None
