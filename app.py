@@ -58,9 +58,24 @@ if database_url.startswith('sqlite'):
     try:
         with app.app_context():
             with db.engine.connect() as conn:
+                # Check current journal mode
+                result = conn.execute(text("PRAGMA journal_mode"))
+                current_mode = result.scalar()
+                logger = logging.getLogger(__name__)
+                logger.info(f"Current SQLite journal mode: {current_mode}")
+                
+                # Enable WAL mode
                 conn.execute(text("PRAGMA journal_mode=WAL"))
                 conn.execute(text("PRAGMA busy_timeout=30000"))
+                
+                # Checkpoint WAL to ensure data is visible
+                conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
                 conn.commit()
+                
+                # Verify WAL mode is active
+                result2 = conn.execute(text("PRAGMA journal_mode"))
+                new_mode = result2.scalar()
+                logger.info(f"SQLite journal mode after setup: {new_mode}")
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.warning(f"Could not enable WAL mode for SQLite: {e}")
@@ -808,6 +823,15 @@ def get_data():
         print(debug_msg, flush=True)
         logger.info(debug_msg)
         
+        # Force checkpoint WAL before querying to ensure we see latest data
+        # This is important when Celery workers write data while Flask reads
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(text("PRAGMA wal_checkpoint(PASSIVE)"))
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Could not checkpoint WAL: {e}")
+        
         query = AvailabilitySlot.query
         
         if city:
@@ -859,9 +883,46 @@ def get_data():
             db_file_debug = os.path.join(basedir_debug, "availability.db")
             db_exists_debug = os.path.exists(db_file_debug)
             db_size_debug = os.path.getsize(db_file_debug) if db_exists_debug else 0
-            debug_db_path_msg = f"[API DEBUG] Database URI: {db_uri}, File path: {db_file_debug}, Exists: {db_exists_debug}, Size: {db_size_debug} bytes"
+            
+            # Check for WAL and SHM files
+            wal_file = db_file_debug + "-wal"
+            shm_file = db_file_debug + "-shm"
+            wal_exists = os.path.exists(wal_file)
+            shm_exists = os.path.exists(shm_file)
+            wal_size = os.path.getsize(wal_file) if wal_exists else 0
+            shm_size = os.path.getsize(shm_file) if shm_exists else 0
+            
+            debug_db_path_msg = f"[API DEBUG] Database URI: {db_uri}, File path: {db_file_debug}, Exists: {db_exists_debug}, Size: {db_size_debug} bytes, WAL: {wal_exists} ({wal_size} bytes), SHM: {shm_exists} ({shm_size} bytes)"
             print(debug_db_path_msg, flush=True)
             logger.info(debug_db_path_msg)
+            
+            # Try direct SQL query to check if data exists
+            try:
+                with db.engine.connect() as conn:
+                    result = conn.execute(text("SELECT COUNT(*) FROM availability_slots"))
+                    direct_count = result.scalar()
+                    debug_direct_msg = f"[API DEBUG] Direct SQL query count: {direct_count}"
+                    print(debug_direct_msg, flush=True)
+                    logger.info(debug_direct_msg)
+                    
+                    # Check table structure
+                    result2 = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='availability_slots'"))
+                    table_exists = result2.fetchone() is not None
+                    debug_table_msg = f"[API DEBUG] Table 'availability_slots' exists: {table_exists}"
+                    print(debug_table_msg, flush=True)
+                    logger.info(debug_table_msg)
+                    
+                    if direct_count > 0:
+                        # Get sample data
+                        result3 = conn.execute(text("SELECT city, guests, COUNT(*) FROM availability_slots GROUP BY city, guests LIMIT 5"))
+                        samples = result3.fetchall()
+                        debug_samples_msg = f"[API DEBUG] Sample data (city, guests, count): {samples}"
+                        print(debug_samples_msg, flush=True)
+                        logger.info(debug_samples_msg)
+            except Exception as sql_error:
+                debug_sql_error_msg = f"[API DEBUG] Error executing direct SQL: {sql_error}"
+                print(debug_sql_error_msg, flush=True)
+                logger.error(debug_sql_error_msg, exc_info=True)
             
             all_slots_count = AvailabilitySlot.query.count()
             debug_all_msg = f"[API DEBUG] Total slots in database (no filters): {all_slots_count}"
