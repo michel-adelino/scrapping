@@ -452,6 +452,18 @@ def test_query():
         
         total_all = AvailabilitySlot.query.count()
         
+        # Get all unique cities
+        all_cities = db.session.query(AvailabilitySlot.city.distinct()).all()
+        unique_cities = [c[0] for c in all_cities]
+        
+        # Get all unique venue names
+        all_venues = db.session.query(AvailabilitySlot.venue_name.distinct()).limit(20).all()
+        unique_venues = [v[0] for v in all_venues]
+        
+        # Get all unique guest counts
+        all_guests = db.session.query(AvailabilitySlot.guests.distinct()).all()
+        unique_guests = sorted([g[0] for g in all_guests])
+        
         query1 = AvailabilitySlot.query.filter(
             AvailabilitySlot.city == city,
             AvailabilitySlot.guests == int(guests)
@@ -461,6 +473,10 @@ def test_query():
         
         query2 = AvailabilitySlot.query.filter(AvailabilitySlot.city == city)
         count2 = query2.count()
+        
+        # Query without city filter
+        query3 = AvailabilitySlot.query
+        count3 = query3.count()
         
         data = []
         for slot in slots:
@@ -479,8 +495,12 @@ def test_query():
             'city': city,
             'guests': guests,
             'total_slots_in_db': total_all,
-            'nyc_total': count2,
-            'nyc_with_guests_6': count1,
+            'total_with_city_filter': count2,
+            'total_with_city_and_guests_filter': count1,
+            'total_no_filters': count3,
+            'unique_cities_in_db': unique_cities,
+            'unique_venues_in_db': unique_venues,
+            'unique_guests_in_db': unique_guests,
             'sample_slots': data
         })
     except Exception as e:
@@ -824,9 +844,46 @@ def get_data():
         
         try:
             total_count = query.count()
+            debug_count_msg = f"[API DEBUG] Total matching slots before limit/offset: {total_count}"
+            print(debug_count_msg, flush=True)
+            logger.info(debug_count_msg)
         except Exception as count_error:
             logger.warning(f"[API DEBUG] Could not get total count: {count_error}")
             total_count = None
+        
+        # Debug: Check what's actually in the database
+        if total_count == 0:
+            all_slots_count = AvailabilitySlot.query.count()
+            debug_all_msg = f"[API DEBUG] Total slots in database (no filters): {all_slots_count}"
+            print(debug_all_msg, flush=True)
+            logger.info(debug_all_msg)
+            
+            # Show sample cities and venue names
+            sample_slots = AvailabilitySlot.query.limit(10).all()
+            if sample_slots:
+                sample_cities = set(s.city for s in sample_slots)
+                sample_venues = set(s.venue_name for s in sample_slots)
+                sample_guests = set(s.guests for s in sample_slots)
+                debug_sample_msg = f"[API DEBUG] Sample cities in DB: {sample_cities}, Sample venues: {list(sample_venues)[:5]}, Sample guests: {sorted(sample_guests)}"
+                print(debug_sample_msg, flush=True)
+                logger.info(debug_sample_msg)
+            
+            # Show what the query filter would match
+            if city:
+                city_filtered = AvailabilitySlot.query.filter(AvailabilitySlot.city == ('NYC' if city.upper() in ['NEW YORK', 'NY', 'NYC'] else 'London' if city.upper() == 'LONDON' else city)).count()
+                debug_city_filter_msg = f"[API DEBUG] Slots matching city filter '{city}': {city_filtered}"
+                print(debug_city_filter_msg, flush=True)
+                logger.info(debug_city_filter_msg)
+            
+            if guests:
+                try:
+                    guests_int = int(guests)
+                    guests_filtered = AvailabilitySlot.query.filter(AvailabilitySlot.guests == guests_int).count()
+                    debug_guests_filter_msg = f"[API DEBUG] Slots matching guests filter '{guests}': {guests_filtered}"
+                    print(debug_guests_filter_msg, flush=True)
+                    logger.info(debug_guests_filter_msg)
+                except ValueError:
+                    pass
         
         slots_query = query.order_by(
             AvailabilitySlot.date.desc(), 
@@ -875,12 +932,17 @@ def get_data():
         response_data = {
             'data': data,
             'total_count': len(data),
-            'limit': limit,
+            'limit': limit if limit is not None else 'unlimited',
             'offset': offset
         }
         
         if total_count is not None:
             response_data['total_available'] = total_count
+        
+        # Debug: Log response summary
+        debug_response_msg = f"[API DEBUG] Returning {len(data)} items in response (total_available: {total_count})"
+        print(debug_response_msg, flush=True)
+        logger.info(debug_response_msg)
         
         return jsonify(response_data)
     except Exception as e:
