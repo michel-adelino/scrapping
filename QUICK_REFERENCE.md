@@ -155,6 +155,24 @@ sudo journalctl -u backend-scraper-celery-worker | grep "Current cycle completed
 
 ## Troubleshooting
 
+### Check Database Path Used by Flask Service
+
+If the Flask service shows 0 slots but you know data exists, check which database file it's using:
+
+```bash
+# Check the systemd service file to see the working directory
+sudo cat /etc/systemd/system/backend-scraper-flask.service | grep WorkingDirectory
+
+# Check what database file Flask is actually using
+sudo journalctl -u backend-scraper-flask -n 50 | grep "Database URI\|File path"
+
+# Or check the actual database file location
+ls -lh /opt/scrapping/availability.db
+
+# Check if there are multiple database files
+find /opt/scrapping -name "availability.db" -type f
+```
+
 ### Check if Services are Running
 ```bash
 sudo systemctl status backend-scraper-flask backend-scraper-celery-worker backend-scraper-celery-beat
@@ -207,7 +225,11 @@ which google-chrome
 ### Connect to Database
 ```bash
 # Navigate to project directory
-cd /opt/backend-scraper
+# On Ubuntu server:
+cd /opt/scrapping
+
+# On Windows (if in project folder):
+cd C:\Users\iida\Documents\Projects\scraper\scrapping
 
 # Connect to SQLite database
 sqlite3 availability.db
@@ -215,17 +237,36 @@ sqlite3 availability.db
 
 ### Quick Database Checks (from command line)
 ```bash
-# Count total slots
-sqlite3 /opt/backend-scraper/availability.db "SELECT COUNT(*) FROM availability_slots;"
+# Database location (adjust path as needed)
+# On Ubuntu server: /opt/scrapping/availability.db
+# On Windows: C:\Users\iida\Documents\Projects\scraper\scrapping\availability.db
 
-# Count by city
-sqlite3 /opt/backend-scraper/availability.db "SELECT city, COUNT(*) FROM availability_slots GROUP BY city;"
+# Count total slots
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots;"
+
+# Count by city (check what city values exist)
+sqlite3 /opt/scrapping/availability.db "SELECT city, COUNT(*) FROM availability_slots GROUP BY city;"
+
+# Check all unique cities
+sqlite3 /opt/scrapping/availability.db "SELECT DISTINCT city FROM availability_slots;"
+
+# Check all unique guest counts
+sqlite3 /opt/scrapping/availability.db "SELECT DISTINCT guests FROM availability_slots ORDER BY guests;"
 
 # View latest 10 slots
-sqlite3 /opt/backend-scraper/availability.db "SELECT venue_name, city, date, time, status FROM availability_slots ORDER BY last_updated DESC LIMIT 10;"
+sqlite3 /opt/scrapping/availability.db "SELECT venue_name, city, date, time, guests, status FROM availability_slots ORDER BY last_updated DESC LIMIT 10;"
 
 # Count by venue
-sqlite3 /opt/backend-scraper/availability.db "SELECT venue_name, COUNT(*) FROM availability_slots GROUP BY venue_name ORDER BY COUNT(*) DESC LIMIT 20;"
+sqlite3 /opt/scrapping/availability.db "SELECT venue_name, COUNT(*) FROM availability_slots GROUP BY venue_name ORDER BY COUNT(*) DESC LIMIT 20;"
+
+# Check slots for NYC
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE city = 'NYC';"
+
+# Check slots for London
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE city = 'London';"
+
+# Check slots for NYC with 6 guests
+sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE city = 'NYC' AND guests = 6;"
 ```
 
 ### Useful SQL Queries (inside sqlite3)
@@ -233,17 +274,58 @@ sqlite3 /opt/backend-scraper/availability.db "SELECT venue_name, COUNT(*) FROM a
 -- Count all slots
 SELECT COUNT(*) FROM availability_slots;
 
--- View slots by city
+-- View slots by city (check what city values are actually stored)
 SELECT city, COUNT(*) FROM availability_slots GROUP BY city;
 
+-- Check all unique city values (important for debugging API queries)
+SELECT DISTINCT city FROM availability_slots;
+
+-- Check all unique venue names
+SELECT DISTINCT venue_name FROM availability_slots ORDER BY venue_name;
+
+-- Check all unique guest counts
+SELECT DISTINCT guests FROM availability_slots ORDER BY guests;
+
 -- View recent slots
-SELECT venue_name, city, date, time, status FROM availability_slots ORDER BY last_updated DESC LIMIT 20;
+SELECT venue_name, city, date, time, guests, status FROM availability_slots ORDER BY last_updated DESC LIMIT 20;
 
 -- View available slots
 SELECT venue_name, date, time, price FROM availability_slots WHERE UPPER(status) LIKE '%AVAILABLE%' ORDER BY date, time LIMIT 50;
 
 -- View slots by venue
 SELECT venue_name, COUNT(*) as slot_count FROM availability_slots GROUP BY venue_name ORDER BY slot_count DESC;
+
+-- Check slots for specific city (NYC)
+SELECT venue_name, date, time, guests, price, status 
+FROM availability_slots 
+WHERE city = 'NYC' 
+ORDER BY date, time 
+LIMIT 20;
+
+-- Check slots for specific city (London)
+SELECT venue_name, date, time, guests, price, status 
+FROM availability_slots 
+WHERE city = 'London' 
+ORDER BY date, time 
+LIMIT 20;
+
+-- Check slots for specific city and guests
+SELECT venue_name, date, time, price, status 
+FROM availability_slots 
+WHERE city = 'NYC' AND guests = 6 
+ORDER BY date, time 
+LIMIT 20;
+
+-- Check if city values might have different casing or spaces
+SELECT city, COUNT(*) 
+FROM availability_slots 
+GROUP BY city 
+ORDER BY city;
+
+-- Sample data to see structure
+SELECT id, venue_name, city, guests, date, time, price, status, last_updated 
+FROM availability_slots 
+LIMIT 5;
 
 -- View scraping tasks
 SELECT task_id, website, status, guests, target_date, created_at FROM scraping_tasks ORDER BY created_at DESC LIMIT 20;

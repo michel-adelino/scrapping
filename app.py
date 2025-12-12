@@ -853,6 +853,16 @@ def get_data():
         
         # Debug: Check what's actually in the database
         if total_count == 0:
+            # Show which database file is being used
+            db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'unknown')
+            basedir_debug = os.path.abspath(os.path.dirname(__file__))
+            db_file_debug = os.path.join(basedir_debug, "availability.db")
+            db_exists_debug = os.path.exists(db_file_debug)
+            db_size_debug = os.path.getsize(db_file_debug) if db_exists_debug else 0
+            debug_db_path_msg = f"[API DEBUG] Database URI: {db_uri}, File path: {db_file_debug}, Exists: {db_exists_debug}, Size: {db_size_debug} bytes"
+            print(debug_db_path_msg, flush=True)
+            logger.info(debug_db_path_msg)
+            
             all_slots_count = AvailabilitySlot.query.count()
             debug_all_msg = f"[API DEBUG] Total slots in database (no filters): {all_slots_count}"
             print(debug_all_msg, flush=True)

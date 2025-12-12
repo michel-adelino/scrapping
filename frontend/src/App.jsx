@@ -156,7 +156,7 @@ function App() {
 
   // Initial load - load All NYC data without date filter, with default 6 guests
   useEffect(() => {
-    const defaultFilters = { city: 'NYC' } // Load All NYC without date selection
+    const defaultFilters = { city: 'NYC', guests: 6 } // Load All NYC without date selection, with 6 guests
     setIsMultiVenueMode(true) // Set multi-venue mode for All NYC
     fetchData(defaultFilters, 6) // Default to 6 guests
   }, [fetchData])
