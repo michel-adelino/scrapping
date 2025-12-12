@@ -61,6 +61,42 @@ function DataSection({ data, searchTerm, onSearchChange, isMultiVenueMode, autoR
   )
 }
 
+// Map venue names to image filenames in the public folder
+const VENUE_IMAGE_MAP = {
+  'Swingers (NYC)': 'Swingers.webp',
+  'Swingers (London)': 'Swingers.webp',
+  'Electric Shuffle (NYC)': 'Electric Shuffle.webp',
+  'Electric Shuffle (London)': 'Electric Shuffle.webp',
+  'Lawn Club (Indoor Gaming)': 'LawnClub.webp',
+  'Lawn Club (Curling Lawns)': 'LawnClub.webp',
+  'Lawn Club (Croquet Lawns)': 'LawnClub.webp',
+  'SPIN (NYC)': 'sample.webp', // Add image if available
+  'Five Iron Golf (NYC - FiDi)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Flatiron)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Grand Central)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Herald Square)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Long Island City)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Upper East Side)': 'FiveIron.webp',
+  'Five Iron Golf (NYC - Rockefeller Center)': 'FiveIron.webp',
+  'Lucky Strike (NYC)': 'sample.webp', // Add image if available
+  'Easybowl (NYC)': 'sample.webp', // Add image if available
+  'Fair Game (Canary Wharf)': 'Fairgame.webp',
+  'Fair Game (City)': 'Fairgame.webp',
+  'Clays Bar (Canary Wharf)': 'sample.webp', // Add image if available
+  'Clays Bar (The City)': 'sample.webp', // Add image if available
+  'Clays Bar (Birmingham)': 'sample.webp', // Add image if available
+  'Clays Bar (Soho)': 'sample.webp', // Add image if available
+  'Puttshack (Bank)': 'Puttshack.webp',
+  'Puttshack (Lakeside)': 'Puttshack.webp',
+  'Puttshack (White City)': 'Puttshack.webp',
+  'Puttshack (Watford)': 'Puttshack.webp',
+  'Flight Club Darts (Angel)': 'Flight Club.webp',
+  'Flight Club Darts (Bloomsbury)': 'Flight Club.webp',
+  'Flight Club Darts (Shoreditch)': 'Flight Club.webp',
+  'Flight Club Darts (Victoria)': 'Flight Club.webp',
+  'F1 Arcade': 'F1 Arcade.webp',
+}
+
 function VenueRows({ data }) {
   const groupedByVenue = useMemo(() => {
     // Group by venue first, then by date
@@ -92,6 +128,12 @@ function VenueRows({ data }) {
       }))
   }, [data])
 
+  // Helper function to get image path for a venue
+  const getVenueImage = (venueName) => {
+    const imageFile = VENUE_IMAGE_MAP[venueName] || 'sample.webp'
+    return `/${imageFile}`
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Unknown Date'
     try {
@@ -120,9 +162,13 @@ function VenueRows({ data }) {
             <div className="venue-header">
               <span className="venue-name">{venueName}</span>
               <img 
-                src="/sample.webp" 
+                src={getVenueImage(venueName)} 
                 alt={venueName}
                 className="venue-image"
+                onError={(e) => {
+                  // Fallback to sample image if the specific image fails to load
+                  e.target.src = '/sample.webp'
+                }}
               />
             </div>
             <div className="venue-slots">

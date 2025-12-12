@@ -267,6 +267,15 @@ sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots 
 
 # Check slots for NYC with 6 guests
 sqlite3 /opt/scrapping/availability.db "SELECT COUNT(*) FROM availability_slots WHERE city = 'NYC' AND guests = 6;"
+
+# Check which guest counts have data in the database
+sqlite3 /opt/scrapping/availability.db "SELECT guests, COUNT(*) FROM availability_slots GROUP BY guests ORDER BY guests;"
+
+# Check guest counts 7 and 8 specifically
+sqlite3 /opt/scrapping/availability.db "SELECT city, guests, COUNT(*) FROM availability_slots WHERE guests IN (7, 8) GROUP BY city, guests ORDER BY city, guests;"
+
+# Check if tasks have run for guest counts 7 and 8
+sqlite3 /opt/scrapping/availability.db "SELECT guests, COUNT(*) as tasks, SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful FROM scraping_tasks WHERE guests IN (7, 8) GROUP BY guests;"
 ```
 
 ### Useful SQL Queries (inside sqlite3)
@@ -326,6 +335,41 @@ ORDER BY city;
 SELECT id, venue_name, city, guests, date, time, price, status, last_updated 
 FROM availability_slots 
 LIMIT 5;
+
+-- Check which guest counts have data in the database
+SELECT guests, COUNT(*) as slot_count 
+FROM availability_slots 
+GROUP BY guests 
+ORDER BY guests;
+
+-- Check guest counts by city
+SELECT city, guests, COUNT(*) as slot_count 
+FROM availability_slots 
+GROUP BY city, guests 
+ORDER BY city, guests;
+
+-- Check if tasks have run for specific guest counts (check scraping_tasks table)
+SELECT guests, COUNT(*) as task_count, 
+       SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
+       SUM(CASE WHEN status = 'FAILURE' THEN 1 ELSE 0 END) as failed,
+       SUM(CASE WHEN status = 'STARTED' THEN 1 ELSE 0 END) as in_progress
+FROM scraping_tasks 
+GROUP BY guests 
+ORDER BY guests;
+
+-- Check recent tasks for guest counts 7 and 8
+SELECT task_id, website, guests, target_date, status, created_at, last_updated
+FROM scraping_tasks 
+WHERE guests IN (7, 8)
+ORDER BY created_at DESC 
+LIMIT 20;
+
+-- Check if refresh cycle has run (look for refresh_all_venues_task)
+SELECT task_id, website, guests, status, created_at, progress
+FROM scraping_tasks 
+WHERE website LIKE 'all_%' OR website LIKE 'refresh%'
+ORDER BY created_at DESC 
+LIMIT 10;
 
 -- View scraping tasks
 SELECT task_id, website, status, guests, target_date, created_at FROM scraping_tasks ORDER BY created_at DESC LIMIT 20;
