@@ -36,9 +36,20 @@ db_file_path = os.path.join(basedir, "availability.db")
 # This prevents Flask from using the instance folder
 database_url = os.getenv('DATABASE_URL', f'sqlite:////{db_file_path}')
 
+# Debug: Log the database configuration
+logger_init = logging.getLogger(__name__)
+logger_init.info(f"[INIT] Database file path: {db_file_path}")
+logger_init.info(f"[INIT] Database URL: {database_url}")
+logger_init.info(f"[INIT] Database file exists: {os.path.exists(db_file_path)}")
+
 # Configure SQLite for better concurrency
+# CRITICAL: Set database URI BEFORE initializing db to prevent Flask instance folder usage
+# Force absolute path with 4 slashes to prevent Flask instance folder usage
+absolute_db_url = f'sqlite:////{db_file_path}'
+app.config['SQLALCHEMY_DATABASE_URI'] = absolute_db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 if database_url.startswith('sqlite'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 3600,
@@ -48,16 +59,27 @@ if database_url.startswith('sqlite'):
         }
     }
 else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 3600
     }
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Initialize database
+# Initialize database - MUST be after setting SQLALCHEMY_DATABASE_URI
 db.init_app(app)
+
+# CRITICAL: Override the engine URL after init to force absolute path
+# Flask-SQLAlchemy might resolve paths relative to instance folder, so we force it here
+with app.app_context():
+    # Recreate the engine with the absolute path
+    from sqlalchemy import create_engine
+    # Force the absolute database URL
+    app.config['SQLALCHEMY_DATABASE_URI'] = absolute_db_url
+    # Recreate the engine to use the correct path
+    db.engine = create_engine(
+        absolute_db_url,
+        **app.config.get('SQLALCHEMY_ENGINE_OPTIONS', {})
+    )
+    logger_init.info(f"[INIT] Forced SQLAlchemy engine URL: {db.engine.url}")
 
 # Enable WAL mode for SQLite after initialization
 if database_url.startswith('sqlite'):
