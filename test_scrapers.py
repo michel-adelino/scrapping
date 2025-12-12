@@ -24,15 +24,10 @@ def test_venue_task(website, guests, target_date, **kwargs):
     print(f"{'='*60}")
     
     try:
-        # Create a mock task object (scrape_venue_task is bound, so it expects self)
-        class MockTask:
-            pass
-        
-        mock_task = MockTask()
-        
-        # Call the task function directly (not through Celery)
+        # Call the task's .run() method directly to bypass Celery's wrapper
+        # For bound tasks, .run() takes the arguments without 'self'
         with app.app_context():
-            result = scrape_venue_task(mock_task, guests, target_date, website, **kwargs)
+            result = scrape_venue_task.run(guests, target_date, website, **kwargs)
         
         if result:
             slots_found = result.get("slots_found", 0) if isinstance(result, dict) else 0
