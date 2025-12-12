@@ -7,7 +7,8 @@ import os
 from urllib.parse import quote_plus, urlencode
 from celery import group, chord
 from celery.result import AsyncResult
-from sqlalchemy import inspect, text, or_
+from sqlalchemy import inspect, text, or_, create_engine
+from sqlalchemy.engine.url import make_url
 import time
 import logging
 import sys
@@ -65,21 +66,22 @@ else:
     }
 
 # Initialize database - MUST be after setting SQLALCHEMY_DATABASE_URI
+# The absolute_db_url is already set in app.config, so db.init_app should use it
 db.init_app(app)
 
-# CRITICAL: Override the engine URL after init to force absolute path
-# Flask-SQLAlchemy might resolve paths relative to instance folder, so we force it here
+# Verify the database URI was set correctly
 with app.app_context():
-    # Recreate the engine with the absolute path
-    from sqlalchemy import create_engine
-    # Force the absolute database URL
-    app.config['SQLALCHEMY_DATABASE_URI'] = absolute_db_url
-    # Recreate the engine to use the correct path
-    db.engine = create_engine(
-        absolute_db_url,
-        **app.config.get('SQLALCHEMY_ENGINE_OPTIONS', {})
-    )
-    logger_init.info(f"[INIT] Forced SQLAlchemy engine URL: {db.engine.url}")
+    actual_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'NOT SET')
+    logger_init.info(f"[INIT] SQLAlchemy URI in config: {actual_uri}")
+    # Check what engine URL SQLAlchemy is actually using
+    try:
+        engine_url = str(db.engine.url)
+        logger_init.info(f"[INIT] SQLAlchemy engine URL: {engine_url}")
+        # If it's still using instance folder, log a warning
+        if 'instance' in engine_url:
+            logger_init.error(f"[INIT] ERROR: Engine is still using instance folder! Expected: {absolute_db_url}, Got: {engine_url}")
+    except Exception as e:
+        logger_init.warning(f"[INIT] Could not get engine URL: {e}")
 
 # Enable WAL mode for SQLite after initialization
 if database_url.startswith('sqlite'):
