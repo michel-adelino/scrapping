@@ -18,6 +18,18 @@ FIVE_IRON_LOCATIONS = {
     'rockefeller_center': 'NYC - Rockefeller Center'
 }
 
+# Location IDs for each Five Iron Golf location
+# TODO: Update these with the correct location IDs for each location
+FIVE_IRON_LOCATION_IDS = {
+    'fidi': '4388c520-a4de-4d49-b812-e2cb4badf667',  # Current default
+    'flatiron': '31f9eb4b-7fa7-4073-9c36-132b626c8b7e',  # TODO: Update with correct ID
+    'grand_central': 'c71d765c-c7fd-4be7-aaba-2f3b21a91ba0',  # TODO: Update with correct ID
+    'herald_square': 'd88353cb-4ec3-4477-b9dc-177692591b30',  # TODO: Update with correct ID
+    'long_island_city': 'e17214e1-28cb-4170-ab89-ea3532501251',  # TODO: Update with correct ID
+    'upper_east_side': '3e7541f4-535a-42ad-b5d2-32bc46ce859e',  # TODO: Update with correct ID
+    'rockefeller_center': '610341f5-c98d-4e02-ba7f-0ce46348cd34'  # TODO: Update with correct ID
+}
+
 # Venue name mappings for each location
 FIVE_IRON_VENUE_NAMES = {
     'fidi': 'Five Iron Golf (NYC - FiDi)',
@@ -39,9 +51,11 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
     results = []
     unique_set = set()  # prevent duplicates
 
-    # location_id = "4388c520-a4de-4d49-b812-e2cb4badf667"
-    location_id = "31f9eb4b-7fa7-4073-9c36-132b626c8b7e"
-    venue_name = "Five Iron Golf (Custom Location)"
+    # Get the correct venue name based on location parameter
+    venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+    
+    # Get the location-specific location_id
+    location_id = FIVE_IRON_LOCATION_IDS.get(location, '31f9eb4b-7fa7-4073-9c36-132b626c8b7e')
 
     try:
         dt = datetime.strptime(target_date, "%Y-%m-%d")

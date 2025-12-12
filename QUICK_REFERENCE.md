@@ -164,14 +164,23 @@ sudo journalctl -u backend-scraper-celery-worker | grep "REFRESH"
 # View task completion logs
 sudo journalctl -u backend-scraper-celery-worker | grep "Current cycle completed"
 
-# Check if tasks for specific guest counts are being executed
-sudo journalctl -u backend-scraper-celery-worker | grep -E "guests.*[78]|7 guests|8 guests"
+# Check if tasks for 7 or 8 guests are being executed (better regex)
+sudo journalctl -u backend-scraper-celery-worker | grep -E "guests=7|guests=8|'guests': 7|'guests': 8"
 
 # Check task distribution by guest count in logs
 sudo journalctl -u backend-scraper-celery-worker | grep "Expected tasks per guest count"
 
 # Check database for guest count distribution
 sqlite3 /opt/scrapping/availability.db "SELECT guests, COUNT(*) as count FROM availability_slots GROUP BY guests ORDER BY guests;"
+
+# Check if Beat service is running and triggering cycles
+sudo systemctl status backend-scraper-celery-beat
+
+# Check Redis queue for pending tasks
+redis-cli LLEN celery
+
+# Check recent task submissions
+sudo journalctl -u backend-scraper-celery-beat | tail -30
 ```
 
 ## Troubleshooting
