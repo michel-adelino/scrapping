@@ -21,7 +21,8 @@ try:
 except ImportError:
     celery_app = None
 
-app = Flask(__name__)
+# Set instance_path to None to prevent Flask from using instance folder for database
+app = Flask(__name__, instance_path=None, instance_relative_config=False)
 
 # Enable CORS for React frontend
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -29,8 +30,11 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Use absolute path for SQLite to avoid working directory issues
+# IMPORTANT: SQLite URLs need 4 slashes for absolute paths: sqlite:////absolute/path
 db_file_path = os.path.join(basedir, "availability.db")
-database_url = os.getenv('DATABASE_URL', f'sqlite:///{db_file_path}')
+# Use 4 slashes to ensure absolute path (sqlite:////path/to/file.db)
+# This prevents Flask from using the instance folder
+database_url = os.getenv('DATABASE_URL', f'sqlite:////{db_file_path}')
 
 # Configure SQLite for better concurrency
 if database_url.startswith('sqlite'):
