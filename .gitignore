@@ -1,56 +1,11 @@
-# Python
+availability.db
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv
-
-# Flask
-instance/
-.webassets-cache
-
-# Scraped data
-saved_data/
-*.db
-# Only ignore data JSON files, not config files like package.json
-# *.json  # Commented out - we need package.json
-data/*.json
-scraped_*.json
-*.csv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Selenium
-downloaded_files/
-# Only ignore lock files in downloaded_files, not package-lock.json
-downloaded_files/*.lock
-
-# Celery
-celerybeat-schedule.dat
-celerybeat-schedule.dat.*
-celerybeat-schedule.dir/
-celerybeat-schedule.bak
-
-# Frontend
-frontend/node_modules/
-frontend/build/
-frontend/dist/
-
-.env
-.env*
-
-availability.db-shm
-availability.db-wal
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyzwz
+*.pyzwzw

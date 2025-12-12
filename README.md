@@ -1,542 +1,105 @@
-# Availability Scraper
+# Backend - Playwright-based Scraper
 
-A web application that scrapes restaurant and venue availability data from multiple websites, stores it in a database, and displays it through a React frontend.
+This is the Playwright-based backend for the availability scraper, migrated from the Selenium-based implementation in the `scrapping` folder.
 
-## Features
+## Setup
 
-- Scrapes availability data from multiple NYC and London venues
-- Background task processing with Celery
-- Real-time data display with React frontend
-- Automatic periodic scraping (every 15 minutes)
-- Duration tracking for each scraping queue
-
-## Prerequisites
-
-- Python 3.8+
-- Node.js 20+ LTS and npm (or Node.js 22 LTS)
-- Redis server (required for Celery)
-
-### Installing Redis
-
-**Windows:**
-- Option 1: Use WSL (Windows Subsystem for Linux) and install Redis in WSL
-- Option 2: Download Redis for Windows from [here](https://github.com/microsoftarchive/redis/releases)
-
-**macOS:**
+1. Install Python dependencies:
 ```bash
-brew install redis
-```
-
-**Linux:**
-```bash
-sudo apt-get install redis-server  # Ubuntu/Debian
-sudo yum install redis             # CentOS/RHEL
-```
-
-## Installation
-
-### 1. Set Up Python Virtual Environment (Recommended)
-
-**Ubuntu/Linux (VPS):**
-
-Modern Ubuntu systems (22.04+) use externally-managed Python environments. You must create a virtual environment:
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-**Or use the automated setup script:**
+2. Install Playwright browsers:
 ```bash
-chmod +x setup_venv.sh
-./setup_venv.sh
+python -m playwright install chromium
 ```
 
-**Windows/macOS:**
-```bash
-# Create virtual environment
-python -m venv venv
+Note: On Windows/PowerShell, use `python -m playwright install` instead of just `playwright install`.
 
-# Activate virtual environment
-# Windows PowerShell:
-venv\Scripts\Activate.ps1
-# Windows CMD:
-venv\Scripts\activate.bat
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+3. Set up environment variables (create a `.env` file):
+```
+DATABASE_URL=sqlite:///availability.db
+REDIS_URL=redis://localhost:6379/0
+FLASK_ENV=development
+FLASK_DEBUG=True
+PORT=8010
+HOST=0.0.0.0
 ```
 
-**Note:** Always activate the virtual environment before running the application. You'll see `(venv)` in your terminal prompt when it's active.
-
-### 2. Install Frontend Dependencies
-
+4. Initialize the database:
 ```bash
-cd frontend
-npm install
-cd ..
+python -c "from app import app, db; app.app_context().push(); db.create_all()"
 ```
 
-## Running the Application
+## Running
 
-You need to run **4 separate processes** for the complete application:
+**Important:** Run all commands from the `backend` directory.
 
-### 1. Start Redis Server
-
-**Windows (WSL):**
+1. Start Redis (required for Celery):
 ```bash
-wsl redis-server
-```
-
-**macOS/Linux:**
-```bash
+# On Linux/Mac:
 redis-server
+
+# On Windows, you may need to start Redis service or use WSL
+# Or install Redis for Windows and start it manually
 ```
 
-**Ubuntu VPS (if Redis is installed as a service):**
+2. Start Celery worker (in a separate terminal):
 ```bash
-# Check if Redis is already running
-redis-cli ping
-# Should return: PONG
-
-# If Redis is not running, start it:
-sudo systemctl start redis-server
-
-# To enable Redis to start on boot:
-sudo systemctl enable redis-server
-
-# If you get "Address already in use" error, Redis is already running - you're good to go!
+cd backend
+python -m celery -A celery_app worker --loglevel=info
 ```
 
-### 2. Start Flask Backend (Port 8010)
+Note: On Windows/PowerShell, use `python -m celery` instead of just `celery`.
 
+3. Start Celery Beat (for periodic tasks, in another separate terminal):
 ```bash
-python app.py
-```
-
-The backend will start on `http://localhost:8010`
-
-### 3. Start Celery Worker
-
-**Windows (Single worker with threads pool for parallel processing):**
-
-```bash
-python -m celery -A celery_app worker --pool=threads --concurrency=5 --loglevel=info
-```
-
-**Linux/macOS (Single worker with prefork pool):**
-
-```bash
-python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
-```
-
-**Note:** 
-- On Windows, `threads` pool allows multiple tasks to run in parallel within a single worker (default: 5 concurrent threads)
-- Adjust `--concurrency=N` based on your PC's performance (3-8 is recommended)
-- On Linux/macOS, `prefork` pool uses multiple processes for parallel processing
-
-### 4. Start Celery Beat (Scheduler)
-
-```bash
+cd backend
 python -m celery -A celery_app beat --loglevel=info
 ```
 
-**For better debugging (if Beat seems stuck):**
+Note: On Windows/PowerShell, use `python -m celery` instead of just `celery`.
+
+4. Start Flask app (in another terminal):
 ```bash
-python -m celery -A celery_app beat --loglevel=debug
-```
-
-**Note:** Celery Beat schedules periodic tasks (runs scraping every 30 minutes). 
-- **On startup:** Beat will trigger the first task immediately, then continue every 30 minutes
-- If Beat shows "Starting..." then nothing, see troubleshooting below
-
-### 5. Start React Frontend (Port 3000)
-
-```bash
-cd frontend
-npm run dev
-```
-
-The frontend will start on `http://localhost:3000`
-
-**For VPS/External Access:**
-```bash
-cd frontend
-npm run dev -- --host 0.0.0.0
-```
-
-This allows access from external IP addresses (e.g., `http://YOUR_VPS_IP:3000`)
-
-## Quick Start for Ubuntu VPS
-
-### 🚀 Production Deployment (Recommended)
-
-For running the application **always on Ubuntu server**, see the comprehensive guide:
-
-- **[UBUNTU_DEPLOYMENT_GUIDE.md](UBUNTU_DEPLOYMENT_GUIDE.md)** - Complete step-by-step guide with systemd services
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick command reference
-- **[setup_ubuntu_server.sh](setup_ubuntu_server.sh)** - Automated setup script
-
-The production setup uses **systemd services** which:
-- ✅ Start automatically on server boot
-- ✅ Restart automatically if services crash
-- ✅ Provide better logging and monitoring
-- ✅ Are more reliable than screen/tmux
-
-### Quick Setup with Automated Script
-
-```bash
-# 1. Upload your project to the server
-# 2. Run the setup script
-bash setup_ubuntu_server.sh
-```
-
-### Manual Setup with screen/tmux (Alternative)
-
-If you prefer manual management with screen/tmux:
-
-After setting up the virtual environment, you need to run **5 processes**. Here's what needs the virtual environment:
-
-✅ **Need Virtual Environment (Python processes):**
-- Flask Backend
-- Celery Worker  
-- Celery Beat
-
-❌ **Don't Need Virtual Environment:**
-- Redis (system service)
-- React Frontend (Node.js/npm)
-
-```bash
-# Install screen (if not installed)
-sudo apt install screen
-
-# Create named screen sessions
-screen -S redis -d -m redis-server
-screen -S flask -d -m bash -c "cd $(pwd) && source venv/bin/activate && python app.py"
-screen -S celery-worker -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info"
-screen -S celery-beat -d -m bash -c "cd $(pwd) && source venv/bin/activate && python -m celery -A celery_app beat --loglevel=info"
-screen -S frontend -d -m bash -c "cd $(pwd)/frontend && npm run dev -- --host 0.0.0.0"
-
-# View running sessions
-screen -ls
-
-# Attach to a session (e.g., to see logs)
-screen -r flask
-
-# Detach from screen: Press Ctrl+A then D
-```
-
-## Quick Start (All Commands)
-
-**Recommended order:** Start processes in this order for best results:
-1. Redis (if not running as service)
-2. Flask Backend
-3. **Celery Worker** (start this before Beat)
-4. **Celery Beat** (start this after Worker)
-5. React Frontend
-
-Open **5 separate terminal windows** (or use screen/tmux):
-
-**Terminal 1 - Redis:**
-```bash
-# Check if Redis is already running (common on Ubuntu VPS)
-redis-cli ping
-# If it returns "PONG", Redis is already running - skip to Terminal 2!
-
-# If Redis is not running, start it:
-# Ubuntu/Debian (service):
-sudo systemctl start redis-server
-# Or manually:
-redis-server
-```
-
-**Terminal 2 - Flask Backend:**
-```bash
-# Activate virtual environment first (REQUIRED for Python processes)
-source venv/bin/activate
+cd backend
 python app.py
 ```
 
-**Terminal 3 - Celery Worker (Start this FIRST):**
+Or use Flask CLI:
 ```bash
-# Activate virtual environment first (REQUIRED for Python processes)
-source venv/bin/activate
-# Linux/macOS
-python -m celery -A celery_app worker --pool=prefork --concurrency=4 --loglevel=info
+cd backend
+set FLASK_APP=app.py  # On Windows
+# export FLASK_APP=app.py  # On Linux/Mac
+flask run --host=0.0.0.0 --port=8010
 ```
 
-**Terminal 4 - Celery Beat (Start this AFTER Worker):**
-```bash
-# Activate virtual environment first (REQUIRED for Python processes)
-source venv/bin/activate
-python -m celery -A celery_app beat --loglevel=info
-```
+## Structure
 
-**Note:** Start Worker before Beat so tasks are processed immediately. If you start Beat first, tasks will queue in Redis until Worker starts (which is fine, but Worker-first is cleaner).
-
-**Terminal 5 - React Frontend:**
-```bash
-# NO virtual environment needed (this is Node.js, not Python)
-cd frontend
-# For localhost only:
-npm run dev
-# For VPS/external access:
-npm run dev -- --host 0.0.0.0
-```
-
-**Important Notes:**
-- **Python processes** (Flask, Celery Worker, Celery Beat) **MUST** have the virtual environment activated
-- **Redis** and **npm** processes do **NOT** need the virtual environment
-- The worker uses parallel processing (5 threads on Windows, 4 processes on Linux/macOS) so you only need one worker terminal
-- On Ubuntu VPS, you can use `screen` or `tmux` to manage multiple terminal sessions
-
-## Application Structure
-
-```
-availability-scraper/
-├── app.py                 # Flask backend application
-├── celery_app.py         # Celery configuration
-├── models.py             # Database models
-├── requirements.txt      # Python dependencies
-├── frontend/             # React frontend
-│   ├── src/
-│   │   ├── App.jsx       # Main React component
-│   │   └── components/   # React components
-│   ├── package.json      # Node.js dependencies
-│   └── vite.config.js    # Vite configuration
-└── README.md             # This file
-```
-
-## Usage
-
-1. **Access the frontend:** Open `http://localhost:3000` in your browser
-2. **Search for availability:** Use the search panel to filter by venue, date, and number of guests
-3. **View results:** Available slots are displayed in a table or card layout
-4. **Book slots:** Click "Book Now" buttons to open booking pages in new tabs
-
-## Background Scraping
-
-The application automatically scrapes data every 15 minutes for:
-- NYC venues (30 days from today)
-- London venues (30 days from today)
-- Default guest count: 6 guests
-
-Scraping durations are tracked and displayed in the Status section.
+- `app.py` - Main Flask application with API routes
+- `celery_app.py` - Celery configuration
+- `models.py` - Database models (AvailabilitySlot, ScrapingTask)
+- `browser_utils.py` - Playwright browser management utilities
+- `scrapers/` - Scraper implementations
+  - `base_scraper.py` - Base scraper class
+  - `swingers.py` - Swingers scraper (NYC and London)
+  - `electric_shuffle.py` - Electric Shuffle scraper
+  - Other venue scrapers (to be fully implemented)
 
 ## API Endpoints
 
-- `GET /api/data` - Get availability data (supports filters: venue_name, city, date_from, date_to, guests)
-- `POST /api/clear_data` - Clear all data from database
-- `GET /api/scraping_durations` - Get scraping duration statistics
-- `GET /api/health` - Health check endpoint
-
-## Troubleshooting
-
-### Externally-Managed-Environment Error (Ubuntu/Linux)
-
-If you see an error like:
-```
-error: externally-managed-environment
-× This environment is externally managed
-```
-
-**Solution:** Create and use a virtual environment:
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-
-# Activate it
-source venv/bin/activate
-
-# Now install dependencies
-pip install -r requirements.txt
-```
-
-**Important:** Always activate the virtual environment (`source venv/bin/activate`) before running any Python commands. The virtual environment must be activated in each terminal window where you run the application.
-
-### Redis Connection Error
-
-**If Redis is already running (common on Ubuntu VPS):**
-```bash
-# Check if Redis is accessible
-redis-cli ping
-# Should return: PONG
-```
-
-**If Redis is not running:**
-```bash
-# Ubuntu/Debian (if installed as service):
-sudo systemctl start redis-server
-
-# Or run manually:
-redis-server
-```
-
-**If you see "Address already in use" error:**
-- Redis is already running - you don't need to start it again!
-- Just verify it's working: `redis-cli ping` (should return "PONG")
-
-### Celery Worker Not Starting
-- On Windows, make sure to use `--pool=threads` (not `solo`)
-- Check Redis is running and accessible
-- See `TROUBLESHOOTING_CELERY.md` for detailed debugging steps
-
-### Frontend Not Connecting to Backend
-- Verify Flask is running on port 8010
-- Check browser console for CORS errors
-- Ensure frontend is configured to call `http://localhost:8010/api`
-
-### Database Errors
-- The database (`availability.db`) is created automatically on first run
-- If you see database errors, try deleting `availability.db` and restarting
-
-## Development
-
-### Backend Development
-- Flask runs in debug mode by default
-- Changes to Python files require restarting Flask
-
-### Frontend Development
-- Vite provides hot module replacement
-- Changes to React files are automatically reflected
+Same as the original scrapping backend:
+- `GET /api/health` - Health check
+- `GET /api/data` - Get scraped availability data
+- `POST /run_scraper` - Start scraping task
+- `GET /task_status/<task_id>` - Get task status
+- `POST /api/clear_data` - Clear data
+- `POST /refresh_data` - Refresh data
+- `GET /api/scraping_durations` - Get scraping durations
 
 ## Notes
 
-- The database file (`availability.db`) is automatically created
-- Celery Beat schedule file (`celerybeat-schedule.dat`) is automatically created (or will be created on first run)
-- These files are excluded from version control (see `.gitignore`)
-
-## Troubleshooting Celery Beat
-
-### Error: `FileNotFoundError` or `EOFError: Ran out of input`
-
-If you see errors about `celerybeat-schedule.dat`, the schedule file is corrupted or missing. Fix it by:
-
-**Windows PowerShell:**
-```powershell
-# Delete all corrupted schedule files
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue "celerybeat-schedule*"
-
-# Then restart Celery Beat - it will create fresh files
-python -m celery -A celery_app beat --loglevel=info
-```
-
-**Linux/macOS:**
-```bash
-# Stop Celery Beat first (Ctrl+C if running)
-# Delete all corrupted schedule files
-rm -f celerybeat-schedule*
-
-# If you get "Permission denied" error:
-# The file might be owned by a different user (e.g., root)
-sudo rm -f celerybeat-schedule*
-# Or fix ownership:
-sudo chown $USER:$USER celerybeat-schedule* 2>/dev/null || true
-
-# If you get "Resource temporarily unavailable" error, the file might be locked:
-# Wait a few seconds, or kill any running beat processes:
-pkill -f "celery.*beat"
-sleep 2
-
-# Then delete the files and restart
-rm -f celerybeat-schedule*
-python -m celery -A celery_app beat --loglevel=info
-```
-
-**Or use the fix script:**
-```bash
-chmod +x fix_beat_schedule.sh
-./fix_beat_schedule.sh
-```
-
-Celery Beat will automatically create new, properly formatted schedule files on startup.
-
-**Note:** If you see permission errors but Beat still shows "Current schedule:" with your tasks listed, Beat is actually working! The error is just about saving schedule state to disk. Beat will still send tasks, but won't remember the last run time between restarts.
-
-### Celery Beat Shows "Starting..." Then Nothing
-
-If Celery Beat starts but doesn't show any schedule information:
-
-1. **Check if tasks are registered:**
-   ```bash
-   source venv/bin/activate
-   python test_celery.py
-   ```
-
-2. **Make sure Flask app is imported:**
-   - The tasks are in `app.py`, so Beat needs to import it
-   - The `celery_app.py` should have `include=['app']` (already configured)
-
-3. **Try running Beat with debug logging:**
-   ```bash
-   source venv/bin/activate
-   python -m celery -A celery_app beat --loglevel=debug
-   ```
-   You should see messages about discovered tasks and the beat schedule.
-
-4. **Check if the task name matches:**
-   - Beat schedule uses: `'app.refresh_all_venues_task'`
-   - Task is registered as: `@celery_app.task(name='app.refresh_all_venues_task')`
-   - These must match exactly!
-
-5. **Verify Redis connection:**
-   ```bash
-   redis-cli ping
-   # Should return: PONG
-   ```
-
-### Celery Worker Shows "ready" But No Tasks Processing
-
-**This is normal!** The worker is ready and waiting for tasks. Tasks will only appear when:
-- Beat sends scheduled tasks (every 30 minutes)
-- Tasks are triggered manually via Flask API
-- Tasks are sent programmatically
-
-**To verify worker is working:**
-
-1. **Test by manually triggering a task:**
-   ```bash
-   source venv/bin/activate
-   python test_worker.py
-   ```
-   Or manually:
-   ```bash
-   python -c "from celery_app import celery_app; from app import refresh_all_venues_task; result = refresh_all_venues_task.delay(); print(f'Task ID: {result.id}')"
-   ```
-   Then watch your worker terminal - you should see:
-   ```
-   [timestamp] Task app.refresh_all_venues_task[task-id] received
-   [timestamp] Task app.refresh_all_venues_task[task-id] started
-   ```
-
-2. **Check if Beat is sending tasks:**
-   - Look at Beat logs with `--loglevel=debug`
-   - You should see: `Scheduler: Sending due task refresh-all-venues`
-   - Beat sends tasks every 30 minutes, so if it just started, wait for the next scheduled time
-
-3. **Verify worker can see tasks:**
-   ```bash
-   source venv/bin/activate
-   python -m celery -A celery_app inspect registered
-   ```
-   This should list all registered tasks.
-
-**Why Windows shows tasks immediately:**
-- On Windows, tasks were likely already queued or triggered manually
-- On Ubuntu, Beat schedules tasks every 30 minutes - if Beat just started, you need to wait or trigger manually
-
-**No logs in worker after starting? This is normal!**
-- Worker is ready and waiting for tasks
-- Beat sends tasks every 30 minutes
-- To test immediately, run: `python test_worker.py`
-- See `VERIFY_WORKER.md` for detailed verification steps
+- The frontend in `scrapping/frontend` should work without changes as the API endpoints match
+- Some scrapers are placeholder implementations and need to be fully migrated from Selenium to Playwright
+- The database can be shared with the original scrapping backend or use a separate database (configure via DATABASE_URL)
 

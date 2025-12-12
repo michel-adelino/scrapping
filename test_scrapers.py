@@ -1,129 +1,102 @@
 """
-Test script to run all scrapers once for verification in the scrapping project
+Test script to test all Celery tasks for verification in the backend project
+Tests the actual tasks that run in production (scrape_venue_task)
 """
 import sys
 import os
 from datetime import datetime, timedelta
 
-# Add the scrapping directory to path so we can import app
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the backend directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-# Import app module to access scraper functions
-import app
+# Import Flask app and create app context
+from app import app, scrape_venue_task, NYC_VENUES, LONDON_VENUES
 
 # Test configuration
 TEST_GUESTS = 6
 TEST_DATE = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")  # 7 days from now
 
-def reset_scraping_state():
-    """Reset global scraping state before each test"""
-    app.scraping_status = {
-        'running': False,
-        'progress': 'Ready',
-        'completed': False,
-        'error': None,
-        'total_slots_found': 0,
-        'current_date': None,
-        'website': None
-    }
-    app.scraped_data = []
-
-def test_scraper(scraper_func, name, *args, **kwargs):
-    """Test a single scraper function"""
+def test_venue_task(website, guests, target_date, **kwargs):
+    """Test a single scrape_venue_task"""
     print(f"\n{'='*60}")
-    print(f"Testing: {name}")
-    print(f"Date: {TEST_DATE}, Guests: {TEST_GUESTS}")
+    print(f"Testing: {website}")
+    print(f"Date: {target_date}, Guests: {guests}")
     print(f"{'='*60}")
     
-    # Reset state before each test
-    reset_scraping_state()
-    
     try:
-        # Call the scraper function
-        scraper_func(*args, **kwargs)
+        # Create a mock task object (scrape_venue_task is bound, so it expects self)
+        class MockTask:
+            pass
         
-        # Check results from global scraped_data
-        results = app.scraped_data.copy()
-        status = app.scraping_status
+        mock_task = MockTask()
         
-        if status.get('error'):
-            print(f"✗ ERROR: {status.get('error')}")
-            return False, 0
+        # Call the task function directly (not through Celery)
+        with app.app_context():
+            result = scrape_venue_task(mock_task, guests, target_date, website, **kwargs)
         
-        if results:
-            print(f"✓ SUCCESS: Found {len(results)} slots")
-            print(f"  Progress: {status.get('progress', 'N/A')}")
-            # Show first 3 results as sample
-            for i, slot in enumerate(results[:3], 1):
-                print(f"  Sample {i}: {slot.get('time', 'N/A')} - {slot.get('status', 'N/A')} - {slot.get('price', 'N/A')}")
-            if len(results) > 3:
-                print(f"  ... and {len(results) - 3} more slots")
+        if result:
+            slots_found = result.get("slots_found", 0) if isinstance(result, dict) else 0
+            if slots_found > 0:
+                print(f"✓ SUCCESS: Found {slots_found} slots")
+                # Show first 3 slots as sample if available
+                slots = result.get("slots", [])
+                if slots:
+                    for i, slot in enumerate(slots[:3], 1):
+                        venue = slot.get('website', slot.get('venue_name', 'N/A'))
+                        time = slot.get('time', 'N/A')
+                        status = slot.get('status', 'N/A')
+                        price = slot.get('price', 'N/A')
+                        print(f"  Sample {i}: {venue} - {time} - {status} - {price}")
+                    if len(slots) > 3:
+                        print(f"  ... and {len(slots) - 3} more slots")
+            else:
+                print(f"⚠ WARNING: No slots found (this might be normal if no availability)")
+            return True, slots_found
         else:
-            print(f"⚠ WARNING: No slots found")
-            print(f"  Progress: {status.get('progress', 'N/A')}")
-            if status.get('progress') and 'No' in status.get('progress', ''):
-                print(f"  (This might be normal if no availability)")
-        
-        return True, len(results)
+            print(f"⚠ WARNING: Task returned no result")
+            return True, 0
     except Exception as e:
         print(f"✗ ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
         return False, 0
 
-def test_all_scrapers():
-    """Test all scrapers in sequence"""
+def test_all_venues():
+    """Test all venues using scrape_venue_task (matches production task structure)"""
     print(f"\n{'#'*60}")
-    print(f"TESTING ALL SCRAPERS (Selenium-based)")
+    print(f"TESTING ALL VENUE TASKS (Production Task Structure)")
     print(f"Test Date: {TEST_DATE}")
     print(f"Test Guests: {TEST_GUESTS}")
+    print(f"Total Venues: {len(NYC_VENUES) + len(LONDON_VENUES)}")
     print(f"{'#'*60}\n")
     
     results_summary = []
     
-    # NYC Scrapers - using scrape_restaurants as wrapper
+    # NYC Venues
     print("\n" + "="*60)
-    print("NYC SCRAPERS")
+    print("NYC VENUES")
     print("="*60)
     
-    nyc_test_cases = [
-        # (website, name, **kwargs)
-        ('swingers_nyc', "Swingers NYC", {}),
-        ('electric_shuffle_nyc', "Electric Shuffle NYC", {}),
-        ('lawn_club_nyc', "Lawn Club NYC", {'lawn_club_option': "Curling Lawns & Cabins"}),
-        ('spin_nyc', "SPIN NYC", {}),
-        ('five_iron_golf_nyc', "Five Iron Golf NYC", {}),
-        ('lucky_strike_nyc', "Lucky Strike NYC", {}),
-        ('easybowl_nyc', "Easybowl NYC", {}),
-    ]
+    for venue in NYC_VENUES:
+        success, count = test_venue_task(venue, TEST_GUESTS, TEST_DATE)
+        results_summary.append((venue, success, count))
     
-    for website, name, kwargs in nyc_test_cases:
-        def test_wrapper(w=website, k=kwargs):
-            app.scrape_restaurants(TEST_GUESTS, TEST_DATE, w, **k)
-        success, count = test_scraper(test_wrapper, name)
-        results_summary.append((name, success, count))
-    
-    # London Scrapers
+    # London Venues
     print("\n" + "="*60)
-    print("LONDON SCRAPERS")
+    print("LONDON VENUES")
     print("="*60)
     
-    london_test_cases = [
-        ('swingers_london', "Swingers London", {}),
-        ('electric_shuffle_london', "Electric Shuffle London", {}),
-        ('fair_game_canary_wharf', "Fair Game Canary Wharf", {}),
-        ('fair_game_city', "Fair Game City", {}),
-        ('clays_bar', "Clays Bar", {'clays_location': "Canary Wharf"}),
-        ('puttshack', "Puttshack", {'puttshack_location': "Bank"}),
-        ('flight_club_darts', "Flight Club Darts (Bloomsbury)", {}),
-        ('f1_arcade', "F1 Arcade", {'f1_experience': "Team Racing"}),
-    ]
+    # For venues that need location parameters
+    london_venue_params = {
+        'clays_bar': {'clays_location': 'Canary Wharf'},
+        'puttshack': {'puttshack_location': 'Bank'},
+        'f1_arcade': {'f1_experience': 'Team Racing'},
+    }
     
-    for website, name, kwargs in london_test_cases:
-        def test_wrapper(w=website, k=kwargs):
-            app.scrape_restaurants(TEST_GUESTS, TEST_DATE, w, **k)
-        success, count = test_scraper(test_wrapper, name)
-        results_summary.append((name, success, count))
+    for venue in LONDON_VENUES:
+        params = london_venue_params.get(venue, {})
+        success, count = test_venue_task(venue, TEST_GUESTS, TEST_DATE, **params)
+        results_summary.append((venue, success, count))
     
     # Summary
     print("\n" + "="*60)
@@ -134,54 +107,128 @@ def test_all_scrapers():
     total = len(results_summary)
     total_slots = sum(count for _, _, count in results_summary)
     
-    print(f"\nTotal Scrapers Tested: {total}")
+    print(f"\nTotal Venues Tested: {total}")
     print(f"Successful: {successful}")
     print(f"Failed: {total - successful}")
     print(f"Total Slots Found: {total_slots}")
     
     print("\nDetailed Results:")
-    for name, success, count in results_summary:
+    for venue, success, count in results_summary:
         status = "✓" if success else "✗"
-        print(f"  {status} {name}: {count} slots")
+        print(f"  {status} {venue}: {count} slots")
     
     return results_summary
 
-def test_single_scraper(scraper_name):
-    """Test a single scraper by name"""
-    scraper_map = {
-        'swingers_nyc': ("Swingers NYC", {}),
-        'swingers_london': ("Swingers London", {}),
-        'electric_shuffle_nyc': ("Electric Shuffle NYC", {}),
-        'electric_shuffle_london': ("Electric Shuffle London", {}),
-        'lawn_club_nyc': ("Lawn Club NYC", {'lawn_club_option': "Curling Lawns & Cabins"}),
-        'spin_nyc': ("SPIN NYC", {}),
-        'five_iron_golf_nyc': ("Five Iron Golf NYC", {}),
-        'lucky_strike_nyc': ("Lucky Strike NYC", {}),
-        'easybowl_nyc': ("Easybowl NYC", {}),
-        'fair_game_canary_wharf': ("Fair Game Canary Wharf", {}),
-        'fair_game_city': ("Fair Game City", {}),
-        'clays_bar': ("Clays Bar", {'clays_location': "Canary Wharf"}),
-        'puttshack': ("Puttshack", {'puttshack_location': "Bank"}),
-        'flight_club_darts': ("Flight Club Darts (Bloomsbury)", {}),
-        'f1_arcade': ("F1 Arcade", {'f1_experience': "Team Racing"}),
-    }
-    
-    if scraper_name not in scraper_map:
-        print(f"Unknown scraper: {scraper_name}")
-        print(f"Available scrapers: {', '.join(scraper_map.keys())}")
+def test_single_venue(venue_name):
+    """Test a single venue by name"""
+    # Check if it's a valid venue
+    all_venues = NYC_VENUES + LONDON_VENUES
+    if venue_name not in all_venues:
+        print(f"Unknown venue: {venue_name}")
+        print(f"\nAvailable NYC venues:")
+        for v in NYC_VENUES:
+            print(f"  - {v}")
+        print(f"\nAvailable London venues:")
+        for v in LONDON_VENUES:
+            print(f"  - {v}")
         return
     
-    name, kwargs = scraper_map[scraper_name]
-    def test_wrapper(sn=scraper_name, k=kwargs):
-        app.scrape_restaurants(TEST_GUESTS, TEST_DATE, sn, **k)
-    test_scraper(test_wrapper, name)
+    # Set location parameters for venues that need them
+    params = {}
+    if venue_name == 'clays_bar':
+        params = {'clays_location': 'Canary Wharf'}
+    elif venue_name == 'puttshack':
+        params = {'puttshack_location': 'Bank'}
+    elif venue_name == 'f1_arcade':
+        params = {'f1_experience': 'Team Racing'}
+    
+    test_venue_task(venue_name, TEST_GUESTS, TEST_DATE, **params)
+
+def test_all_five_iron_golf_locations():
+    """Test all Five Iron Golf NYC locations"""
+    print(f"\n{'#'*60}")
+    print(f"TESTING ALL FIVE IRON GOLF NYC LOCATIONS")
+    print(f"Test Date: {TEST_DATE}")
+    print(f"Test Guests: {TEST_GUESTS}")
+    print(f"{'#'*60}\n")
+    
+    five_iron_venues = [v for v in NYC_VENUES if v.startswith('five_iron_golf_nyc_')]
+    
+    results = []
+    for venue in five_iron_venues:
+        success, count = test_venue_task(venue, TEST_GUESTS, TEST_DATE)
+        results.append((venue, success, count))
+    
+    print(f"\n{'='*60}")
+    print("FIVE IRON GOLF SUMMARY")
+    print(f"{'='*60}")
+    successful = sum(1 for _, success, _ in results if success)
+    total_slots = sum(count for _, _, count in results)
+    print(f"Locations Tested: {len(results)}")
+    print(f"Successful: {successful}")
+    print(f"Total Slots Found: {total_slots}")
+
+def test_all_lawn_club_options():
+    """Test all Lawn Club NYC options"""
+    print(f"\n{'#'*60}")
+    print(f"TESTING ALL LAWN CLUB NYC OPTIONS")
+    print(f"Test Date: {TEST_DATE}")
+    print(f"Test Guests: {TEST_GUESTS}")
+    print(f"{'#'*60}\n")
+    
+    lawn_club_venues = [v for v in NYC_VENUES if v.startswith('lawn_club_nyc_')]
+    
+    results = []
+    for venue in lawn_club_venues:
+        success, count = test_venue_task(venue, TEST_GUESTS, TEST_DATE)
+        results.append((venue, success, count))
+    
+    print(f"\n{'='*60}")
+    print("LAWN CLUB SUMMARY")
+    print(f"{'='*60}")
+    successful = sum(1 for _, success, _ in results if success)
+    total_slots = sum(count for _, _, count in results)
+    print(f"Options Tested: {len(results)}")
+    print(f"Successful: {successful}")
+    print(f"Total Slots Found: {total_slots}")
+
+def test_flight_club_darts_all_locations():
+    """Test Flight Club Darts (should return slots for all 4 locations)"""
+    print(f"\n{'#'*60}")
+    print(f"TESTING FLIGHT CLUB DARTS (All 4 Locations)")
+    print(f"Test Date: {TEST_DATE}")
+    print(f"Test Guests: {TEST_GUESTS}")
+    print(f"{'#'*60}\n")
+    
+    success, count = test_venue_task('flight_club_darts', TEST_GUESTS, TEST_DATE)
+    
+    print(f"\n{'='*60}")
+    print("FLIGHT CLUB DARTS SUMMARY")
+    print(f"{'='*60}")
+    print(f"Status: {'✓ SUCCESS' if success else '✗ FAILED'}")
+    print(f"Total Slots Found: {count}")
+    print(f"Note: This single task should return slots for all 4 locations")
+    print(f"      (Bloomsbury, Angel, Shoreditch, Victoria)")
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        # Test single scraper
-        scraper_name = sys.argv[1]
-        test_single_scraper(scraper_name)
+        command = sys.argv[1]
+        
+        if command == 'all':
+            # Test all venues
+            test_all_venues()
+        elif command == 'five_iron':
+            # Test all Five Iron Golf locations
+            test_all_five_iron_golf_locations()
+        elif command == 'lawn_club':
+            # Test all Lawn Club options
+            test_all_lawn_club_options()
+        elif command == 'flight_club':
+            # Test Flight Club Darts
+            test_flight_club_darts_all_locations()
+        else:
+            # Test single venue
+            test_single_venue(command)
     else:
-        # Test all scrapers
-        test_all_scrapers()
-
+        # Default: Test all venues
+        test_all_venues()

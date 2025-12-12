@@ -1,28 +1,11 @@
-"""Five Iron Golf scraper for multiple NYC locations"""
+"""Five Iron Golf scraper for multiple NYC locations using Playwright"""
 from datetime import datetime
 from bs4 import BeautifulSoup
-from seleniumbase import Driver
-from selenium.webdriver.common.keys import Keys
-from time import sleep
+from scrapers.base_scraper import BaseScraper
+from playwright.sync_api import Page
+import logging
 
-# Global variables (will be set by the calling context)
-scraping_status = {}
-scraped_data = []
-
-
-def create_driver_with_chrome_fallback():
-    """Import and use the driver creation function from app.py"""
-    # Import here to avoid circular imports
-    import sys
-    import importlib
-    if 'app' in sys.modules:
-        app_module = sys.modules['app']
-        return app_module.create_driver_with_chrome_fallback()
-    else:
-        # Fallback: import app module
-        from app import create_driver_with_chrome_fallback as create_driver
-        return create_driver()
-
+logger = logging.getLogger(__name__)
 
 # Five Iron Golf location mappings
 FIVE_IRON_LOCATIONS = {
@@ -47,6 +30,168 @@ FIVE_IRON_VENUE_NAMES = {
 }
 
 
+# def scrape_five_iron_golf(guests, target_date, location='fidi'):
+#     """
+#     Five Iron Golf scraper function for a specific location
+    
+#     Args:
+#         guests: Number of guests
+#         target_date: Target date in YYYY-MM-DD format
+#         location: Location identifier (fidi, flatiron, grand_central, etc.)
+    
+#     Returns:
+#         List of slot dictionaries
+#     """
+#     results = []
+    
+#     # Get location display name and venue name
+#     location_display = FIVE_IRON_LOCATIONS.get(location, 'NYC - FiDi')
+#     venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+    
+#     try:
+#         date_str = target_date
+#         dt = datetime.strptime(date_str, "%Y-%m-%d")
+#         formatted_date = dt.strftime("%m/%d/%Y")
+        
+#         with BaseScraper() as scraper:
+#             scraper.page.set_default_timeout(60000)
+            
+#             try:
+#                 scraper.goto("https://booking.fiveirongolf.com/session-length", timeout=60000, wait_until="networkidle")
+#                 scraper.wait_for_timeout(8000)  # Wait for page to fully render
+#             except Exception:
+#                 logger.info("Page load timeout. Continuing...")
+            
+#             logger.info(f'Navigating to Five Iron Golf {location_display}...')
+            
+#             try:
+#                 scraper.wait_for_selector('div[role="combobox"][id="location-select"]', timeout=60000)
+#                 scraper.wait_for_timeout(3000)  # Additional wait for dropdown to be ready
+#             except Exception:
+#                 logger.info(f'Page did not load properly for Five Iron Golf {location_display}')
+#                 return results
+            
+#             # Select location
+#             scraper.click('div[role="combobox"][id="location-select"]')
+#             scraper.wait_for_timeout(4000)  # Increased wait for dropdown to open
+            
+#             # Wait for location option to be available
+#             try:
+#                 scraper.wait_for_selector(f'//li[normalize-space()="{location_display}"]', timeout=30000)
+#             except Exception:
+#                 logger.warning(f"Location option '{location_display}' not found")
+            
+#             scraper.click(f'//li[normalize-space()="{location_display}"]')
+#             scraper.wait_for_timeout(3000)  # Wait for location selection to apply
+            
+#             logger.info(f'Setting date to {target_date}...')
+            
+#             # Set date - wait for date input to be available
+#             try:
+#                 scraper.wait_for_selector('input[placeholder="mm/dd/yyyy"]', timeout=30000)
+#             except Exception:
+#                 logger.warning("Date input not found")
+            
+#             date_input = scraper.locator('input[placeholder="mm/dd/yyyy"]')
+#             date_input.click()
+#             scraper.wait_for_timeout(500)
+#             date_input.fill('')  # Clear
+#             scraper.wait_for_timeout(500)
+#             date_input.fill(formatted_date)
+#             scraper.wait_for_timeout(2000)  # Wait for date to be set
+            
+#             # Set party size
+#             logger.info(f'Setting party size to {guests}...')
+            
+#             try:
+#                 scraper.wait_for_selector('div[role="combobox"][id="party_size_select"]', timeout=30000)
+#             except Exception:
+#                 logger.warning("Party size selector not found")
+            
+#             scraper.click('div[role="combobox"][id="party_size_select"]')
+#             scraper.wait_for_timeout(3000)  # Wait for dropdown to open
+            
+#             # Wait for party size option to be available
+#             try:
+#                 scraper.wait_for_selector(f'//li[normalize-space()="{guests}"]', timeout=30000)
+#             except Exception:
+#                 logger.warning(f"Party size option '{guests}' not found")
+            
+#             scraper.click(f'//li[normalize-space()="{guests}"]')
+#             scraper.wait_for_timeout(5000)  # Wait for party size selection to apply
+            
+#             # Wait for slots to load after all selections
+#             logger.info(f'Searching for available slots on Five Iron Golf {location_display}...')
+            
+#             try:
+#                 scraper.wait_for_selector('div.MuiToggleButtonGroup-root', timeout=45000)
+#             except Exception:
+#                 logger.warning("Slot container not found, continuing anyway...")
+            
+#             scraper.wait_for_timeout(5000)  # Increased wait for slots to fully render
+            
+#             content = scraper.get_content()
+#             soup = BeautifulSoup(content, "html.parser")
+#             slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
+            
+#             logger.info(f'Found {len(slots)} available slots on Five Iron Golf {location_display}')
+            
+#             if len(slots) == 0:
+#                 logger.info(f'No slots available on Five Iron Golf {location_display}')
+#                 return results
+            
+#             for slot in slots:
+#                 status = "Available"
+                
+#                 # Extract time
+#                 try:
+#                     time = slot.find_previous_sibling("h5").get_text(strip=True)
+#                 except:
+#                     time = "None"
+                
+#                 # Extract each duration + price separately
+#                 buttons = slot.select("button.MuiToggleButton-root")
+                
+#                 for btn in buttons:
+#                     try:
+#                         duration = btn.contents[0].strip()  # "2 hours"
+#                     except:
+#                         duration = "None"
+                    
+#                     price_el = btn.select_one("p")
+#                     price = price_el.get_text(strip=True) if price_el else ""
+
+#                     # Skip rows where price is missing
+#                     if not price:
+#                         continue
+
+#                     # Convert "2 hours" → "2h"
+#                     dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
+
+#                     # Final format: "2h : $58"
+#                     desc = f"{dur_clean} : {price}"
+
+#                     slot_data = {
+#                         'date': date_str,
+#                         'time': time,
+#                         'price': desc,
+#                         'status': status,
+#                         'timestamp': datetime.now().isoformat(),
+#                         'website': venue_name
+#                     }
+
+#                     results.append(slot_data)
+        
+#         return results
+        
+#     except Exception as e:
+#         logger.error(f"Error scraping Five Iron Golf: {e}", exc_info=True)
+#         raise e
+
+
+
+
+
 def scrape_five_iron_golf(guests, target_date, location='fidi'):
     """
     Five Iron Golf scraper function for a specific location
@@ -57,9 +202,9 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
         location: Location identifier (fidi, flatiron, grand_central, etc.)
     
     Returns:
-        Number of slots scraped
+        List of slot dictionaries
     """
-    global scraping_status, scraped_data
+    results = []
     
     # Get location display name and venue name
     location_display = FIVE_IRON_LOCATIONS.get(location, 'NYC - FiDi')
@@ -70,107 +215,148 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         formatted_date = dt.strftime("%m/%d/%Y")
         
-        driver = create_driver_with_chrome_fallback()
-        driver.set_page_load_timeout(20)
+        with BaseScraper() as scraper:
+            scraper.page.set_default_timeout(60000)
 
-        try:
-            driver.get("https://booking.fiveirongolf.com/session-length")
-        except Exception:
-            scraping_status["progress"] = "Page load timeout. Continuing..."
-        
-        scraping_status['progress'] = f'Navigating to Five Iron Golf {location_display}...'
-        scraping_status['current_date'] = target_date
-        
-        try:
-            driver.wait_for_element('div[role="combobox"][id="location-select"]', timeout=30)
-        except Exception:
-            scraping_status['progress'] = f'Page did not load properly for Five Iron Golf {location_display}'
-            driver.quit()
-            return 0
-        
-        # Select location
-        driver.click('div[role="combobox"][id="location-select"]')
-        driver.sleep(3)
-        driver.js_click(f'//li[normalize-space()="{location_display}"]')
-        
-        scraping_status['progress'] = f'Setting date to {target_date}...'
-        
-        # Set date
-        date_input = driver.find_element("css selector", 'input[placeholder="mm/dd/yyyy"]')
-        date_input.send_keys(Keys.CONTROL, "a")
-        date_input.send_keys(Keys.DELETE)
-        driver.type('input[placeholder="mm/dd/yyyy"]', formatted_date)
-        
-        # Set party size
-        scraping_status['progress'] = f'Setting party size to {guests}...'
-        
-        driver.click('div[role="combobox"][id="party_size_select"]')
-        driver.js_click(f'//li[normalize-space()="{guests}"]')
-        
-        driver.sleep(7)
-        
-        scraping_status['progress'] = f'Searching for available slots on Five Iron Golf {location_display}...'
-        
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
-        
-        scraping_status['progress'] = f'Found {len(slots)} available slots on Five Iron Golf {location_display}'
-        
-        if len(slots) == 0:
-            scraping_status['progress'] = f'No slots available on Five Iron Golf {location_display}'
-            driver.quit()
-            return 0
-        
-        slots_count = 0
-        for slot in slots:
-            status = "Available"
-            
-            # Extract time
+            # ⚡ Try loading but stop early
             try:
-                time = slot.find_previous_sibling("h5").get_text(strip=True)
-            except:
-                time = "None"
-            
-            # Extract each duration + price separately
-            buttons = slot.select("button.MuiToggleButton-root")
-            
-            for btn in buttons:
-                try:
-                    duration = btn.contents[0].strip()      # "2 hours"
-                except:
-                    duration = "None"
+                scraper.goto(
+                    "https://booking.fiveirongolf.com/session-length",
+                    timeout=5000,                   # very small timeout
+                    wait_until="domcontentloaded"   # do NOT wait for networkidle
+                )
+            except Exception:
+                logger.info("Page load timeout. Continuing...")
                 
-                price_el = btn.select_one("p")
-                price = price_el.get_text(strip=True) if price_el else ""
+            # scraper.page.evaluate("window.stop()")
+            logger.info(f'Navigating to Five Iron Golf {location_display}...')
+            
+            try:
+                # Wait for dropdown to appear (full 60 seconds)
+                scraper.page.locator('div[role="combobox"][id="location-select"]').wait_for(
+                    timeout=60000,
+                    state="visible"
+                )
+                print("[DEBUG] Location dropdown is visible")
+                scraper.wait_for_timeout(2000)  # small safety delay
+            except Exception as e:
+                print("[ERROR] Dropdown load failure:", e)
+                logger.info(f'Page did not load properly for Five Iron Golf {location_display}')
+                return results
+            
+            # Select location
+            scraper.click('div[role="combobox"][id="location-select"]')
+            scraper.wait_for_timeout(4000)  # Increased wait for dropdown to open
+            
+            # Wait for location option to be available
+            try:
+                scraper.wait_for_selector(f'//li[normalize-space()="{location_display}"]', timeout=30000)
+            except Exception:
+                logger.warning(f"Location option '{location_display}' not found")
+            
+            scraper.click(f'//li[normalize-space()="{location_display}"]')
+            scraper.wait_for_timeout(3000)  # Wait for location selection to apply
+            
+            logger.info(f'Setting date to {target_date}...')
+            
+            # Set date - wait for date input to be available
+            try:
+                scraper.wait_for_selector('input[placeholder="mm/dd/yyyy"]', timeout=30000)
+            except Exception:
+                logger.warning("Date input not found")
+            
+            date_input = scraper.locator('input[placeholder="mm/dd/yyyy"]')
+            date_input.click()
+            scraper.wait_for_timeout(500)
+            date_input.fill('')  # Clear
+            scraper.wait_for_timeout(500)
+            date_input.fill(formatted_date)
+            scraper.wait_for_timeout(2000)  # Wait for date to be set
+            
+            # Set party size
+            logger.info(f'Setting party size to {guests}...')
+            
+            try:
+                scraper.wait_for_selector('div[role="combobox"][id="party_size_select"]', timeout=30000)
+            except Exception:
+                logger.warning("Party size selector not found")
+            
+            scraper.click('div[role="combobox"][id="party_size_select"]')
+            scraper.wait_for_timeout(3000)  # Wait for dropdown to open
+            
+            # Wait for party size option to be available
+            try:
+                scraper.wait_for_selector(f'//li[normalize-space()="{guests}"]', timeout=30000)
+            except Exception:
+                logger.warning(f"Party size option '{guests}' not found")
+            
+            scraper.click(f'//li[normalize-space()="{guests}"]')
+            scraper.wait_for_timeout(5000)  # Wait for party size selection to apply
+            
+            # Wait for slots to load after all selections
+            logger.info(f'Searching for available slots on Five Iron Golf {location_display}...')
+            
+            try:
+                scraper.wait_for_selector('div.MuiToggleButtonGroup-root', timeout=45000)
+            except Exception:
+                logger.warning("Slot container not found, continuing anyway...")
+            
+            scraper.wait_for_timeout(5000)  # Increased wait for slots to fully render
+            
+            content = scraper.get_content()
+            soup = BeautifulSoup(content, "html.parser")
+            slots = soup.select('div.MuiToggleButtonGroup-root.css-9mqnp1')
+            
+            logger.info(f'Found {len(slots)} available slots on Five Iron Golf {location_display}')
+            
+            if len(slots) == 0:
+                logger.info(f'No slots available on Five Iron Golf {location_display}')
+                return results
+            
+            for slot in slots:
+                status = "Available"
+                
+                # Extract time
+                try:
+                    time = slot.find_previous_sibling("h5").get_text(strip=True)
+                except:
+                    time = "None"
+                
+                # Extract each duration + price separately
+                buttons = slot.select("button.MuiToggleButton-root")
+                
+                for btn in buttons:
+                    try:
+                        duration = btn.contents[0].strip()  # "2 hours"
+                    except:
+                        duration = "None"
+                    
+                    price_el = btn.select_one("p")
+                    price = price_el.get_text(strip=True) if price_el else ""
 
-                # Skip rows where price is missing
-                if not price:
-                    continue
+                    # Skip rows where price is missing
+                    if not price:
+                        continue
 
-                # Convert "2 hours" → "2h"
-                dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
+                    # Convert "2 hours" → "2h"
+                    dur_clean = duration.replace(" hours", "h").replace(" hour", "h").strip()
 
-                # Final format: "2h : $58"
-                desc = f"{dur_clean} : {price}"
+                    # Final format: "2h : $58"
+                    desc = f"{dur_clean} : {price}"
 
-                slot_data = {
-                    'date': date_str,
-                    'time': time,
-                    'price': desc,
-                    'status': status,
-                    'timestamp': datetime.now().isoformat(),
-                    'website': venue_name
-                }
+                    slot_data = {
+                        'date': date_str,
+                        'time': time,
+                        'price': desc,
+                        'status': status,
+                        'timestamp': datetime.now().isoformat(),
+                        'website': venue_name
+                    }
 
-                scraped_data.append(slot_data)
-                slots_count += 1
-                scraping_status['total_slots_found'] = len(scraped_data)
-
-        driver.quit()
-        return slots_count
+                    results.append(slot_data)
+        
+        return results
         
     except Exception as e:
-        if 'driver' in locals():
-            driver.quit()
+        logger.error(f"Error scraping Five Iron Golf: {e}", exc_info=True)
         raise e
-
