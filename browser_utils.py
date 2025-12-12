@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 #   - Memory exhaustion (check with: free -h)
 #   - File descriptor limits (check with: ulimit -n)
 #   - CPU saturation
-_browser_semaphore = threading.Semaphore(10)  
+_browser_semaphore = threading.Semaphore(15)  
 
 # Global Playwright instance (one per process)
 _playwright_instance = None
