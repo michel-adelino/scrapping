@@ -11,7 +11,18 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Semaphore to limit concurrent browser instances (prevents resource exhaustion)
-_browser_semaphore = threading.Semaphore(10)  # Allow max 10 concurrent browser instances
+# 
+# IMPORTANT: Each browser instance uses ~100-200MB RAM
+# Recommended limits:
+#   - 100 workers: 30-40 browsers (3-4 workers per browser is safe)
+#   - 50 workers: 20-25 browsers  
+#   - 10 workers: 10 browsers
+#
+# You can increase this if you have more RAM, but watch for:
+#   - Memory exhaustion (check with: free -h)
+#   - File descriptor limits (check with: ulimit -n)
+#   - CPU saturation
+_browser_semaphore = threading.Semaphore(35)  # Allow max 35 concurrent browser instances (good for 100 workers)
 
 # Global Playwright instance (one per process)
 _playwright_instance = None

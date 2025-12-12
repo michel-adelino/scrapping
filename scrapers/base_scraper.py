@@ -147,10 +147,24 @@ class BaseScraper:
         self.page.select_option(selector, value, timeout=timeout)
     
     def evaluate(self, expression: str):
-        """Execute JavaScript in the page context"""
+        """Execute JavaScript in the page context with navigation error handling"""
         if not self.page:
             raise RuntimeError("Page not initialized.")
-        return self.page.evaluate(expression)
+        try:
+            return self.page.evaluate(expression)
+        except Exception as e:
+            # Handle navigation race conditions - page may have navigated during execution
+            error_str = str(e).lower()
+            if "execution context was destroyed" in error_str or "navigation" in error_str:
+                logger.warning(f"Page navigated during evaluate(), retrying once: {e}")
+                # Wait a bit and retry once
+                self.page.wait_for_timeout(500)
+                try:
+                    return self.page.evaluate(expression)
+                except Exception as retry_e:
+                    logger.error(f"Evaluate() failed on retry: {retry_e}")
+                    raise
+            raise
     
     def query_selector(self, selector: str):
         """Query a single element"""

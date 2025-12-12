@@ -142,7 +142,14 @@ def scrape_swingers(guests, target_date):
                 pass  # Ignore timeout
 
             # scraper.wait_for_timeout(5000)  # allow JS to run
-            scraper.page.evaluate("window.stop()")  # STOP loading immediately
+            # Stop loading - with error handling for navigation race conditions
+            try:
+                scraper.page.evaluate("window.stop()")  # STOP loading immediately
+            except Exception as e:
+                # Page may have navigated away - this is OK, continue
+                if "Execution context was destroyed" not in str(e) and "navigation" not in str(e).lower():
+                    raise
+                logger.debug(f"Page navigated during stop() call, continuing: {e}")
 
             # ---- WAIT FOR CALENDAR RENDER ----
             try:

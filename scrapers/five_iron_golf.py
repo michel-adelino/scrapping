@@ -244,17 +244,65 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
                 logger.info(f'Page did not load properly for Five Iron Golf {location_display}')
                 return results
             
-            # Select location
+            # Select location - improved for headless Ubuntu
             scraper.click('div[role="combobox"][id="location-select"]')
-            scraper.wait_for_timeout(4000)  # Increased wait for dropdown to open
+            scraper.wait_for_timeout(2000)  # Wait for dropdown to start opening
             
-            # Wait for location option to be available
+            # Wait for dropdown menu to be visible (ul element)
             try:
-                scraper.wait_for_selector(f'//li[normalize-space()="{location_display}"]', timeout=30000)
-            except Exception:
-                logger.warning(f"Location option '{location_display}' not found")
+                scraper.wait_for_selector('ul[role="listbox"]', timeout=10000)
+                scraper.wait_for_timeout(1000)  # Additional wait for items to render
+            except Exception as e:
+                logger.warning(f"Dropdown menu not found: {e}")
             
-            scraper.click(f'//li[normalize-space()="{location_display}"]')
+            # Wait for location option to be available and visible
+            location_selector = f'//li[normalize-space()="{location_display}"]'
+            try:
+                # Wait for element to be attached and visible
+                scraper.page.wait_for_selector(location_selector, timeout=30000, state="visible")
+                scraper.wait_for_timeout(500)  # Small delay to ensure it's clickable
+            except Exception as e:
+                logger.warning(f"Location option '{location_display}' not found or not visible: {e}")
+                # Try to find all available locations for debugging
+                try:
+                    all_locations = scraper.page.query_selector_all('ul[role="listbox"] li')
+                    available = [li.inner_text() for li in all_locations[:5]]  # First 5 for debugging
+                    logger.warning(f"Available location options (first 5): {available}")
+                except:
+                    pass
+                raise
+            
+            # Scroll element into view before clicking (important for headless)
+            try:
+                element = scraper.page.locator(location_selector)
+                element.scroll_into_view_if_needed()
+                scraper.wait_for_timeout(300)
+            except Exception as e:
+                logger.debug(f"Could not scroll element into view: {e}")
+            
+            # Click the location option - try regular click first, fallback to JS click
+            try:
+                scraper.click(location_selector)
+            except Exception as click_error:
+                logger.warning(f"Regular click failed, trying JavaScript click: {click_error}")
+                # Fallback: Use JavaScript click (more reliable in headless mode)
+                try:
+                    scraper.page.evaluate(f"""
+                        () => {{
+                            const items = Array.from(document.querySelectorAll('ul[role="listbox"] li'));
+                            const target = items.find(li => li.textContent.trim() === '{location_display}');
+                            if (target) {{
+                                target.click();
+                                return true;
+                            }}
+                            return false;
+                        }}
+                    """)
+                    logger.info("Location selected using JavaScript click")
+                except Exception as js_error:
+                    logger.error(f"JavaScript click also failed: {js_error}")
+                    raise click_error  # Raise original error
+            
             scraper.wait_for_timeout(3000)  # Wait for location selection to apply
             
             logger.info(f'Setting date to {target_date}...')

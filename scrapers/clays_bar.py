@@ -3,6 +3,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from scrapers.base_scraper import BaseScraper
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -305,52 +306,127 @@ def scrape_clays_bar(location, guests, target_date):
             scraper.wait_for_timeout(7000)
 
             # -----------------------------------------------
-            # PARSE RESULTS (TARGET DATE ONLY)
+            # PARSE RESULTS (NEW STRUCTURE)
             # -----------------------------------------------
             soup = BeautifulSoup(scraper.get_content(), "html.parser")
 
-            # Build label → e.g. "Sat, Dec 20"
-            try:
-                day_label = date_obj.strftime("%a, %b %-d")  # linux
-            except:
-                day_label = date_obj.strftime("%a, %b %#d")  # windows
+            print(f"[DEBUG] Searching for location: {location}")
 
-            print(f"[DEBUG] Searching for day block: {day_label}")
-
-            # 1. Find the correct day container
-            day_block = None
-            for block in soup.select("div.TimeStep__Day-sc-qa67fz-5"):
-                label_el = block.select_one("span.TimeStep__DayLabel-sc-qa67fz-6")
-                if label_el and label_el.get_text(strip=True) == day_label:
-                    day_block = block
+            # 1. Find the place name div with Typography class containing the location
+            # Look for divs with class containing "Typography__PoppinsLabel-sc-jdmbyi-1" and "bxlMrl"
+            place_divs = soup.find_all("div", class_=lambda x: x and "Typography__PoppinsLabel-sc-jdmbyi-1" in x and "bxlMrl" in x)
+            
+            print(f"[DEBUG] Found {len(place_divs)} place name divs")
+            
+            # Find the div that contains our target location
+            target_place_div = None
+            for div in place_divs:
+                place_text = div.get_text(strip=True)
+                print(f"[DEBUG] Found place: {place_text}")
+                # Check if location matches (case-insensitive, partial match)
+                if location.lower() in place_text.lower() or place_text.lower() in location.lower():
+                    target_place_div = div
+                    print(f"[DEBUG] Matched location: {place_text}")
                     break
-
-            if not day_block:
-                print("[ERROR] Target day block NOT found!")
+            
+            if not target_place_div:
+                print(f"[ERROR] Location '{location}' not found in place names!")
+                # Log all available places for debugging
+                for div in place_divs:
+                    print(f"[DEBUG] Available place: {div.get_text(strip=True)}")
                 return results
 
-            print("[DEBUG] Found correct day block")
+            # 2. Find the parent container that holds slots for this place
+            # Navigate up the DOM to find the container with slots
+            place_container = target_place_div
+            for _ in range(10):  # Go up max 10 levels
+                place_container = place_container.parent
+                if place_container is None:
+                    break
+                # Look for slot-related elements in this container
+                # Try to find time slots - they might be in buttons, divs, or spans
+                potential_slots = place_container.find_all(["button", "div", "span"], 
+                    class_=lambda x: x and ("time" in x.lower() or "slot" in x.lower() or "select" in x.lower()))
+                if potential_slots:
+                    print(f"[DEBUG] Found {len(potential_slots)} potential slot elements")
+                    break
 
-            # 2. Extract slots ONLY inside this block
-            slot_wrappers = day_block.select(
-                "div.TimeSlots__TimeStepWrapper-sc-1mnx04v-3"
-            )
+            # 3. Extract slots from the container
+            # Look for various possible slot structures
+            slot_elements = []
+            
+            # Try different selectors for slots
+            selectors_to_try = [
+                "button",  # Slots might be buttons
+                "div[class*='Time']",  # Divs with Time in class
+                "div[class*='Slot']",  # Divs with Slot in class
+                "span[class*='Time']",  # Spans with Time in class
+            ]
+            
+            for selector in selectors_to_try:
+                found = place_container.select(selector) if place_container else []
+                if found:
+                    slot_elements = found
+                    print(f"[DEBUG] Found {len(slot_elements)} slots using selector: {selector}")
+                    break
 
-            print(f"[DEBUG] Found {len(slot_wrappers)} slot wrappers for {day_label}")
+            # If no slots found with specific selectors, try to find any clickable/time-related elements
+            if not slot_elements and place_container:
+                # Look for elements that might contain time information
+                all_elements = place_container.find_all(["button", "div", "span"])
+                # Filter for elements that might be slots (contain time-like text or have specific attributes)
+                for elem in all_elements:
+                    text = elem.get_text(strip=True)
+                    # Check if it looks like a time slot (contains time pattern or price)
+                    if text and (":" in text or "£" in text or "$" in text or "pm" in text.lower() or "am" in text.lower()):
+                        slot_elements.append(elem)
+                
+                print(f"[DEBUG] Found {len(slot_elements)} slots by text pattern matching")
 
-            for slot in slot_wrappers:
-                time_el = slot.find("span", class_="TimeSelect__Time-sc-1usgwcy-1")
-                price_el = slot.find("span", class_="TimeSelect__Price-sc-1usgwcy-2")
+            if not slot_elements:
+                print("[WARNING] No slot elements found. Trying alternative approach...")
+                # Alternative: Look for the entire results section and parse all slots
+                # Find all elements that might be slots on the page
+                all_buttons = soup.find_all("button")
+                all_divs = soup.find_all("div", class_=lambda x: x and ("time" in str(x).lower() or "slot" in str(x).lower()))
+                
+                # Get slots near the target place div
+                if target_place_div:
+                    # Find the section containing this place
+                    section = target_place_div.find_parent("section") or target_place_div.find_parent("div")
+                    if section:
+                        slot_elements = section.find_all(["button", "div"], 
+                            class_=lambda x: x and ("time" in str(x).lower() or "slot" in str(x).lower() or "select" in str(x).lower()))
+                        print(f"[DEBUG] Found {len(slot_elements)} slots in section")
+
+            print(f"[DEBUG] Total slots found: {len(slot_elements)}")
+
+            # 4. Extract time and price from each slot
+            for slot in slot_elements:
+                slot_text = slot.get_text(strip=True)
+                
+                # Try to extract time (look for HH:MM pattern)
+                time_match = re.search(r'(\d{1,2}:\d{2})', slot_text)
+                time_val = time_match.group(1) if time_match else slot_text.split()[0] if slot_text else "None"
+                
+                # Try to extract price (look for £ or $)
+                price_match = re.search(r'[£$]?(\d+(?:\.\d{2})?)', slot_text)
+                price_val = price_match.group(0) if price_match else "None"
+                
+                # If no price found, use the full text as price/description
+                if price_val == "None" and slot_text:
+                    price_val = slot_text
 
                 results.append({
                     "date": target_date,
-                    "time": time_el.get_text(strip=True) if time_el else "None",
-                    "price": price_el.get_text(strip=True) if price_el else "None",
+                    "time": time_val,
+                    "price": price_val,
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
                     "website": venue_name
                 })
 
+            print(f"[DEBUG] Extracted {len(results)} slots for {location}")
             return results
 
     except Exception as e:
