@@ -28,7 +28,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
-database_url = os.getenv('DATABASE_URL', f'sqlite:///{os.path.join(basedir, "availability.db")}')
+# Use absolute path for SQLite to avoid working directory issues
+db_file_path = os.path.join(basedir, "availability.db")
+database_url = os.getenv('DATABASE_URL', f'sqlite:///{db_file_path}')
 
 # Configure SQLite for better concurrency
 if database_url.startswith('sqlite'):
@@ -898,7 +900,21 @@ def get_data():
             
             # Try direct SQL query to check if data exists
             try:
+                # Get the actual database file path from the engine
+                engine_url = str(db.engine.url)
+                debug_engine_msg = f"[API DEBUG] SQLAlchemy engine URL: {engine_url}"
+                print(debug_engine_msg, flush=True)
+                logger.info(debug_engine_msg)
+                
                 with db.engine.connect() as conn:
+                    # Force a full WAL checkpoint to merge all WAL data into main database
+                    try:
+                        conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
+                        conn.commit()
+                        logger.info("[API DEBUG] WAL checkpoint (TRUNCATE) completed")
+                    except Exception as checkpoint_error:
+                        logger.warning(f"[API DEBUG] WAL checkpoint failed: {checkpoint_error}")
+                    
                     result = conn.execute(text("SELECT COUNT(*) FROM availability_slots"))
                     direct_count = result.scalar()
                     debug_direct_msg = f"[API DEBUG] Direct SQL query count: {direct_count}"
@@ -912,13 +928,25 @@ def get_data():
                     print(debug_table_msg, flush=True)
                     logger.info(debug_table_msg)
                     
+                    # Check journal mode
+                    result3 = conn.execute(text("PRAGMA journal_mode"))
+                    journal_mode = result3.scalar()
+                    debug_journal_msg = f"[API DEBUG] Journal mode: {journal_mode}"
+                    print(debug_journal_msg, flush=True)
+                    logger.info(debug_journal_msg)
+                    
                     if direct_count > 0:
                         # Get sample data
-                        result3 = conn.execute(text("SELECT city, guests, COUNT(*) FROM availability_slots GROUP BY city, guests LIMIT 5"))
-                        samples = result3.fetchall()
+                        result4 = conn.execute(text("SELECT city, guests, COUNT(*) FROM availability_slots GROUP BY city, guests LIMIT 5"))
+                        samples = result4.fetchall()
                         debug_samples_msg = f"[API DEBUG] Sample data (city, guests, count): {samples}"
                         print(debug_samples_msg, flush=True)
                         logger.info(debug_samples_msg)
+                    else:
+                        # If direct SQL returns 0 but file has data, there's a connection issue
+                        debug_warning_msg = f"[API DEBUG] WARNING: Direct SQL returns 0 but file size is {db_size_debug} bytes - possible database connection mismatch or WAL not checkpointed!"
+                        print(debug_warning_msg, flush=True)
+                        logger.warning(debug_warning_msg)
             except Exception as sql_error:
                 debug_sql_error_msg = f"[API DEBUG] Error executing direct SQL: {sql_error}"
                 print(debug_sql_error_msg, flush=True)
