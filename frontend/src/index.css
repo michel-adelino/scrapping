@@ -196,7 +196,7 @@ body {
   overflow: hidden;
   transition: all 0.2s ease;
   height: 48px;
-  width: 100%;
+  width: max-content;
   max-width: 170px;
 }
 
