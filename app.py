@@ -135,7 +135,8 @@ NYC_VENUES = [
     'five_iron_golf_nyc_upper_east_side',
     'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
-    'easybowl_nyc'
+    'easybowl_nyc',
+    'tsquaredsocial_nyc'
 ]
 
 LONDON_VENUES = [
@@ -146,7 +147,8 @@ LONDON_VENUES = [
     'clays_bar',
     'puttshack',
     'flight_club_darts',  # Single entry - scrapes all 4 locations in one task
-    'f1_arcade'
+    'f1_arcade',
+    'topgolf_chigwell'
 ]
 
 VENUE_BOOKING_URLS = {
@@ -169,6 +171,7 @@ VENUE_BOOKING_URLS = {
     'Five Iron Golf (NYC - Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
     'Lucky Strike (NYC)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
+    'T-Squared Social': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
     'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
     'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
@@ -183,7 +186,8 @@ VENUE_BOOKING_URLS = {
     'Flight Club Darts (Angel)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Shoreditch)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Victoria)': 'https://flightclubdarts.com/book',
-    'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london'
+    'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london',
+    'Topgolf Chigwell': 'https://www.sevenrooms.com/explore/topgolfchigwell/reservations/create/search'
 }
 
 
@@ -313,6 +317,36 @@ def retry_db_operation(func, max_retries=5, delay=0.1):
         except Exception as e:
             raise
     return None
+
+
+def cleanup_old_slots():
+    """Remove availability slots with dates before today"""
+    logger = logging.getLogger(__name__)
+    
+    def _cleanup_operation():
+        from datetime import date
+        today = date.today()
+        
+        # Count slots to be deleted
+        old_slots_count = AvailabilitySlot.query.filter(AvailabilitySlot.date < today).count()
+        
+        if old_slots_count > 0:
+            # Delete old slots using bulk delete
+            deleted_count = AvailabilitySlot.query.filter(AvailabilitySlot.date < today).delete(synchronize_session=False)
+            db.session.commit()
+            logger.info(f"[CLEANUP] Deleted {deleted_count} old availability slots (dates before {today})")
+            return deleted_count
+        else:
+            logger.info(f"[CLEANUP] No old slots to delete (all slots are from {today} or later)")
+            return 0
+    
+    try:
+        return retry_db_operation(_cleanup_operation)
+    except Exception as e:
+        db.session.rollback()
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error cleaning up old slots: {e}")
+        return 0
 
 
 def save_slot_to_db(venue_name, date_str, time, price, status, guests, city, venue_specific_data=None, booking_url=None):
@@ -455,7 +489,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial
 
 # Flask Routes
 @app.route('/')
@@ -476,6 +510,24 @@ def health_check():
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cleanup_old_slots', methods=['POST'])
+def cleanup_old_slots_endpoint():
+    """Manual endpoint to clean up old availability slots (dates before today)"""
+    try:
+        deleted_count = cleanup_old_slots()
+        return jsonify({
+            'status': 'success',
+            'deleted_count': deleted_count,
+            'message': f'Deleted {deleted_count} old availability slots'
+        })
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in cleanup endpoint: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
             'error': str(e)
         }), 500
 
@@ -1428,6 +1480,35 @@ def scrape_easybowl_task(self, guests, target_date, task_id=None):
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_tsquaredsocial_task')
+def scrape_tsquaredsocial_task(self, guests, target_date, task_id=None, selected_time=None):
+    """T-Squared Social scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape T-Squared Social...', current_venue='T-Squared Social')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                tsquaredsocial.scrape_tsquaredsocial,
+                'T-Squared Social',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                selected_time,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_fair_game_canary_wharf_task')
 def scrape_fair_game_canary_wharf_task(self, guests, target_date, task_id=None):
     """Fair Game Canary Wharf scraper as Celery task"""
@@ -1604,12 +1685,44 @@ def scrape_f1_arcade_task(self, guests, target_date, f1_experience, task_id=None
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_topgolf_chigwell_task')
+def scrape_topgolf_chigwell_task(self, guests, target_date, task_id=None, start_time=None):
+    """Topgolf Chigwell scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Topgolf Chigwell...', current_venue='Topgolf Chigwell')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                topgolfchigwell.scrape_topgolf_chigwell,
+                'Topgolf Chigwell',
+                'London',
+                guests,
+                guests,
+                target_date,
+                start_time,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_venue_task')
 def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
     """Celery task wrapper for scraping a single venue"""
     with app.app_context():
         try:
             logger = logging.getLogger(__name__)
+            
+            # Clean up old slots before scraping (only once per task)
+            cleanup_old_slots()
             
             logger.info(f"[VENUE_TASK] Starting scrape for {website} (date: {target_date}, guests: {guests})")
             
@@ -1649,12 +1762,14 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
                 'lucky_strike_nyc': 'Lucky Strike (NYC)',
                 'easybowl_nyc': 'Easybowl (NYC)',
+                'tsquaredsocial_nyc': 'T-Squared Social',
                 'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
                 'fair_game_city': 'Fair Game (City)',
                 'clays_bar': f'Clays Bar ({clays_location or "Canary Wharf"})',
                 'puttshack': f'Puttshack ({puttshack_location or "Bank"})',
                 'flight_club_darts': 'Flight Club Darts',
-                'f1_arcade': 'F1 Arcade'
+                'f1_arcade': 'F1 Arcade',
+                'topgolf_chigwell': 'Topgolf Chigwell'
             }
             
             # Handle Lawn Club and Five Iron Golf venue names dynamically
@@ -1711,6 +1826,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("Easybowl NYC requires a specific target date")
                 result = scrape_easybowl_task(guests, target_date, task_id)
+            elif website == 'tsquaredsocial_nyc':
+                if not target_date:
+                    raise ValueError("T-Squared Social requires a specific target date")
+                result = scrape_tsquaredsocial_task(guests, target_date, task_id)
             elif website == 'fair_game_canary_wharf':
                 if not target_date:
                     raise ValueError("Fair Game (Canary Wharf) requires a specific target date")
@@ -1740,6 +1859,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                     raise ValueError("F1 Arcade requires a specific target date")
                 experience = f1_experience or "Team Racing"
                 result = scrape_f1_arcade_task(guests, target_date, experience, task_id)
+            elif website == 'topgolf_chigwell':
+                if not target_date:
+                    raise ValueError("Topgolf Chigwell requires a specific target date")
+                result = scrape_topgolf_chigwell_task(guests, target_date, task_id)
             else:
                 logger.error(f"[VENUE_TASK] {website}: Unknown website!")
                 raise ValueError(f"Unknown website: {website}")
@@ -1769,6 +1892,9 @@ def scrape_all_venues_task(self, city, guests, target_date, task_id=None, option
         
         try:
             logger = logging.getLogger(__name__)
+            
+            # Clean up old slots before starting a new scraping session
+            cleanup_old_slots()
             
             if isinstance(target_date, str):
                 target_dates = [target_date]
