@@ -136,7 +136,8 @@ NYC_VENUES = [
     'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
     'easybowl_nyc',
-    'tsquaredsocial_nyc'
+    'tsquaredsocial_nyc',
+    'daysmart_chelsea'
 ]
 
 LONDON_VENUES = [
@@ -172,6 +173,7 @@ VENUE_BOOKING_URLS = {
     'Lucky Strike (NYC)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
     'T-Squared Social': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
+    'Chelsea Piers Golf': 'https://apps.daysmartrecreation.com/dash/chelsea/program-finder',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
     'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
     'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
@@ -489,7 +491,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart
 
 # Flask Routes
 @app.route('/')
@@ -1509,6 +1511,52 @@ def scrape_tsquaredsocial_task(self, guests, target_date, task_id=None, selected
             raise e
 
 
+def scrape_daysmart_chelsea_wrapper(guests, target_date):
+    """Wrapper function for DaySmart Chelsea scraper - only works for 2 guests"""
+    if guests != 2:
+        logger = logging.getLogger(__name__)
+        logger.info(f"[DaySmart Chelsea] Skipping scrape - only supports 2 guests, got {guests}")
+        return []
+    return daysmart.scrape_daysmart_chelsea(target_date)
+
+
+@celery_app.task(bind=True, name='app.scrape_daysmart_chelsea_task')
+def scrape_daysmart_chelsea_task(self, guests, target_date, task_id=None):
+    """DaySmart Chelsea scraper as Celery task - only works for 2 guests"""
+    with app.app_context():
+        try:
+            logger = logging.getLogger(__name__)
+            
+            # Check if guests is 2, if not skip gracefully
+            if guests != 2:
+                if task_id:
+                    update_task_status(task_id, status='SUCCESS', progress=f'Skipped - Chelsea Piers Golf only supports 2 guests (requested: {guests})', total_slots=0)
+                logger.info(f"[DaySmart Chelsea] Skipping scrape - only supports 2 guests, got {guests}")
+                return {'status': 'success', 'slots_found': 0, 'message': f'Chelsea Piers Golf only supports 2 guests (requested: {guests})'}
+            
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Chelsea Piers Golf...', current_venue='Chelsea Piers Golf')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                scrape_daysmart_chelsea_wrapper,
+                'Chelsea Piers Golf',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_fair_game_canary_wharf_task')
 def scrape_fair_game_canary_wharf_task(self, guests, target_date, task_id=None):
     """Fair Game Canary Wharf scraper as Celery task"""
@@ -1763,6 +1811,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'lucky_strike_nyc': 'Lucky Strike (NYC)',
                 'easybowl_nyc': 'Easybowl (NYC)',
                 'tsquaredsocial_nyc': 'T-Squared Social',
+                'daysmart_chelsea': 'Chelsea Piers Golf',
                 'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
                 'fair_game_city': 'Fair Game (City)',
                 'clays_bar': f'Clays Bar ({clays_location or "Canary Wharf"})',
@@ -1830,6 +1879,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("T-Squared Social requires a specific target date")
                 result = scrape_tsquaredsocial_task(guests, target_date, task_id)
+            elif website == 'daysmart_chelsea':
+                if not target_date:
+                    raise ValueError("Chelsea Piers Golf requires a specific target date")
+                result = scrape_daysmart_chelsea_task(guests, target_date, task_id)
             elif website == 'fair_game_canary_wharf':
                 if not target_date:
                     raise ValueError("Fair Game (Canary Wharf) requires a specific target date")

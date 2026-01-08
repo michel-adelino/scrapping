@@ -58,6 +58,9 @@ const VENUE_IMAGE_MAP = {
   'Flight Club Darts (Shoreditch)': 'Flight Club.webp',
   'Flight Club Darts (Victoria)': 'Flight Club.webp',
   'F1 Arcade': 'F1 Arcade.webp',
+  'Chelsea Piers Golf': 'daysmart.webp',
+  'Topgolf Chigwell': 'topgolfchigwell.webp',
+  'T-Squared Social': 'tsquaredsocial.webp',
 }
 
 function VenueRows({ data }) {

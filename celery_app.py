@@ -54,6 +54,21 @@ celery_app.conf.update(
 #     },
 # }
 
+# Clean up old slots when Celery worker starts
+from celery.signals import worker_ready
+
+@worker_ready.connect
+def on_worker_ready(sender=None, **kwargs):
+    """Clean up old availability slots when Celery worker starts"""
+    try:
+        from app import app, cleanup_old_slots
+        with app.app_context():
+            deleted_count = cleanup_old_slots()
+            print(f"[Worker Startup] ✓ Cleaned up {deleted_count} old availability slots")
+    except Exception as e:
+        import warnings
+        warnings.warn(f"Could not clean up old slots on worker startup: {e}")
+
 # Trigger task immediately when Beat starts (only once on startup)
 from celery.signals import beat_init
 
