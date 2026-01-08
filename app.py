@@ -149,7 +149,8 @@ LONDON_VENUES = [
     'puttshack',
     'flight_club_darts',  # Single entry - scrapes all 4 locations in one task
     'f1_arcade',
-    'topgolf_chigwell'
+    'topgolf_chigwell',
+    'hijingo'
 ]
 
 VENUE_BOOKING_URLS = {
@@ -491,7 +492,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo
 
 # Flask Routes
 @app.route('/')
@@ -644,7 +645,7 @@ def run_scraper():
         'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
         'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
-        'flight_club_darts', 'f1_arcade', 'all_new_york', 'all_london'
+        'flight_club_darts', 'f1_arcade', 'hijingo', 'all_new_york', 'all_london'
     ]
     
     if website in required_date_websites and not target_date:
@@ -1511,6 +1512,34 @@ def scrape_tsquaredsocial_task(self, guests, target_date, task_id=None, selected
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_hijingo_task')
+def scrape_hijingo_task(self, guests, target_date, task_id=None):
+    """Hijingo scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Hijingo...', current_venue='Hijingo')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                hijingo.scrape_hijingo,
+                'Hijingo',
+                'London',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 def scrape_daysmart_chelsea_wrapper(guests, target_date):
     """Wrapper function for DaySmart Chelsea scraper - only works for 2 guests"""
     if guests != 2:
@@ -1818,7 +1847,8 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'puttshack': f'Puttshack ({puttshack_location or "Bank"})',
                 'flight_club_darts': 'Flight Club Darts',
                 'f1_arcade': 'F1 Arcade',
-                'topgolf_chigwell': 'Topgolf Chigwell'
+                'topgolf_chigwell': 'Topgolf Chigwell',
+                'hijingo': 'Hijingo'
             }
             
             # Handle Lawn Club and Five Iron Golf venue names dynamically
@@ -1916,6 +1946,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("Topgolf Chigwell requires a specific target date")
                 result = scrape_topgolf_chigwell_task(guests, target_date, task_id)
+            elif website == 'hijingo':
+                if not target_date:
+                    raise ValueError("Hijingo requires a specific target date")
+                result = scrape_hijingo_task(guests, target_date, task_id)
             else:
                 logger.error(f"[VENUE_TASK] {website}: Unknown website!")
                 raise ValueError(f"Unknown website: {website}")

@@ -61,6 +61,7 @@ const VENUE_IMAGE_MAP = {
   'Chelsea Piers Golf': 'daysmart.webp',
   'Topgolf Chigwell': 'topgolfchigwell.webp',
   'T-Squared Social': 'tsquaredsocial.webp',
+  'Hijingo': 'hijingo.webp',
 }
 
 function VenueRows({ data }) {
