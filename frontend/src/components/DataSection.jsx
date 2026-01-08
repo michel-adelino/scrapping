@@ -62,6 +62,7 @@ const VENUE_IMAGE_MAP = {
   'Topgolf Chigwell': 'topgolfchigwell.webp',
   'T-Squared Social': 'tsquaredsocial.webp',
   'Hijingo': 'hijingo.webp',
+  'Bounce': 'Bounce.webp',
 }
 
 function VenueRows({ data }) {
