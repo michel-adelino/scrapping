@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def parse_fair_game_slots(html, venue_name, target_date, results):
+def parse_fair_game_slots(html, venue_name, target_date, results, guests, booking_url_base):
     """Shared parser for both Fair Game City & Canary Wharf"""
     soup = BeautifulSoup(html, "html.parser")
 
@@ -42,6 +42,9 @@ def parse_fair_game_slots(html, venue_name, target_date, results):
         except:
             desc = "None"
 
+        # Construct booking URL with date and party_size
+        booking_url = f"{booking_url_base}?date={target_date}&party_size={guests}"
+
         results.append({
             "date": target_date,
             "time": time_text,
@@ -49,6 +52,7 @@ def parse_fair_game_slots(html, venue_name, target_date, results):
             "status": "Available",
             "timestamp": datetime.now().isoformat(),
             "website": venue_name,
+            "booking_url": booking_url,
         })
 
     return results
@@ -79,7 +83,8 @@ def scrape_fair_game_canary_wharf(guests, target_date):
 
             html = scraper.get_content()
 
-            results = parse_fair_game_slots(html, venue_name, target_date, results)
+            booking_url_base = "https://www.sevenrooms.com/explore/fairgame/reservations/create/search"
+            results = parse_fair_game_slots(html, venue_name, target_date, results, guests, booking_url_base)
 
         return results
 
@@ -111,7 +116,8 @@ def scrape_fair_game_city(guests, target_date):
 
             html = scraper.get_content()
 
-            results = parse_fair_game_slots(html, venue_name, target_date, results)
+            booking_url_base = "https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search"
+            results = parse_fair_game_slots(html, venue_name, target_date, results, guests, booking_url_base)
 
         return results
 

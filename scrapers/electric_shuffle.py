@@ -140,13 +140,21 @@ def scrape_electric_shuffle(guests, target_date):
                 })
                 desc_str = desc_el.get_text(strip=True) if desc_el else "None"
 
+                # Construct booking URL with date and party_size
+                booking_url = (
+                    f"https://www.sevenrooms.com/explore/electricshufflenyc/"
+                    f"reservations/create/search/?date={target_date}&halo=120&"
+                    f"party_size={guests}&start_time=ALL"
+                )
+
                 slot_data = {
                     "date": target_date,
                     "time": time_str,
                     "price": desc_str,      # Using description as price/value
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Electric Shuffle (NYC)"
+                    "website": "Electric Shuffle (NYC)",
+                    "booking_url": booking_url
                 }
 
                 results.append(slot_data)
@@ -320,6 +328,7 @@ def scrape_electric_shuffle_london(guests, target_date):
                     details = ", ".join(desc_parts) if desc_parts else "unavailable"
 
                     # ---- Store slot ----
+                    # URL already includes date and guestQuantity
                     slot_data = {
                         "venue": venue_name,
                         "date": target_date,
@@ -327,6 +336,7 @@ def scrape_electric_shuffle_london(guests, target_date):
                         "details": details,
                         "timestamp": datetime.now().isoformat(),
                         "website": "Electric Shuffle (London)",
+                        "booking_url": url
                     }
 
                     results.append(slot_data)
