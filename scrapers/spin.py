@@ -122,9 +122,14 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             # ---- GET SevenRooms Iframe ----
             try:
                 # Try multiple iframe selectors for different locations
+                # Flatiron uses: spinyc, Midtown uses: spinmidtown
                 iframe_selectors = [
-                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]',
-                    'iframe[src*="sevenrooms.com"]',
+                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]',  # Flatiron
+                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinmidtown"]',  # Midtown
+                    'iframe[src*="sevenrooms.com/reservations/spinyc"]',  # Flatiron (loaded)
+                    'iframe[src*="sevenrooms.com/reservations/spinmidtown"]',  # Midtown (loaded)
+                    'iframe[nitro-lazy-src*="sevenrooms.com"]',  # Generic
+                    'iframe[src*="sevenrooms.com"]',  # Generic (loaded)
                     'iframe[id*="sevenrooms"]',
                     'iframe[data-test*="sevenrooms"]'
                 ]
@@ -134,17 +139,18 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                     try:
                         iframe_handle = scraper.page.query_selector(selector)
                         if iframe_handle:
+                            logger.info(f"Found SPIN iframe ({location}): {selector}")
                             break
                     except:
                         continue
                 
                 if not iframe_handle:
-                    logger.warning("SPIN SevenRooms iframe not found")
+                    logger.warning(f"SPIN SevenRooms iframe not found for {location}")
                     return results
 
                 frame = iframe_handle.content_frame()
             except Exception as e:
-                logger.error(f"Could not load iframe: {e}")
+                logger.error(f"Could not load iframe for {location}: {e}")
                 return results
 
             # ---- DATE PICKER ----
