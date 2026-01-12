@@ -146,7 +146,6 @@ def scrape_flight_club_darts(guests, target_date, venue_id=None):
                         "booking_url": url
                     }
 
-                    print(slot_data)
                     results.append(slot_data)
 
         print("\n============== FINAL RESULT ==============")
