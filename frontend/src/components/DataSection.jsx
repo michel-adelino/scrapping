@@ -63,6 +63,7 @@ const VENUE_IMAGE_MAP = {
   'T-Squared Social': 'tsquaredsocial.webp',
   'Hijingo': 'hijingo.webp',
   'Bounce': 'Bounce.webp',
+  'Puttery (NYC)': 'Puttery.webp',
 }
 
 function VenueRows({ data }) {

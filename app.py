@@ -192,7 +192,8 @@ VENUE_BOOKING_URLS = {
     'Flight Club Darts (Victoria)': 'https://flightclubdarts.com/book',
     'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london',
     'Topgolf Chigwell': 'https://www.sevenrooms.com/explore/topgolfchigwell/reservations/create/search',
-    'Bounce': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB'
+    'Bounce': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB',
+    'Puttery (NYC)': 'https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday'
 }
 
 
@@ -494,7 +495,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong, puttery
 
 # Flask Routes
 @app.route('/')
@@ -647,7 +648,7 @@ def run_scraper():
         'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
         'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
-        'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'all_new_york', 'all_london'
+        'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'puttery_nyc', 'all_new_york', 'all_london'
     ]
     
     if website in required_date_websites and not target_date:
@@ -674,7 +675,8 @@ def run_scraper():
             'clays_bar': 'Clays Bar',
             'puttshack': 'Puttshack',
             'flight_club_darts': 'Flight Club Darts (all locations)',
-            'f1_arcade': 'F1 Arcade'
+            'f1_arcade': 'F1 Arcade',
+            'puttery_nyc': 'Puttery (NYC)'
         }
         
         # Handle dynamic venue names for Five Iron Golf and Lawn Club
@@ -1821,6 +1823,34 @@ def scrape_topgolf_chigwell_task(self, guests, target_date, task_id=None, start_
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_puttery_task')
+def scrape_puttery_task(self, guests, target_date, task_id=None):
+    """Puttery NYC scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Puttery (NYC)...', current_venue='Puttery (NYC)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                puttery.scrape_puttery,
+                'Puttery (NYC)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_venue_task')
 def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
     """Celery task wrapper for scraping a single venue"""
@@ -1879,7 +1909,8 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'f1_arcade': 'F1 Arcade',
                 'topgolf_chigwell': 'Topgolf Chigwell',
                 'hijingo': 'Hijingo',
-                'pingpong': 'Bounce'
+                'pingpong': 'Bounce',
+                'puttery_nyc': 'Puttery (NYC)'
             }
             
             # Handle Lawn Club and Five Iron Golf venue names dynamically
@@ -1985,6 +2016,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("Bounce requires a specific target date")
                 result = scrape_pingpong_task(guests, target_date, task_id)
+            elif website == 'puttery_nyc':
+                if not target_date:
+                    raise ValueError("Puttery (NYC) requires a specific target date")
+                result = scrape_puttery_task(guests, target_date, task_id)
             else:
                 logger.error(f"[VENUE_TASK] {website}: Unknown website!")
                 raise ValueError(f"Unknown website: {website}")
