@@ -137,7 +137,8 @@ NYC_VENUES = [
     'lucky_strike_nyc',
     'easybowl_nyc',
     'tsquaredsocial_nyc',
-    'daysmart_chelsea'
+    'daysmart_chelsea',
+    'puttery_nyc'
 ]
 
 LONDON_VENUES = [
@@ -2314,7 +2315,10 @@ def refresh_all_venues_task(self):
             date_strings = [d.isoformat() for d in dates_to_refresh]
             
             # Combine all venues from both cities
-            all_venues = NYC_VENUES + LONDON_VENUES  # 15 + 8 = 23 venues
+            all_venues = NYC_VENUES + LONDON_VENUES
+            logger.info(f"[REFRESH] Total venues: {len(all_venues)} (NYC: {len(NYC_VENUES)}, London: {len(LONDON_VENUES)})")
+            logger.info(f"[REFRESH] NYC venues: {NYC_VENUES}")
+            logger.info(f"[REFRESH] London venues: {LONDON_VENUES}")
             
             # Scrape for guests 2 through 8
             guest_counts = list(range(2, 9))  # [2, 3, 4, 5, 6, 7, 8]
@@ -2327,10 +2331,12 @@ def refresh_all_venues_task(self):
             
             # Create tasks at venue × guest × date level (not grouped by venue)
             all_tasks = []
+            venue_task_counts = {}  # Track tasks per venue for verification
             
             for venue in all_venues:
                 # Get allowed guest counts for this venue
                 allowed_guests = VENUE_GUEST_RESTRICTIONS.get(venue, guest_counts)
+                venue_task_counts[venue] = 0
                 
                 for guests in guest_counts:
                     # Skip if this venue doesn't support this guest count
@@ -2353,9 +2359,48 @@ def refresh_all_venues_task(self):
                                 f1_experience=None
                             )
                         )
+                        venue_task_counts[venue] += 1
+            
+            # Verify all expected venues are included in tasks
+            venues_with_tasks = [v for v, count in venue_task_counts.items() if count > 0]
+            missing_venues = set(all_venues) - set(venues_with_tasks)
+            if missing_venues:
+                logger.warning(f"[REFRESH] WARNING: Some venues have no tasks: {missing_venues}")
+            else:
+                logger.info(f"[REFRESH] ✓ All {len(all_venues)} venues have tasks created")
+            
+            # Log task counts for key venues
+            key_venues = ['hijingo', 'puttery_nyc', 'pingpong', 'daysmart_chelsea', 'tsquaredsocial_nyc', 'topgolf_chigwell']
+            key_venue_counts = [(v, venue_task_counts.get(v, 0)) for v in key_venues if v in all_venues]
+            logger.info(f"[REFRESH] Task counts for key venues: {key_venue_counts}")
+            logger.info(f"[REFRESH] Total tasks created: {len(all_tasks)}")
             
             # Shuffle all tasks to interleave different venues and reduce IP blocking risk
+            logger.info(f"[REFRESH] Shuffling {len(all_tasks)} tasks to interleave different venues and reduce IP blocking risk...")
             random.shuffle(all_tasks)
+            
+            # Verify shuffling worked by sampling venues from first tasks
+            # Extract venue from task signatures (Celery signatures store kwargs)
+            first_venues_sample = []
+            for i, task in enumerate(all_tasks[:30]):
+                try:
+                    # Celery signature objects have kwargs attribute
+                    if hasattr(task, 'kwargs') and 'website' in task.kwargs:
+                        first_venues_sample.append(task.kwargs['website'])
+                    elif hasattr(task, 'args') and len(task.args) >= 3:
+                        # Fallback: website is 3rd positional arg (guests, target_date, website)
+                        first_venues_sample.append(task.args[2])
+                except (AttributeError, IndexError):
+                    pass
+                if len(first_venues_sample) >= 20:
+                    break
+            
+            if first_venues_sample:
+                unique_first_venues = len(set(first_venues_sample))
+                logger.info(f"[REFRESH] ✓ Tasks shuffled successfully. First {len(first_venues_sample)} tasks contain {unique_first_venues} unique venues")
+                logger.info(f"[REFRESH] Sample of shuffled venues: {first_venues_sample[:10]}")
+            else:
+                logger.warning(f"[REFRESH] Could not verify shuffling (could not extract venue info from task signatures)")
             
             total_tasks = len(all_tasks)
             total_operations = total_tasks  # Each task is one operation
@@ -2374,9 +2419,7 @@ def refresh_all_venues_task(self):
             logger.info(f"[REFRESH] Venue guest restrictions: {VENUE_GUEST_RESTRICTIONS}")
             logger.info(f"[REFRESH] Expected tasks: {expected_total} (most venues: {venues_with_all_guests} × {len(guest_counts)} guests × {len(date_strings)} dates = {expected_per_guest_all_venues * len(guest_counts)}, restricted venues: {expected_per_guest_restricted})")
             
-            # Verify task creation
-            logger.info(f"[REFRESH] Created {total_tasks} tasks (actual count may be less due to venue guest restrictions)")
-            logger.info(f"[REFRESH] Tasks shuffled to interleave different venues and reduce IP blocking risk")
+            # Verify task creation and counts
             logger.info(f"[REFRESH] Total scraping operations: {total_operations}")
             logger.info(f"[REFRESH] Guest counts included: {guest_counts}")
             if total_tasks != expected_total:
