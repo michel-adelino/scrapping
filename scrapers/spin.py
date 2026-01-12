@@ -24,12 +24,44 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
 
     results = []
 
-    #  Import helper functions dynamically
-    from app import (
-        LAWN_CLUB_TIME_OPTIONS,
-        normalize_time_value,
-        adjust_picker,
-    )
+    # Import helper functions dynamically (with error handling for test environments)
+    import sys
+    LAWN_CLUB_TIME_OPTIONS = []
+    normalize_time_value = None
+    adjust_picker = None
+    
+    # Try to get functions from already loaded module first (avoids triggering db init)
+    if 'app' in sys.modules:
+        try:
+            app_module = sys.modules['app']
+            LAWN_CLUB_TIME_OPTIONS = getattr(app_module, 'LAWN_CLUB_TIME_OPTIONS', [])
+            normalize_time_value = getattr(app_module, 'normalize_time_value', None)
+            adjust_picker = getattr(app_module, 'adjust_picker', None)
+        except Exception as e:
+            logger.warning(f"Could not get functions from loaded app module: {e}")
+    
+    # If not available from loaded module, try importing
+    if not normalize_time_value or not adjust_picker:
+        try:
+            from app import (
+                LAWN_CLUB_TIME_OPTIONS,
+                normalize_time_value,
+                adjust_picker,
+            )
+        except Exception as e:
+            logger.warning(f"Could not import from app: {e}. Using fallback functions.")
+            # Fallback: define minimal versions for testing
+            if not LAWN_CLUB_TIME_OPTIONS:
+                LAWN_CLUB_TIME_OPTIONS = []
+            if not normalize_time_value:
+                def normalize_time_value(raw_value):
+                    if not raw_value:
+                        return None
+                    return raw_value.strip().upper()
+            if not adjust_picker:
+                def adjust_picker(*args, **kwargs):
+                    logger.warning("adjust_picker not available, skipping time adjustment")
+                    return False
 
     try:
         dt = datetime.strptime(target_date, "%Y-%m-%d")
