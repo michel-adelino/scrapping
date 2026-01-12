@@ -85,17 +85,6 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                 selectors = [
                     # Flatiron specific
                     'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',
-                    # Midtown specific (anchor tag)
-                    'a.elementor-button[href*="elementor-action"]',
-                    'a.elementor-button[href*="off_canvas"]',
-                    # Generic Elementor button selectors
-                    'a.elementor-button-link[href*="elementor-action"]',
-                    'a[href*="elementor-action"][href*="off_canvas"]',
-                    'a.elementor-button',
-                    'button.elementor-button',
-                    # Fallback selectors
-                    'a[href*="reservation"]',
-                    'a[href*="book"]'
                 ]
                 
                 clicked = False
