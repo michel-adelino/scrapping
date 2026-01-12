@@ -153,11 +153,31 @@ def create_browser_with_context(headless: bool = None, **kwargs):
     Args:
         headless: Whether to run in headless mode
         **kwargs: Additional options for browser or context
+            - Context options: user_agent, viewport, etc.
+            - Browser launch options: args, etc.
     
     Returns:
         Tuple of (Browser, BrowserContext)
     """
-    browser = create_browser(headless=headless, **kwargs)
-    context = create_browser_context(browser)
+    # Separate context options from browser launch options
+    context_options = {}
+    browser_options = {}
+    
+    # Known context options that should not be passed to browser.launch()
+    context_only_keys = {'user_agent', 'viewport', 'locale', 'timezone_id', 'geolocation', 
+                        'permissions', 'color_scheme', 'reduced_motion', 'forced_colors',
+                        'accept_downloads', 'has_touch', 'is_mobile', 'device_scale_factor',
+                        'screen', 'extra_http_headers', 'http_credentials', 'ignore_https_errors',
+                        'bypass_csp', 'java_script_enabled', 'bypass_csp', 'record_video',
+                        'record_har_path', 'storage_state', 'base_url', 'tracing'}
+    
+    for key, value in kwargs.items():
+        if key in context_only_keys:
+            context_options[key] = value
+        else:
+            browser_options[key] = value
+    
+    browser = create_browser(headless=headless, **browser_options)
+    context = create_browser_context(browser, **context_options)
     return browser, context
 

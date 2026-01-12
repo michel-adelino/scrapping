@@ -211,10 +211,17 @@ class HijingoBookingBot:
                             continue
 
                         # Extract time from span.item-dates
-                        time_element = item.locator('.item-dates')
+                        time_element = item.locator('span.item-dates')
+                        if time_element.count() == 0:
+                            # Try alternative selector
+                            time_element = item.locator('.item-dates')
                         if time_element.count() > 0:
                             time_text = time_element.first.inner_text().strip()
+                            # Extract just the start time if format is "HH:MM - HH:MM"
+                            if ' - ' in time_text:
+                                time_text = time_text.split(' - ')[0].strip()
                         else:
+                            print(f"⚠️ Could not find time element for slot")
                             continue
 
                         # Extract price
@@ -361,7 +368,6 @@ def scrape_hijingo(guests, target_date):
             else:
                 # Legacy MM/DD format - assume current year
                 month, day = parts
-                from datetime import datetime
                 year = datetime.now().year
                 target_date_str = f"{year}-{int(month):02d}-{int(day):02d}"
         elif '-' in target_date:

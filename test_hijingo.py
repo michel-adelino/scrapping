@@ -67,9 +67,9 @@ def test_hijingo_multiple_dates():
     """Test Hijingo scraper with multiple dates"""
     TEST_GUESTS = 4
     TEST_DATES = [
-        (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),   # 7 days from now
-        (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"),  # 14 days from now
-        (datetime.now() + timedelta(days=21)).strftime("%Y-%m-%d"),  # 21 days from now
+        (datetime.now() + timedelta(days=6)).strftime("%Y-%m-%d"),   # 6 days from now
+        (datetime.now() + timedelta(days=12)).strftime("%Y-%m-%d"),  # 12 days from now
+        (datetime.now() + timedelta(days=18)).strftime("%Y-%m-%d"),  # 18 days from now
     ]
     
     print(f"\n{'#'*70}")
