@@ -81,27 +81,109 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             # ---- CLICK RESERVE BUTTON ----
             # Both locations use Elementor buttons, try multiple selectors
             try:
-                # Try location-specific selectors first, then generic ones
-                selectors = [
-                    # Flatiron specific
-                    'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',
-                ]
-                
                 clicked = False
-                for selector in selectors:
-                    try:
-                        element = scraper.page.query_selector(selector)
-                        if element:
-                            element.click()
-                            clicked = True
-                            logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
-                            break
-                    except:
-                        continue
                 
+                # First, try Playwright locator API with text-based selectors (works for both locations)
+                try:
+                    # Try text-based locators (most reliable, works for both flatiron and midtown)
+                    # Button text is "RESERVE NOW" not "BOOK NOW"
+                    reserve_now_locator = scraper.page.locator('a:has-text("RESERVE NOW"), button:has-text("RESERVE NOW")').first
+                    if reserve_now_locator.is_visible(timeout=3000):
+                        reserve_now_locator.click()
+                        clicked = True
+                        logger.info(f"Clicked SPIN reservation button ({location}) via text locator")
+                except Exception as e:
+                    logger.debug(f"Text locator failed: {e}")
+                
+                # If text locator didn't work, try CSS selectors
                 if not clicked:
-                    logger.warning(f"SPIN reservation button not found for {location}")
-                    return results
+                    selectors = [
+                        # Links to SevenRooms (most reliable)
+                        'a[href*="sevenrooms"]',
+                        # Elementor button selectors (generic - works for both locations)
+                        'div.elementor-widget-button a.elementor-button',
+                        'div.elementor-widget-button button.elementor-button',
+                        'a.elementor-button-link',
+                        'button.elementor-button',
+                        # More specific elementor selectors
+                        'div.elementor-element.elementor-widget-button a',
+                        'div.elementor-element.elementor-widget-button button',
+                        # Location-specific selectors (old - kept for backward compatibility)
+                        'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',  # Flatiron
+                    ]
+                    
+                    for selector in selectors:
+                        try:
+                            # Try locator API first
+                            try:
+                                element = scraper.page.locator(selector).first
+                                if element.is_visible(timeout=2000):
+                                    element.click()
+                                    clicked = True
+                                    logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
+                                    break
+                            except:
+                                # Fallback to query_selector
+                                element = scraper.page.query_selector(selector)
+                                if element:
+                                    # Check if visible
+                                    is_visible = scraper.page.evaluate("""
+                                        (el) => {
+                                            const style = window.getComputedStyle(el);
+                                            return style.display !== 'none' && 
+                                                   style.visibility !== 'hidden' && 
+                                                   style.opacity !== '0' &&
+                                                   el.offsetParent !== null;
+                                        }
+                                    """, element)
+                                    if is_visible:
+                                        element.click()
+                                        clicked = True
+                                        logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
+                                        break
+                        except Exception as e:
+                            logger.debug(f"Selector {selector} failed: {e}")
+                            continue
+                
+                # Last resort: JavaScript search for any element containing "RESERVE NOW" or similar text
+                if not clicked:
+                    try:
+                        clicked = scraper.page.evaluate("""
+                            () => {
+                                // Find all clickable elements
+                                const elements = Array.from(document.querySelectorAll('a, button, div[role="button"]'));
+                                
+                                // Look for "RESERVE NOW" text (case insensitive) - primary text on SPIN site
+                                const reserveNow = elements.find(el => {
+                                    const text = el.textContent.trim().toUpperCase();
+                                    return (text.includes('RESERVE NOW') || 
+                                            text.includes('RESERVE') ||
+                                            text.includes('BOOK NOW') ||
+                                            text.includes('BOOK A TABLE')) &&
+                                           el.offsetParent !== null; // Element is visible
+                                });
+                                
+                                if (reserveNow) {
+                                    // Scroll into view first
+                                    reserveNow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    // Small delay
+                                    setTimeout(() => {
+                                        reserveNow.click();
+                                    }, 100);
+                                    return true;
+                                }
+                                return false;
+                            }
+                        """)
+                        if clicked:
+                            logger.info(f"Clicked SPIN reservation button ({location}) via JavaScript text search")
+                            scraper.wait_for_timeout(500)  # Wait for click to register
+                        else:
+                            logger.warning(f"SPIN reservation button not found for {location}")
+                            return results
+                    except Exception as e:
+                        logger.warning(f"JavaScript fallback failed for {location}: {e}")
+                        return results
                 
                 scraper.wait_for_timeout(3500)
             except Exception as e:
