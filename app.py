@@ -151,7 +151,11 @@ LONDON_VENUES = [
     'f1_arcade',
     'topgolf_chigwell',
     'hijingo',
-    'pingpong'
+    'pingpong',
+    'allstarlanes_stratford',
+    'allstarlanes_holborn',
+    'allstarlanes_white_city',
+    'allstarlanes_brick_lane'
 ]
 
 VENUE_BOOKING_URLS = {
@@ -495,7 +499,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong, puttery
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong, puttery, allstarlanes_bowling
 
 # Flask Routes
 @app.route('/')
@@ -648,7 +652,9 @@ def run_scraper():
         'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
         'lucky_strike_nyc', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
-        'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'puttery_nyc', 'all_new_york', 'all_london'
+        'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'puttery_nyc',
+        'allstarlanes_stratford', 'allstarlanes_holborn', 'allstarlanes_white_city', 'allstarlanes_brick_lane',
+        'all_new_york', 'all_london'
     ]
     
     if website in required_date_websites and not target_date:
@@ -679,7 +685,7 @@ def run_scraper():
             'puttery_nyc': 'Puttery (NYC)'
         }
         
-        # Handle dynamic venue names for Five Iron Golf and Lawn Club
+        # Handle dynamic venue names for Five Iron Golf, Lawn Club, and All Star Lanes
         if website.startswith('five_iron_golf_nyc_'):
             from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
             location = website.replace('five_iron_golf_nyc_', '')
@@ -688,11 +694,14 @@ def run_scraper():
             from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
             option = website.replace('lawn_club_nyc_', '')
             venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+        elif website.startswith('allstarlanes_'):
+            from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
+            location = website.replace('allstarlanes_', '')
+            venue_name = ALLSTARLANES_VENUE_NAMES.get(location, 'All Star Lanes')
         else:
             venue_name = website_names.get(website, website.replace('_', ' ').title())
         
         return jsonify({'error': f'{venue_name} requires a specific target date'}), 400
-        return jsonify({'error': f'{website_names[website]} requires a specific target date'}), 400
     
     task_id = str(uuid.uuid4())
     task = ScrapingTask(
@@ -1431,6 +1440,39 @@ def scrape_five_iron_golf_task(self, guests, target_date, task_id=None, location
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_allstarlanes_task')
+def scrape_allstarlanes_task(self, guests, target_date, task_id=None, location='stratford'):
+    """All Star Lanes scraper as Celery task"""
+    with app.app_context():
+        try:
+            # Map location to venue name
+            from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
+            venue_name = ALLSTARLANES_VENUE_NAMES.get(location, 'All Star Lanes (Stratford)')
+            
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
+            
+            slots_saved = run_scraper_and_save_to_db(
+                allstarlanes_bowling.scrape_allstarlanes,
+                venue_name,
+                'London',
+                guests,
+                guests,
+                target_date,
+                location,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_lucky_strike_task')
 def scrape_lucky_strike_task(self, guests, target_date, task_id=None):
     """Lucky Strike scraper as Celery task"""
@@ -1913,7 +1955,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'puttery_nyc': 'Puttery (NYC)'
             }
             
-            # Handle Lawn Club and Five Iron Golf venue names dynamically
+            # Handle Lawn Club, Five Iron Golf, and All Star Lanes venue names dynamically
             if website.startswith('lawn_club_nyc_'):
                 from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
                 option = website.replace('lawn_club_nyc_', '')
@@ -1922,6 +1964,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
                 location = website.replace('five_iron_golf_nyc_', '')
                 venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+            elif website.startswith('allstarlanes_'):
+                from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
+                location = website.replace('allstarlanes_', '')
+                venue_name = ALLSTARLANES_VENUE_NAMES.get(location, 'All Star Lanes')
             else:
                 venue_name = venue_name_map.get(website, website.replace('_', ' ').title())
             
@@ -2020,6 +2066,15 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("Puttery (NYC) requires a specific target date")
                 result = scrape_puttery_task(guests, target_date, task_id)
+            elif website.startswith('allstarlanes_'):
+                if not target_date:
+                    raise ValueError("All Star Lanes requires a specific target date")
+                # Extract location from website name (e.g., 'allstarlanes_stratford' -> 'stratford')
+                location = website.replace('allstarlanes_', '')
+                from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
+                venue_name = ALLSTARLANES_VENUE_NAMES.get(location, 'All Star Lanes (Stratford)')
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_allstarlanes_task with location {location}")
+                result = scrape_allstarlanes_task(guests, target_date, task_id, location)
             else:
                 logger.error(f"[VENUE_TASK] {website}: Unknown website!")
                 raise ValueError(f"Unknown website: {website}")

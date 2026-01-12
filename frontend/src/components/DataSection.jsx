@@ -64,6 +64,10 @@ const VENUE_IMAGE_MAP = {
   'Hijingo': 'hijingo.webp',
   'Bounce': 'Bounce.webp',
   'Puttery (NYC)': 'Puttery.webp',
+  'All Star Lanes (Stratford)': 'AllStarLanes.webp',
+  'All Star Lanes (Holborn)': 'AllStarLanes.webp',
+  'All Star Lanes (White City)': 'AllStarLanes.webp',
+  'All Star Lanes (Brick Lane)': 'AllStarLanes.webp',
 }
 
 function VenueRows({ data }) {
