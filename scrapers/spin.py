@@ -68,26 +68,80 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             scraper.wait_for_timeout(1500)
 
             # ---- CLICK RESERVE BUTTON ----
-            try:
-                scraper.click(
-                    'div.elementor-element.elementor-element-16e99e3.elementor-widget-button'
-                )
-            except:
-                logger.warning("SPIN reservation button not found")
+            # Try multiple selectors for the reservation button
+            button_clicked = False
+            button_selectors = [
+                'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',
+                'div.elementor-widget-button a[href*="table-reservations"]',
+            ]
+            
+            # Try text-based selectors using Playwright's text matching
+            text_selectors = [
+                ('button', 'Reserve'),
+                ('a', 'Reserve'),
+                ('button', 'Book'),
+                ('a', 'Book'),
+            ]
+            
+            for selector in button_selectors:
+                try:
+                    scraper.page.wait_for_selector(selector, timeout=3000, state='visible')
+                    scraper.click(selector)
+                    button_clicked = True
+                    logger.info(f"SPIN reservation button clicked using selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            # If CSS selectors didn't work, try text-based matching
+            if not button_clicked:
+                for tag, text in text_selectors:
+                    try:
+                        element = scraper.page.locator(f'{tag}:has-text("{text}")').first
+                        if element.is_visible(timeout=3000):
+                            element.click()
+                            button_clicked = True
+                            logger.info(f"SPIN reservation button clicked using text: {text}")
+                            break
+                    except:
+                        continue
+            
+            if not button_clicked:
+                logger.warning("SPIN reservation button not found with any selector")
                 return results
 
             scraper.wait_for_timeout(3500)
 
             # ---- GET SevenRooms Iframe ----
-            try:
-                iframe_handle = scraper.page.query_selector(
-                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]'
-                )
-                if not iframe_handle:
-                    logger.warning("SPIN SevenRooms iframe not found")
-                    return results
+            # Wait for iframe to load with multiple possible selectors
+            iframe_handle = None
+            iframe_selectors = [
+                'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]',
+                'iframe[src*="sevenrooms.com"]',
+                'iframe[nitro-lazy-src*="sevenrooms"]',
+            ]
+            
+            for selector in iframe_selectors:
+                try:
+                    scraper.page.wait_for_selector(selector, timeout=10000, state='attached')
+                    iframe_handle = scraper.page.query_selector(selector)
+                    if iframe_handle:
+                        logger.info(f"SPIN SevenRooms iframe found using selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not iframe_handle:
+                logger.warning("SPIN SevenRooms iframe not found with any selector")
+                return results
 
+            try:
                 frame = iframe_handle.content_frame()
+                if not frame:
+                    logger.warning("SPIN iframe content frame is None")
+                    return results
+                # Wait for iframe to be ready
+                scraper.wait_for_timeout(1000)
             except Exception as e:
                 logger.error(f"Could not load iframe: {e}")
                 return results
@@ -95,23 +149,32 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             # ---- DATE PICKER ----
             try:
                 frame.wait_for_selector('button[data-test="sr-calendar-date-button"]', timeout=15000)
-            except:
-                logger.warning("SPIN date button not found")
+                logger.info("SPIN date button found")
+            except Exception as e:
+                logger.warning(f"SPIN date button not found: {e}")
                 return results
 
             # increment date until matches
-            while True:
-                cur = frame.eval_on_selector(
-                    'button[data-test="sr-calendar-date-button"] div:nth-child(1)',
-                    'el => el.textContent.trim()'
-                )
-                if cur == formatted_date:
-                    break
+            max_date_attempts = 50  # Prevent infinite loop
+            date_attempts = 0
+            while date_attempts < max_date_attempts:
                 try:
+                    cur = frame.eval_on_selector(
+                        'button[data-test="sr-calendar-date-button"] div:nth-child(1)',
+                        'el => el.textContent.trim()'
+                    )
+                    if cur == formatted_date:
+                        logger.info(f"SPIN date matched: {cur}")
+                        break
                     frame.click('button[aria-label="increment Date"]')
-                except:
+                    date_attempts += 1
+                    scraper.wait_for_timeout(100)
+                except Exception as e:
+                    logger.warning(f"SPIN date picker error: {e}")
                     break
-                scraper.wait_for_timeout(100)
+            
+            if date_attempts >= max_date_attempts:
+                logger.warning(f"SPIN date picker reached max attempts, current date: {cur if 'cur' in locals() else 'unknown'}")
 
             # ---- GUEST PICKER ----
             # decrement to zero
@@ -123,21 +186,33 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                 scraper.wait_for_timeout(50)
 
             # increment to desired
-            while True:
-                cur_guests = frame.eval_on_selector(
-                    'button[data-test="sr-guest-count-button"] div:nth-child(1)',
-                    'el => el.textContent.trim()'
-                )
-                if str(cur_guests) == str(guests):
-                    break
+            max_guest_attempts = 20  # Prevent infinite loop
+            guest_attempts = 0
+            while guest_attempts < max_guest_attempts:
                 try:
-                    frame.click('button[aria-label="increment Guests"]', force=True)
-                except:
-                    try:
-                        frame.click('button[aria-label="increment Guest"]', force=True)
-                    except:
+                    cur_guests = frame.eval_on_selector(
+                        'button[data-test="sr-guest-count-button"] div:nth-child(1)',
+                        'el => el.textContent.trim()'
+                    )
+                    if str(cur_guests) == str(guests):
+                        logger.info(f"SPIN guests matched: {cur_guests}")
                         break
-                scraper.wait_for_timeout(50)
+                    try:
+                        frame.click('button[aria-label="increment Guests"]', force=True)
+                    except:
+                        try:
+                            frame.click('button[aria-label="increment Guest"]', force=True)
+                        except:
+                            logger.warning("SPIN guest increment button not found")
+                            break
+                    guest_attempts += 1
+                    scraper.wait_for_timeout(50)
+                except Exception as e:
+                    logger.warning(f"SPIN guest picker error: {e}")
+                    break
+            
+            if guest_attempts >= max_guest_attempts:
+                logger.warning(f"SPIN guest picker reached max attempts, current guests: {cur_guests if 'cur_guests' in locals() else 'unknown'}")
 
             # ---- TIME PICKER ----
             normalized_time = normalize_time_value(selected_time)
@@ -156,10 +231,12 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
 
             # ---- CLICK SEARCH ----
             try:
+                frame.wait_for_selector('button[data-test="sr-search-button"]', timeout=5000, state='visible')
                 frame.click('button[data-test="sr-search-button"]', force=True)
+                logger.info("SPIN search button clicked")
                 scraper.wait_for_timeout(3500)
-            except:
-                logger.warning("SPIN Search button click failed")
+            except Exception as e:
+                logger.warning(f"SPIN Search button click failed: {e}")
                 return results
 
             # ---- SCRAPE AVAILABLE SLOTS ----
