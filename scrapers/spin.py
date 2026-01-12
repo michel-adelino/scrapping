@@ -50,16 +50,8 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
 
             # ---- LOAD ROOT PAGE FAST ----
             try:
-                # Build URL based on location
-                if location == 'flatiron':
-                    # Flatiron uses the table-reservations path with elementor action
-                    url = (
-                        f"https://wearespin.com/location/{location_path}/table-reservations/"
-                        "#elementor-action%3Aaction%3Doff_canvas%3Aopen%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D"
-                    )
-                else:
-                    # Midtown and other locations use the base location URL
-                    url = f"https://wearespin.com/location/{location_path}"
+                # Both locations use the table-reservations path                
+                url = ("https://wearespin.com/location/{location_path}/table-reservations/")
                 
                 scraper.goto(
                     url,
@@ -86,50 +78,46 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
 
             scraper.wait_for_timeout(1500)
 
-            # ---- CLICK RESERVE BUTTON (Flatiron only) ----
-            if location == 'flatiron':
-                try:
-                    scraper.click(
-                        'div.elementor-element.elementor-element-16e99e3.elementor-widget-button'
-                    )
-                except:
-                    logger.warning("SPIN reservation button not found")
+            # ---- CLICK RESERVE BUTTON ----
+            # Both locations use Elementor buttons, try multiple selectors
+            try:
+                # Try location-specific selectors first, then generic ones
+                selectors = [
+                    # Flatiron specific
+                    'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',
+                    # Midtown specific (anchor tag)
+                    'a.elementor-button[href*="elementor-action"]',
+                    'a.elementor-button[href*="off_canvas"]',
+                    # Generic Elementor button selectors
+                    'a.elementor-button-link[href*="elementor-action"]',
+                    'a[href*="elementor-action"][href*="off_canvas"]',
+                    'a.elementor-button',
+                    'button.elementor-button',
+                    # Fallback selectors
+                    'a[href*="reservation"]',
+                    'a[href*="book"]'
+                ]
+                
+                clicked = False
+                for selector in selectors:
+                    try:
+                        element = scraper.page.query_selector(selector)
+                        if element:
+                            element.click()
+                            clicked = True
+                            logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
+                            break
+                    except:
+                        continue
+                
+                if not clicked:
+                    logger.warning(f"SPIN reservation button not found for {location}")
                     return results
+                
                 scraper.wait_for_timeout(3500)
-            else:
-                # Midtown: Look for reservation button
-                # Button structure: <a class="elementor-button elementor-button-link elementor-size-sm" href="#elementor-action...">
-                try:
-                    # Try the specific Elementor button selector for Midtown
-                    selectors = [
-                        'a.elementor-button[href*="elementor-action"]',
-                        'a.elementor-button[href*="off_canvas"]',
-                        'a.elementor-button-link[href*="elementor-action"]',
-                        'a[href*="elementor-action"][href*="off_canvas"]',
-                        # Fallback selectors
-                        'a[href*="reservation"]',
-                        'a[href*="book"]',
-                        'a.elementor-button'
-                    ]
-                    clicked = False
-                    for selector in selectors:
-                        try:
-                            element = scraper.page.query_selector(selector)
-                            if element:
-                                element.click()
-                                clicked = True
-                                logger.info(f"Clicked reservation button for Midtown: {selector}")
-                                break
-                        except:
-                            continue
-                    
-                    if not clicked:
-                        logger.warning("SPIN Midtown reservation button not found")
-                        return results
-                    scraper.wait_for_timeout(3500)
-                except Exception as e:
-                    logger.warning(f"Could not click reservation button for Midtown: {e}")
-                    return results
+            except Exception as e:
+                logger.warning(f"Could not click reservation button for {location}: {e}")
+                return results
 
             # ---- GET SevenRooms Iframe ----
             try:

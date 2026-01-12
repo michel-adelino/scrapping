@@ -172,7 +172,7 @@ VENUE_BOOKING_URLS = {
     'Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'SPIN (NYC)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
     'SPIN (NYC - Flatiron)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
-    'SPIN (NYC - Midtown)': 'https://wearespin.com/location/new-york-midtown',
+    'SPIN (NYC - Midtown)': 'https://wearespin.com/location/new-york-midtown/table-reservations/',
     'Five Iron Golf (NYC)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - FiDi)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - Flatiron)': 'https://booking.fiveirongolf.com/session-length',
