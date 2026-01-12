@@ -172,6 +172,9 @@ def create_browser_with_context(headless: bool = None, **kwargs):
                         'record_har_path', 'storage_state', 'base_url', 'tracing'}
     
     for key, value in kwargs.items():
+        # Skip None values
+        if value is None:
+            continue
         if key in context_only_keys:
             context_options[key] = value
         else:

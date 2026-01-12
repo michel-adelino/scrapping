@@ -87,10 +87,11 @@ class ExploretockAutomation:
             self.log("Initializing Playwright with FlareSolverr cookies...", "INFO")
 
             # Create browser with context
-            self.browser, self.context = create_browser_with_context(
-                headless=self.headless,
-                user_agent=self.user_agent if self.user_agent else None
-            )
+            browser_kwargs = {'headless': self.headless}
+            if self.user_agent:
+                browser_kwargs['user_agent'] = self.user_agent
+            
+            self.browser, self.context = create_browser_with_context(**browser_kwargs)
             
             # Create page
             self.page = create_page(self.context, timeout=30000)
