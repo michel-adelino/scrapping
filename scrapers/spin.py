@@ -97,21 +97,21 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                     return results
                 scraper.wait_for_timeout(3500)
             else:
-                # Midtown: Look for reservation button or widget trigger
-                # The iframe might be embedded directly, so we try to find a button but don't fail if not found
+                # Midtown: Look for reservation button
+                # Button structure: <a class="elementor-button elementor-button-link elementor-size-sm" href="#elementor-action...">
                 try:
-                    clicked = False
-                    # Try various selectors for reservation/book buttons
+                    # Try the specific Elementor button selector for Midtown
                     selectors = [
+                        'a.elementor-button[href*="elementor-action"]',
+                        'a.elementor-button[href*="off_canvas"]',
+                        'a.elementor-button-link[href*="elementor-action"]',
+                        'a[href*="elementor-action"][href*="off_canvas"]',
+                        # Fallback selectors
                         'a[href*="reservation"]',
                         'a[href*="book"]',
-                        '[data-test*="reservation"]',
-                        '[data-test*="book"]',
-                        'button[class*="reservation"]',
-                        'button[class*="book"]',
-                        'a[class*="reservation"]',
-                        'a[class*="book"]'
+                        'a.elementor-button'
                     ]
+                    clicked = False
                     for selector in selectors:
                         try:
                             element = scraper.page.query_selector(selector)
@@ -124,12 +124,12 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                             continue
                     
                     if not clicked:
-                        # If no button found, the iframe might already be visible or embedded directly
-                        logger.info("No reservation button found for Midtown, iframe may be embedded directly")
+                        logger.warning("SPIN Midtown reservation button not found")
+                        return results
                     scraper.wait_for_timeout(3500)
                 except Exception as e:
-                    logger.warning(f"Could not find reservation button for Midtown: {e}, proceeding anyway")
-                    scraper.wait_for_timeout(2000)
+                    logger.warning(f"Could not click reservation button for Midtown: {e}")
+                    return results
 
             # ---- GET SevenRooms Iframe ----
             try:
