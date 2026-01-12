@@ -51,7 +51,7 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             # ---- LOAD ROOT PAGE FAST ----
             try:
                 # Both locations use the table-reservations path                
-                url = ("https://wearespin.com/location/{location_path}/table-reservations/")
+                url = f"https://wearespin.com/location/{location_path}/table-reservations/"
                 
                 scraper.goto(
                     url,
