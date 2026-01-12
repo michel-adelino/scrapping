@@ -608,14 +608,14 @@ sudo systemctl restart backend-scraper-celery-worker
 
 ## Venue Information
 
-### Total Venues: 23
-- **NYC**: 15 venues
+### Total Venues: 24
+- **NYC**: 16 venues
   - Swingers NYC
   - Electric Shuffle NYC
   - Lawn Club (3 options: Indoor Gaming, Curling Lawns, Croquet Lawns)
   - SPIN NYC
   - Five Iron Golf (7 locations: FiDi, Flatiron, Grand Central, Herald Square, Long Island City, Upper East Side, Rockefeller Center)
-  - Lucky Strike NYC
+  - Lucky Strike (2 locations: Chelsea Piers, Times Square)
   - Easybowl NYC
 
 - **London**: 8 venues

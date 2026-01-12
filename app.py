@@ -136,6 +136,7 @@ NYC_VENUES = [
     'five_iron_golf_nyc_upper_east_side',
     'five_iron_golf_nyc_rockefeller_center',
     'lucky_strike_nyc',
+    'lucky_strike_nyc_times_square',
     'easybowl_nyc',
     'tsquaredsocial_nyc',
     'daysmart_chelsea',
@@ -180,7 +181,8 @@ VENUE_BOOKING_URLS = {
     'Five Iron Golf (NYC - Long Island City)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - Upper East Side)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
-    'Lucky Strike (NYC)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
+    'Lucky Strike (Chelsea Piers)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
+    'Lucky Strike (Times Square)': 'https://www.luckystrikeent.com/location/lucky-strike-times-square/booking/lane-reservation',
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
     'T-Squared Social': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
     'Chelsea Piers Golf': 'https://apps.daysmartrecreation.com/dash/chelsea/program-finder',
@@ -654,7 +656,7 @@ def run_scraper():
         'five_iron_golf_nyc_fidi', 'five_iron_golf_nyc_flatiron', 'five_iron_golf_nyc_grand_central',
         'five_iron_golf_nyc_herald_square', 'five_iron_golf_nyc_long_island_city',
         'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
-        'lucky_strike_nyc', 'easybowl_nyc',
+        'lucky_strike_nyc', 'lucky_strike_nyc_times_square', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
         'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'puttery_nyc',
         'allstarlanes_stratford', 'allstarlanes_holborn', 'allstarlanes_white_city', 'allstarlanes_brick_lane',
@@ -670,7 +672,7 @@ def run_scraper():
             'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
             'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
             'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
-            'spin_nyc': 'SPIN NYC',
+            'spin_nyc': 'SPIN (NYC - Flatiron)',
             'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
             'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
             'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
@@ -679,7 +681,8 @@ def run_scraper():
             'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
             'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
             'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
-            'lucky_strike_nyc': 'Lucky Strike NYC',
+            'lucky_strike_nyc': 'Lucky Strike (Chelsea Piers)',
+            'lucky_strike_nyc_times_square': 'Lucky Strike (Times Square)',
             'easybowl_nyc': 'Easybowl NYC',
             'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
             'fair_game_city': 'Fair Game (City)',
@@ -702,7 +705,7 @@ def run_scraper():
         elif website.startswith('spin_nyc_'):
             from scrapers.spin import SPIN_VENUE_NAMES
             location = website.replace('spin_nyc_', '')
-            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
         elif website.startswith('allstarlanes_'):
             from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
             location = website.replace('allstarlanes_', '')
@@ -1393,7 +1396,7 @@ def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None
     with app.app_context():
         try:
             from scrapers.spin import SPIN_VENUE_NAMES
-            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
             
             if task_id:
                 update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
@@ -1487,16 +1490,19 @@ def scrape_allstarlanes_task(self, guests, target_date, task_id=None, location='
 
 
 @celery_app.task(bind=True, name='app.scrape_lucky_strike_task')
-def scrape_lucky_strike_task(self, guests, target_date, task_id=None):
+def scrape_lucky_strike_task(self, guests, target_date, task_id=None, location='chelsea_piers'):
     """Lucky Strike scraper as Celery task"""
     with app.app_context():
         try:
+            from scrapers.lucky_strike import LUCKY_STRIKE_VENUE_NAMES
+            venue_name = LUCKY_STRIKE_VENUE_NAMES.get(location, 'Lucky Strike (Chelsea Piers)')
+            
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Lucky Strike...', current_venue='Lucky Strike (NYC)')
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
             
             slots_saved = run_scraper_and_save_to_db(
-                lucky_strike.scrape_lucky_strike,
-                'Lucky Strike (NYC)',
+                lambda g, d: lucky_strike.scrape_lucky_strike(g, d, location),
+                venue_name,
                 'NYC',
                 guests,
                 guests,
@@ -1944,7 +1950,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
                 'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
                 'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
-                'spin_nyc': 'SPIN (NYC)',
+                'spin_nyc': 'SPIN (NYC - Flatiron)',
                 'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
                 'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
                 'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
@@ -1953,7 +1959,8 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
                 'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
                 'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
-                'lucky_strike_nyc': 'Lucky Strike (NYC)',
+                'lucky_strike_nyc': 'Lucky Strike (Chelsea Piers)',
+                'lucky_strike_nyc_times_square': 'Lucky Strike (Times Square)',
                 'easybowl_nyc': 'Easybowl (NYC)',
                 'tsquaredsocial_nyc': 'T-Squared Social',
                 'daysmart_chelsea': 'Chelsea Piers Golf',
@@ -2016,7 +2023,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 # Extract location from website name (e.g., 'spin_nyc_midtown' -> 'midtown')
                 location = website.replace('spin_nyc_', '')
                 from scrapers.spin import SPIN_VENUE_NAMES
-                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_spin_task with location {location}")
                 result = scrape_spin_task(guests, target_date, task_id, spin_time, location=location)
             elif website.startswith('five_iron_golf_nyc_'):
@@ -2028,10 +2035,20 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task with location {location}")
                 result = scrape_five_iron_golf_task(guests, target_date, task_id, location)
-            elif website == 'lucky_strike_nyc':
+            elif website.startswith('lucky_strike_nyc'):
                 if not target_date:
                     raise ValueError("Lucky Strike NYC requires a specific target date")
-                result = scrape_lucky_strike_task(guests, target_date, task_id)
+                # Extract location from website name (e.g., 'lucky_strike_nyc_times_square' -> 'times_square', 'lucky_strike_nyc' -> 'chelsea_piers')
+                if website == 'lucky_strike_nyc':
+                    location = 'chelsea_piers'
+                elif website == 'lucky_strike_nyc_times_square':
+                    location = 'times_square'
+                else:
+                    location = 'chelsea_piers'  # default
+                from scrapers.lucky_strike import LUCKY_STRIKE_VENUE_NAMES
+                venue_name = LUCKY_STRIKE_VENUE_NAMES.get(location, 'Lucky Strike (Chelsea Piers)')
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_lucky_strike_task with location {location}")
+                result = scrape_lucky_strike_task(guests, target_date, task_id, location)
             elif website == 'easybowl_nyc':
                 if not target_date:
                     raise ValueError("Easybowl NYC requires a specific target date")

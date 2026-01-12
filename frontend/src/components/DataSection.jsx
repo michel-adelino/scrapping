@@ -41,7 +41,8 @@ const VENUE_IMAGE_MAP = {
   'Five Iron Golf (NYC - Long Island City)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Upper East Side)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Rockefeller Center)': 'FiveIron.webp',
-  'Lucky Strike (NYC)': 'LuckyStrike.webp', // Add image if available
+  'Lucky Strike (Chelsea Piers)': 'LuckyStrike.webp', // Add image if available
+  'Lucky Strike (Times Square)': 'LuckyStrike.webp', // Add image if available
   'Easybowl (NYC)': 'Frames.webp', // Add image if available
   'Fair Game (Canary Wharf)': 'Fairgame.webp',
   'Fair Game (City)': 'Fairgame.webp',
