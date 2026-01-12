@@ -140,7 +140,8 @@ NYC_VENUES = [
     'easybowl_nyc',
     'tsquaredsocial_nyc',
     'daysmart_chelsea',
-    'puttery_nyc'
+    'puttery_nyc',
+    'kick_axe_brooklyn'
 ]
 
 LONDON_VENUES = [
@@ -203,7 +204,8 @@ VENUE_BOOKING_URLS = {
     'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london',
     'Topgolf Chigwell': 'https://www.sevenrooms.com/explore/topgolfchigwell/reservations/create/search',
     'Bounce': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB',
-    'Puttery (NYC)': 'https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday'
+    'Puttery (NYC)': 'https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday',
+    'Kick Axe (Brooklyn)': 'https://www.exploretock.com/kick-axe-throwing-brooklyn-2025/experience/573671/axe-throwing-75-mins'
 }
 
 
@@ -505,7 +507,7 @@ def run_scraper_and_save_to_db(scraper_func, venue_name, city, guests, *args, ta
 
 # Import scrapers
 from scrapers import swingers, electric_shuffle, lawn_club, spin, five_iron_golf, lucky_strike, easybowl
-from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong, puttery, allstarlanes_bowling
+from scrapers import fair_game, clays_bar, puttshack, flight_club_darts, f1_arcade, topgolfchigwell, tsquaredsocial, daysmart, hijingo, pingpong, puttery, kick_axe, allstarlanes_bowling
 
 # Flask Routes
 @app.route('/')
@@ -659,6 +661,7 @@ def run_scraper():
         'lucky_strike_nyc', 'lucky_strike_nyc_times_square', 'easybowl_nyc',
         'fair_game_canary_wharf', 'fair_game_city', 'clays_bar', 'puttshack', 
         'flight_club_darts', 'f1_arcade', 'hijingo', 'pingpong', 'puttery_nyc',
+        'kick_axe_brooklyn',
         'allstarlanes_stratford', 'allstarlanes_holborn', 'allstarlanes_white_city', 'allstarlanes_brick_lane',
         'all_new_york', 'all_london'
     ]
@@ -690,7 +693,8 @@ def run_scraper():
             'puttshack': 'Puttshack',
             'flight_club_darts': 'Flight Club Darts (all locations)',
             'f1_arcade': 'F1 Arcade',
-            'puttery_nyc': 'Puttery (NYC)'
+            'puttery_nyc': 'Puttery (NYC)',
+            'kick_axe_brooklyn': 'Kick Axe (Brooklyn)'
         }
         
         # Handle dynamic venue names for Five Iron Golf, Lawn Club, SPIN, and All Star Lanes
@@ -1912,6 +1916,34 @@ def scrape_puttery_task(self, guests, target_date, task_id=None):
             raise e
 
 
+@celery_app.task(bind=True, name='app.scrape_kick_axe_task')
+def scrape_kick_axe_task(self, guests, target_date, task_id=None):
+    """Kick Axe Brooklyn scraper as Celery task"""
+    with app.app_context():
+        try:
+            if task_id:
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Kick Axe (Brooklyn)...', current_venue='Kick Axe (Brooklyn)')
+            
+            slots_saved = run_scraper_and_save_to_db(
+                kick_axe.scrape_kick_axe,
+                'Kick Axe (Brooklyn)',
+                'NYC',
+                guests,
+                guests,
+                target_date,
+                task_id=task_id
+            )
+            
+            if task_id:
+                update_task_status(task_id, status='SUCCESS', progress=f'Found {slots_saved} slots', total_slots=slots_saved)
+            
+            return {'status': 'success', 'slots_found': slots_saved}
+        except Exception as e:
+            if task_id:
+                update_task_status(task_id, status='FAILURE', error=str(e))
+            raise e
+
+
 @celery_app.task(bind=True, name='app.scrape_venue_task')
 def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_club_option=None, lawn_club_time=None, lawn_club_duration=None, spin_time=None, clays_location=None, puttshack_location=None, f1_experience=None):
     """Celery task wrapper for scraping a single venue"""
@@ -1973,7 +2005,8 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'topgolf_chigwell': 'Topgolf Chigwell',
                 'hijingo': 'Hijingo',
                 'pingpong': 'Bounce',
-                'puttery_nyc': 'Puttery (NYC)'
+                'puttery_nyc': 'Puttery (NYC)',
+                'kick_axe_brooklyn': 'Kick Axe (Brooklyn)'
             }
             
             # Handle Lawn Club, Five Iron Golf, and All Star Lanes venue names dynamically
@@ -2106,6 +2139,10 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 if not target_date:
                     raise ValueError("Puttery (NYC) requires a specific target date")
                 result = scrape_puttery_task(guests, target_date, task_id)
+            elif website == 'kick_axe_brooklyn':
+                if not target_date:
+                    raise ValueError("Kick Axe (Brooklyn) requires a specific target date")
+                result = scrape_kick_axe_task(guests, target_date, task_id)
             elif website.startswith('allstarlanes_'):
                 if not target_date:
                     raise ValueError("All Star Lanes requires a specific target date")
@@ -2409,7 +2446,7 @@ def refresh_all_venues_task(self):
                 logger.info(f"[REFRESH] ✓ All {len(all_venues)} venues have tasks created")
             
             # Log task counts for key venues
-            key_venues = ['hijingo', 'puttery_nyc', 'pingpong', 'daysmart_chelsea', 'tsquaredsocial_nyc', 'topgolf_chigwell']
+            key_venues = ['hijingo', 'puttery_nyc', 'kick_axe_brooklyn', 'pingpong', 'daysmart_chelsea', 'tsquaredsocial_nyc', 'topgolf_chigwell']
             key_venue_counts = [(v, venue_task_counts.get(v, 0)) for v in key_venues if v in all_venues]
             logger.info(f"[REFRESH] Task counts for key venues: {key_venue_counts}")
             logger.info(f"[REFRESH] Total tasks created: {len(all_tasks)}")
