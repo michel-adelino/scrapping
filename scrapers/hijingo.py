@@ -1,13 +1,8 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from playwright.sync_api import Browser, BrowserContext, Page
 import time
 import logging
 from datetime import datetime
+from browser_utils import create_browser, create_browser_context, create_page, create_browser_with_context
 
 logger = logging.getLogger(__name__)
 
@@ -18,33 +13,27 @@ class HijingoBookingBot:
         Initialize the bot
         :param headless: Run in headless mode (for servers without display)
         """
-        options = webdriver.ChromeOptions()
-
+        self.headless = headless
+        self.browser = None
+        self.context = None
+        self.page = None
+        
+        # Create browser with context
+        self.browser, self.context = create_browser_with_context(
+            headless=headless,
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        )
+        
+        # Create page
+        self.page = create_page(self.context, timeout=30000)
+        
+        # Hide webdriver property
+        self.page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+        """)
+        
         if headless:
-            options.add_argument('--headless=new')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
             print("🖥️ Running in HEADLESS mode")
-
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=options)
-
-            self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-                "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            })
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        else:
-            self.driver = webdriver.Chrome()
-            self.driver.maximize_window()
-
-        self.wait = WebDriverWait(self.driver, 10)
 
     def start_booking(self, guests, booking_date):
         """
@@ -75,16 +64,16 @@ class HijingoBookingBot:
             # Construct URL with date and guests
             url = f"https://www.hijingo.com/book?depart={target_date_str}&guests={guests}"
             print(f"🌐 Opening URL: {url}")
-            self.driver.get(url)
+            self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(4)
 
             try:
-                self.driver.save_screenshot('/home/faizan/Documents/debug_screenshot.png')
+                self.page.screenshot(path='/home/faizan/Documents/debug_screenshot.png')
                 print(f"📸 Screenshot saved")
             except:
                 pass
-            print(f"📄 Page title: {self.driver.title}")
-            print(f"🔗 Current URL: {self.driver.current_url}")
+            print(f"📄 Page title: {self.page.title()}")
+            print(f"🔗 Current URL: {self.page.url}")
 
             self.handle_cookie_consent()
             time.sleep(2)
@@ -119,16 +108,15 @@ class HijingoBookingBot:
 
             cookie_button_xpath = '//*[@id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"]'
 
-            cookie_button = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH, cookie_button_xpath))
-            )
+            try:
+                cookie_button = self.page.locator(cookie_button_xpath)
+                cookie_button.wait_for(state="visible", timeout=5000)
+                cookie_button.click()
+                print("✓ Clicked 'Allow All' on cookie consent")
+                time.sleep(1)
+            except:
+                print("ℹ️ No cookie consent banner found - continuing...")
 
-            cookie_button.click()
-            print("✓ Clicked 'Allow All' on cookie consent")
-            time.sleep(1)
-
-        except TimeoutException:
-            print("ℹ️ No cookie consent banner found - continuing...")
         except Exception as e:
             print(f"ℹ️ Cookie consent handling: {str(e)}")
 
@@ -144,13 +132,12 @@ class HijingoBookingBot:
             date_header_selector = f'li.slot-search__item--date[data-date="{target_date_str}"]'
 
             try:
-                date_header = self.wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, date_header_selector))
-                )
+                date_header = self.page.locator(date_header_selector)
+                date_header.wait_for(state="visible", timeout=10000)
                 print(f"✓ Date {target_date_str} is available")
                 return True
 
-            except TimeoutException:
+            except:
                 print(f"⚠️ Date {target_date_str} not found - slot not available")
                 return False
 
@@ -172,20 +159,23 @@ class HijingoBookingBot:
 
             try:
                 # Verify the date header exists
-                date_header = self.wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, date_header_selector))
-                )
+                date_header = self.page.locator(date_header_selector)
+                date_header.wait_for(state="visible", timeout=10000)
                 print(f"✓ Found date header for {target_date}")
 
                 # Get all list items
-                all_list_items = self.driver.find_elements(By.CSS_SELECTOR, '.slot-search__list > li')
+                all_list_items = self.page.locator('.slot-search__list > li')
+                count = all_list_items.count()
 
                 slots_data = []
                 collecting = False
 
-                for item in all_list_items:
+                for i in range(count):
+                    item = all_list_items.nth(i)
+                    
                     # Check if this is a date header
-                    is_date_header = 'slot-search__item--date' in item.get_attribute('class')
+                    item_classes = item.get_attribute('class') or ''
+                    is_date_header = 'slot-search__item--date' in item_classes
 
                     if is_date_header:
                         # Get the data-date attribute
@@ -209,46 +199,60 @@ class HijingoBookingBot:
 
                     try:
                         # Check if this slot contains a date card (actual slot) vs empty list item
-                        date_card = item.find_elements(By.CSS_SELECTOR, '.date-card')
-                        if not date_card:
+                        date_card = item.locator('.date-card')
+                        if date_card.count() == 0:
                             continue
 
                         # Check if slot is sold out
-                        is_sold_out = 'date-card--sold-out' in date_card[0].get_attribute('class')
+                        date_card_classes = date_card.first.get_attribute('class') or ''
+                        is_sold_out = 'date-card--sold-out' in date_card_classes
                         if is_sold_out:
                             print(f"⊗ Skipping sold out slot")
                             continue
 
                         # Extract time from span.item-dates
-                        time_element = item.find_element(By.CSS_SELECTOR, '.item-dates')
-                        time_text = time_element.text.strip()
+                        time_element = item.locator('.item-dates')
+                        if time_element.count() > 0:
+                            time_text = time_element.first.inner_text().strip()
+                        else:
+                            continue
 
                         # Extract price
                         try:
-                            price_element = item.find_element(By.CSS_SELECTOR, '.js-price-string-price')
-                            price_text = price_element.text.strip()
+                            price_element = item.locator('.js-price-string-price')
+                            if price_element.count() > 0:
+                                price_text = price_element.first.inner_text().strip()
+                            else:
+                                price_text = "Price not available"
                         except:
                             price_text = "Price not available"
 
                         # Get event type (X.MAS, Hijingo OG, etc.)
                         try:
-                            event_element = item.find_element(By.CSS_SELECTOR, '.p--xsmall.weight-bold')
-                            event_text = event_element.text.strip()
+                            event_element = item.locator('.p--xsmall.weight-bold')
+                            if event_element.count() > 0:
+                                event_text = event_element.first.inner_text().strip()
+                            else:
+                                event_text = "Standard"
                         except:
                             event_text = "Standard"
 
                         # Check for special badge (free cocktail offer, etc.)
                         try:
-                            badge_element = item.find_element(By.CSS_SELECTOR, '.date-card__badge.override-badge')
-                            badge_text = badge_element.text.strip()
+                            badge_element = item.locator('.date-card__badge.override-badge')
+                            if badge_element.count() > 0:
+                                badge_text = badge_element.first.inner_text().strip()
+                            else:
+                                badge_text = None
                         except:
                             badge_text = None
 
                         # Check for "Last few" or other badges
                         availability_status = "Available"
                         try:
-                            low_stock_badge = item.find_element(By.CSS_SELECTOR, '.date-card__badge.low-stock')
-                            availability_status = low_stock_badge.text.strip()
+                            low_stock_badge = item.locator('.date-card__badge.low-stock')
+                            if low_stock_badge.count() > 0:
+                                availability_status = low_stock_badge.first.inner_text().strip()
                         except:
                             pass
 
@@ -271,7 +275,7 @@ class HijingoBookingBot:
                 print(f"✓ Found {len(slots_data)} available time slots for {target_date}")
                 return slots_data
 
-            except TimeoutException:
+            except:
                 print(f"⚠️ No time slots found for date {target_date}")
                 return []
 
@@ -307,7 +311,30 @@ class HijingoBookingBot:
         """Close the browser"""
         print("🔚 Closing browser in 10 seconds...")
         time.sleep(10)
-        self.driver.quit()
+        self.cleanup()
+
+    def cleanup(self):
+        """Clean up browser resources"""
+        try:
+            if self.page:
+                self.page.close()
+                self.page = None
+        except Exception as e:
+            logger.warning(f"Error closing page: {e}")
+
+        try:
+            if self.context:
+                self.context.close()
+                self.context = None
+        except Exception as e:
+            logger.warning(f"Error closing context: {e}")
+
+        try:
+            if self.browser:
+                self.browser.close()
+                self.browser = None
+        except Exception as e:
+            logger.warning(f"Error closing browser: {e}")
 
 
 def scrape_hijingo(guests, target_date):
@@ -346,7 +373,7 @@ def scrape_hijingo(guests, target_date):
         # Construct URL with date and guests
         url = f"https://www.hijingo.com/book?depart={target_date_str}&guests={guests}"
         logger.info(f"[Hijingo] Opening URL: {url}")
-        bot.driver.get(url)
+        bot.page.goto(url, wait_until="domcontentloaded", timeout=30000)
         time.sleep(4)
         
         # Handle cookie consent
@@ -410,14 +437,14 @@ def scrape_hijingo(guests, target_date):
     finally:
         if bot:
             try:
-                bot.driver.quit()
+                bot.cleanup()
             except:
                 pass
 
 
 # Usage example
 if __name__ == "__main__":
-    bot = HijingoBookingBot(headless= True)  # Change to True for headless mode
+    bot = HijingoBookingBot(headless=True)  # Change to True for headless mode
 
     try:
         guests = 4

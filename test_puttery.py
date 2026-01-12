@@ -1,6 +1,6 @@
 """
-Test script for Hijingo scraper
-Tests the scrape_hijingo function with various configurations
+Test script for Puttery scraper
+Tests the scrape_puttery function with various configurations
 """
 
 import sys
@@ -22,17 +22,17 @@ logging.basicConfig(
 )
 
 # Import the scraper function
-from scrapers.hijingo import scrape_hijingo
+from scrapers.puttery import scrape_puttery
 
-def test_hijingo(guests, target_date):
-    """Test the Hijingo scraper"""
+def test_puttery(guests, target_date):
+    """Test the Puttery scraper"""
     print(f"\n{'='*70}")
-    print(f"Testing: Hijingo")
+    print(f"Testing: Puttery (NYC)")
     print(f"Date: {target_date}, Guests: {guests}")
     print(f"{'='*70}")
     
     try:
-        results = scrape_hijingo(guests, target_date)
+        results = scrape_puttery(guests, target_date)
         
         if results:
             print(f"[SUCCESS] Found {len(results)} available slots")
@@ -47,10 +47,8 @@ def test_hijingo(guests, target_date):
                 print(f"  Price:          {slot.get('price', 'N/A')}")
                 print(f"  Status:         {slot.get('status', 'N/A')}")
                 print(f"  Website:        {slot.get('website', 'N/A')}")
-                print(f"  Guests:         {slot.get('guests', 'N/A')}")
-                if slot.get('description'):
-                    print(f"  Description:    {slot.get('description', 'N/A')}")
-                print(f"  Timestamp:      {slot.get('timestamp', 'N/A')}")
+                if slot.get('booking_url'):
+                    print(f"  Booking URL:    {slot.get('booking_url', 'N/A')}")
             
             print("\n" + "="*70)
             return True, len(results)
@@ -63,9 +61,9 @@ def test_hijingo(guests, target_date):
         traceback.print_exc()
         return False, 0
 
-def test_hijingo_multiple_dates():
-    """Test Hijingo scraper with multiple dates"""
-    TEST_GUESTS = 4
+def test_puttery_multiple_dates():
+    """Test Puttery scraper with multiple dates"""
+    TEST_GUESTS = 3
     TEST_DATES = [
         (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"),   # 7 days from now
         (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"),  # 14 days from now
@@ -73,14 +71,14 @@ def test_hijingo_multiple_dates():
     ]
     
     print(f"\n{'#'*70}")
-    print(f"TESTING HIJINGO SCRAPER - MULTIPLE DATES")
+    print(f"TESTING PUTTERY SCRAPER - MULTIPLE DATES")
     print(f"Test Guests: {TEST_GUESTS}")
     print(f"{'#'*70}")
     
     results_summary = []
     
     for test_date in TEST_DATES:
-        success, count = test_hijingo(TEST_GUESTS, test_date)
+        success, count = test_puttery(TEST_GUESTS, test_date)
         results_summary.append((test_date, success, count))
     
     # Summary
@@ -104,17 +102,59 @@ def test_hijingo_multiple_dates():
     
     return results_summary
 
-def test_hijingo_single(guests=4, days_ahead=7):
-    """Test Hijingo scraper with a single date"""
+def test_puttery_single(guests=3, days_ahead=7):
+    """Test Puttery scraper with a single date"""
     target_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-    test_hijingo(guests, target_date)
+    test_puttery(guests, target_date)
+
+def test_puttery_multiple_guests():
+    """Test Puttery scraper with multiple guest counts"""
+    TEST_DATE = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+    TEST_GUESTS = [2, 3, 4, 5, 6]
+    
+    print(f"\n{'#'*70}")
+    print(f"TESTING PUTTERY SCRAPER - MULTIPLE GUEST COUNTS")
+    print(f"Test Date: {TEST_DATE}")
+    print(f"{'#'*70}")
+    
+    results_summary = []
+    
+    for guests in TEST_GUESTS:
+        print(f"\n--- Testing with {guests} guests ---")
+        success, count = test_puttery(guests, TEST_DATE)
+        results_summary.append((guests, success, count))
+    
+    # Summary
+    print(f"\n{'='*70}")
+    print("TEST SUMMARY")
+    print(f"{'='*70}")
+    
+    successful = sum(1 for _, success, _ in results_summary if success)
+    total = len(results_summary)
+    total_slots = sum(count for _, _, count in results_summary)
+    
+    print(f"\nTotal Guest Counts Tested: {total}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {total - successful}")
+    print(f"Total Slots Found: {total_slots}")
+    
+    print("\nDetailed Results:")
+    for guests, success, count in results_summary:
+        status = "[OK]" if success else "[FAIL]"
+        print(f"  {status} {guests} guests: {count} slots")
+    
+    return results_summary
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        # Custom test: python test_hijingo.py [guests] [days_ahead]
-        guests = int(sys.argv[1]) if len(sys.argv) > 1 else 4
-        days_ahead = int(sys.argv[2]) if len(sys.argv) > 2 else 7
-        test_hijingo_single(guests, days_ahead)
+        if sys.argv[1] == 'guests':
+            # Test multiple guest counts: python test_puttery.py guests
+            test_puttery_multiple_guests()
+        else:
+            # Custom test: python test_puttery.py [guests] [days_ahead]
+            guests = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+            days_ahead = int(sys.argv[2]) if len(sys.argv) > 2 else 7
+            test_puttery_single(guests, days_ahead)
     else:
         # Default: Test multiple dates
-        test_hijingo_multiple_dates()
+        test_puttery_multiple_dates()

@@ -4,14 +4,9 @@ import time
 import os
 from bs4 import BeautifulSoup
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import Browser, BrowserContext, Page
 import re
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from browser_utils import create_browser, create_browser_context, create_page, create_browser_with_context
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,11 +14,11 @@ logger = logging.getLogger(__name__)
 class ExploretockAutomation:
     def __init__(self, guest_count=3, desired_date="12/23/2025", headless=True, flaresolverr_url=None):
         """
-        Hybrid approach: FlareSolverr for Cloudflare bypass + Selenium for interactions
+        Hybrid approach: FlareSolverr for Cloudflare bypass + Playwright for interactions
 
         Prerequisites:
         - FlareSolverr running: docker run -d -p 8191:8191 flaresolverr/flaresolverr
-        - Chrome/Chromium installed
+        - Playwright browsers installed: playwright install chromium
         """
         self.website_url = "https://www.exploretock.com/puttery-new-york/"
         self.guest_count = guest_count
@@ -34,8 +29,9 @@ class ExploretockAutomation:
         self.cookies = []
         self.user_agent = None
         self.headless = headless
-        self.driver = None
-        self.wait = None
+        self.browser = None
+        self.context = None
+        self.page = None
         self.max_retries = 3
         self.original_date_format = None  # Store original date format for return
 
@@ -85,41 +81,31 @@ class ExploretockAutomation:
             self.log(f"FlareSolverr error: {e}", "ERROR")
             return False
 
-    def init_selenium_with_cookies(self):
-        """Initialize Selenium browser with cookies from FlareSolverr"""
+    def init_playwright_with_cookies(self):
+        """Initialize Playwright browser with cookies from FlareSolverr"""
         try:
-            self.log("Initializing Selenium with FlareSolverr cookies...", "INFO")
+            self.log("Initializing Playwright with FlareSolverr cookies...", "INFO")
 
-            options = Options()
-            options.binary_location = '/usr/bin/google-chrome-stable'
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-
-            if self.user_agent:
-                options.add_argument(f"user-agent={self.user_agent}")
-
-            if self.headless:
-                options.add_argument("--headless=new")
-                options.add_argument("--window-size=1920,1080")
-                options.add_argument("--disable-gpu")
-            else:
-                options.add_argument("--start-maximized")
-
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=options)
-            self.wait = WebDriverWait(self.driver, 25)
+            # Create browser with context
+            self.browser, self.context = create_browser_with_context(
+                headless=self.headless,
+                user_agent=self.user_agent if self.user_agent else None
+            )
+            
+            # Create page
+            self.page = create_page(self.context, timeout=30000)
 
             # Navigate to domain first (required to set cookies)
             self.log("Loading domain to inject cookies...", "INFO")
-            self.driver.get(self.website_url)
-            time.sleep(2)
+            self.page.goto(self.website_url, wait_until="domcontentloaded", timeout=30000)
+            self.delay_ms(2000)
 
             # Inject cookies from FlareSolverr
             if self.cookies:
+                # Convert FlareSolverr cookies to Playwright format
+                playwright_cookies = []
                 for cookie in self.cookies:
                     try:
-                        # Selenium cookie format
                         cookie_dict = {
                             'name': cookie.get('name'),
                             'value': cookie.get('value'),
@@ -127,47 +113,54 @@ class ExploretockAutomation:
                             'path': cookie.get('path', '/'),
                         }
                         if 'expiry' in cookie:
-                            cookie_dict['expiry'] = cookie['expiry']
+                            cookie_dict['expires'] = cookie['expiry']
                         if 'secure' in cookie:
                             cookie_dict['secure'] = cookie['secure']
                         if 'httpOnly' in cookie:
                             cookie_dict['httpOnly'] = cookie['httpOnly']
-
-                        self.driver.add_cookie(cookie_dict)
+                        if 'sameSite' in cookie:
+                            cookie_dict['sameSite'] = cookie['sameSite']
+                        
+                        playwright_cookies.append(cookie_dict)
                     except Exception as e:
-                        self.log(f"Failed to add cookie {cookie.get('name')}: {e}", "DEBUG")
+                        self.log(f"Failed to convert cookie {cookie.get('name')}: {e}", "DEBUG")
 
-                self.log(f"Injected {len(self.cookies)} cookies into browser", "SUCCESS")
+                # Add all cookies at once
+                if playwright_cookies:
+                    self.context.add_cookies(playwright_cookies)
+                    self.log(f"Injected {len(playwright_cookies)} cookies into browser", "SUCCESS")
 
             # Refresh page with cookies
             self.log("Reloading page with injected cookies...", "INFO")
-            self.driver.refresh()
-            time.sleep(3)
+            self.page.reload(wait_until="domcontentloaded", timeout=30000)
+            self.delay_ms(3000)
 
             return True
 
         except Exception as e:
-            self.log(f"Failed to initialize Selenium: {e}", "ERROR")
+            self.log(f"Failed to initialize Playwright: {e}", "ERROR")
             return False
+
     def delay_ms(self, ms):
         """Delay in milliseconds"""
         time.sleep(ms / 1000)
 
-    def scroll_to_element(self, element):
+    def scroll_to_element(self, locator):
         """Scroll element into view"""
         try:
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+            locator.scroll_into_view_if_needed()
             self.delay_ms(500)
         except:
             pass
 
-    def click_element_js(self, selector, description, by=By.CSS_SELECTOR):
+    def click_element_js(self, selector, description):
         """Click element using JavaScript"""
         for attempt in range(self.max_retries):
             try:
-                element = self.wait.until(EC.presence_of_element_located((by, selector)))
-                self.scroll_to_element(element)
-                self.driver.execute_script("arguments[0].click();", element)
+                locator = self.page.locator(selector)
+                locator.wait_for(state="visible", timeout=25000)
+                self.scroll_to_element(locator)
+                locator.evaluate("element => element.click()")
                 self.log(f"Clicked: {description}", "SUCCESS")
                 self.delay_ms(1000)
                 return True
@@ -193,8 +186,8 @@ class ExploretockAutomation:
             modal_found = False
             for selector in modal_selectors:
                 try:
-                    self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-                    self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+                    locator = self.page.locator(selector)
+                    locator.wait_for(state="visible", timeout=10000)
                     self.log(f"Modal found with selector: {selector}", "INFO")
                     modal_found = True
                     break
@@ -204,8 +197,7 @@ class ExploretockAutomation:
             if modal_found:
                 self.delay_ms(3000)
                 try:
-                    self.wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="guest-selector-text"]')))
+                    self.page.locator('[data-testid="guest-selector-text"]').wait_for(state="visible", timeout=10000)
                     self.delay_ms(2000)
                 except:
                     pass
@@ -226,16 +218,20 @@ class ExploretockAutomation:
         try:
             selector_text = None
             try:
-                container = self.driver.find_element(By.CSS_SELECTOR, '.SearchBarModalContainer')
-                selector_text = container.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector-text"]')
+                container = self.page.locator('.SearchBarModalContainer')
+                if container.count() > 0:
+                    selector_text = container.locator('[data-testid="guest-selector-text"]')
             except:
+                pass
+            
+            if selector_text is None or selector_text.count() == 0:
                 try:
-                    selector_text = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector-text"]')
+                    selector_text = self.page.locator('[data-testid="guest-selector-text"]')
                 except:
                     return None
 
-            if selector_text:
-                text = selector_text.text
+            if selector_text.count() > 0:
+                text = selector_text.first.inner_text()
                 match = re.search(r'(\d+)\s+guests', text)
                 if match:
                     return int(match.group(1))
@@ -250,16 +246,20 @@ class ExploretockAutomation:
 
             guest_selector = None
             try:
-                container = self.driver.find_element(By.CSS_SELECTOR, '.SearchBarModalContainer')
-                guest_selector = container.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector"]')
+                container = self.page.locator('.SearchBarModalContainer')
+                if container.count() > 0:
+                    guest_selector = container.locator('[data-testid="guest-selector"]')
             except:
+                pass
+            
+            if guest_selector is None or guest_selector.count() == 0:
                 try:
-                    guest_selector = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector"]')
+                    guest_selector = self.page.locator('[data-testid="guest-selector"]')
                 except:
                     self.log("Could not find guest selector", "ERROR")
                     return False
 
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="guest-selector-text"]')))
+            self.page.locator('[data-testid="guest-selector-text"]').wait_for(state="visible", timeout=25000)
             self.delay_ms(1500)
 
             current_count = self.get_modal_guest_count()
@@ -274,13 +274,21 @@ class ExploretockAutomation:
                 return True
 
             try:
-                plus_btn = guest_selector.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector_plus"]')
-                minus_btn = guest_selector.find_element(By.CSS_SELECTOR, '[data-testid="guest-selector_minus"]')
+                plus_btn = guest_selector.locator('[data-testid="guest-selector_plus"]')
+                minus_btn = guest_selector.locator('[data-testid="guest-selector_minus"]')
             except:
                 self.log("Could not find plus/minus buttons", "ERROR")
                 return False
 
-            if current_count < target_count and plus_btn.get_attribute("disabled"):
+            # Check if plus button is disabled
+            plus_disabled = False
+            try:
+                if plus_btn.count() > 0:
+                    plus_disabled = plus_btn.first.get_attribute("disabled") is not None
+            except:
+                pass
+
+            if current_count < target_count and plus_disabled:
                 self.log(f"Cannot increase to {target_count}. Max capacity reached.", "ERROR")
                 return False
 
@@ -291,17 +299,20 @@ class ExploretockAutomation:
                 current = self.get_modal_guest_count()
 
                 if current < target_count:
-                    if not plus_btn.get_attribute("disabled"):
-                        self.scroll_to_element(plus_btn)
-                        self.driver.execute_script("arguments[0].click();", plus_btn)
-                        self.delay_ms(700)
-                    else:
-                        self.log(f"Cannot reach {target_count}", "ERROR")
-                        return False
+                    if plus_btn.count() > 0:
+                        plus_disabled = plus_btn.first.get_attribute("disabled") is not None
+                        if not plus_disabled:
+                            self.scroll_to_element(plus_btn.first)
+                            plus_btn.first.evaluate("element => element.click()")
+                            self.delay_ms(700)
+                        else:
+                            self.log(f"Cannot reach {target_count}", "ERROR")
+                            return False
                 elif current > target_count:
-                    self.scroll_to_element(minus_btn)
-                    self.driver.execute_script("arguments[0].click();", minus_btn)
-                    self.delay_ms(700)
+                    if minus_btn.count() > 0:
+                        self.scroll_to_element(minus_btn.first)
+                        minus_btn.first.evaluate("element => element.click()")
+                        self.delay_ms(700)
 
                 iterations += 1
 
@@ -325,33 +336,37 @@ class ExploretockAutomation:
             day = date_str.split('/')[1].lstrip('0')
             self.log(f"Looking for day {day} in calendar...", "INFO")
 
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.ConsumerCalendar')))
+            self.page.locator('.ConsumerCalendar').wait_for(state="visible", timeout=25000)
             self.delay_ms(1500)
 
             date_found = False
             for attempt in range(4):
                 try:
-                    first_calendar = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="calendar-first"]')
-                    all_day_buttons = first_calendar.find_elements(By.CSS_SELECTOR, 'button.ConsumerCalendar-day')
+                    first_calendar = self.page.locator('[data-testid="calendar-first"]')
+                    all_day_buttons = first_calendar.locator('button.ConsumerCalendar-day')
 
-                    self.log(f"Found {len(all_day_buttons)} day buttons", "INFO")
+                    count = all_day_buttons.count()
+                    self.log(f"Found {count} day buttons", "INFO")
 
-                    for btn in all_day_buttons:
+                    for i in range(count):
                         try:
-                            day_text = btn.find_element(By.CSS_SELECTOR, 'span').text.strip()
+                            btn = all_day_buttons.nth(i)
+                            day_span = btn.locator('span')
+                            if day_span.count() > 0:
+                                day_text = day_span.first.inner_text().strip()
 
-                            if day_text == day:
-                                btn_classes = btn.get_attribute('class')
-                                is_disabled = 'is-disabled' in btn_classes or btn.get_attribute('disabled')
+                                if day_text == day:
+                                    btn_classes = btn.get_attribute('class') or ''
+                                    is_disabled = 'is-disabled' in btn_classes or btn.get_attribute('disabled') is not None
 
-                                if not is_disabled and 'is-in-month' in btn_classes:
-                                    self.log(f"Clicking date {day}...", "SUCCESS")
-                                    self.scroll_to_element(btn)
-                                    self.delay_ms(500)
-                                    self.driver.execute_script("arguments[0].click();", btn)
-                                    self.delay_ms(2500)
-                                    date_found = True
-                                    break
+                                    if not is_disabled and 'is-in-month' in btn_classes:
+                                        self.log(f"Clicking date {day}...", "SUCCESS")
+                                        self.scroll_to_element(btn)
+                                        self.delay_ms(500)
+                                        btn.evaluate("element => element.click()")
+                                        self.delay_ms(2500)
+                                        date_found = True
+                                        break
                         except:
                             continue
 
@@ -383,39 +398,44 @@ class ExploretockAutomation:
             self.log("Waiting for time slots to load...", "INFO")
             self.delay_ms(3000)
 
-            self.wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '[data-testid="search-result"]')))
+            self.page.locator('[data-testid="search-result"]').first.wait_for(state="visible", timeout=25000)
             self.delay_ms(2000)
 
-            time_elements = self.driver.find_elements(By.CSS_SELECTOR, '[data-testid="search-result"]')
-            self.log(f"Found {len(time_elements)} time slots", "INFO")
+            time_elements = self.page.locator('[data-testid="search-result"]')
+            count = time_elements.count()
+            self.log(f"Found {count} time slots", "INFO")
 
-            for idx, element in enumerate(time_elements):
+            for i in range(count):
                 try:
-                    time_elem = element.find_element(By.CSS_SELECTOR, '[data-testid="search-result-time"]')
-                    time_text = time_elem.text.strip()
+                    element = time_elements.nth(i)
+                    time_elem = element.locator('[data-testid="search-result-time"]')
+                    if time_elem.count() > 0:
+                        time_text = time_elem.first.inner_text().strip()
 
-                    try:
-                        availability_elem = element.find_element(By.CSS_SELECTOR, '[data-testid="communal-count-text"]')
-                        availability_text = availability_elem.text.strip()
-                    except:
                         availability_text = "Available"
+                        try:
+                            availability_elem = element.locator('[data-testid="communal-count-text"]')
+                            if availability_elem.count() > 0:
+                                availability_text = availability_elem.first.inner_text().strip()
+                        except:
+                            pass
 
-                    if time_text and time_text not in ['-', '']:
-                        # Generate booking URL with date and size parameters
-                        booking_url = (
-                            f"https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday"
-                            f"?date={self.original_date_format}&size={self.guest_count}"
-                        )
-                        
-                        # Return format expected by the app
-                        times.append({
-                            "date": self.original_date_format,  # YYYY-MM-DD format
-                            "time": time_text,
-                            "price": availability_text or "Available",
-                            "status": "Available",
-                            "website": "Puttery (NYC)",
-                            "booking_url": booking_url
-                        })
+                        if time_text and time_text not in ['-', '']:
+                            # Generate booking URL with date and size parameters
+                            booking_url = (
+                                f"https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday"
+                                f"?date={self.original_date_format}&size={self.guest_count}"
+                            )
+                            
+                            # Return format expected by the app
+                            times.append({
+                                "date": self.original_date_format,  # YYYY-MM-DD format
+                                "time": time_text,
+                                "price": availability_text or "Available",
+                                "status": "Available",
+                                "website": "Puttery (NYC)",
+                                "booking_url": booking_url
+                            })
 
                 except Exception as e:
                     continue
@@ -439,13 +459,13 @@ class ExploretockAutomation:
         print(f"{'#':<4} {'TIME':<15} {'AVAILABILITY':<30}")
         print("-" * 60)
         for i, slot in enumerate(times, 1):
-            print(f"{i:<4} {slot['time']:<15} {slot['availability']:<30}")
+            print(f"{i:<4} {slot['time']:<15} {slot.get('availability', slot.get('price', '')):<30}")
         print("=" * 60 + "\n")
 
     def run(self):
         """Main automation flow"""
         try:
-            self.log("Starting Exploretock Automation (FlareSolverr + Selenium)", "START")
+            self.log("Starting Exploretock Automation (FlareSolverr + Playwright)", "START")
 
             # Step 1: Bypass Cloudflare with FlareSolverr
             self.log("Step 1: Bypassing Cloudflare with FlareSolverr", "STEP")
@@ -453,10 +473,10 @@ class ExploretockAutomation:
                 self.log("Failed to bypass Cloudflare", "ERROR")
                 return False
 
-            # Step 2: Initialize Selenium with cookies
-            self.log("Step 2: Initializing Selenium with cookies", "STEP")
-            if not self.init_selenium_with_cookies():
-                self.log("Failed to initialize Selenium", "ERROR")
+            # Step 2: Initialize Playwright with cookies
+            self.log("Step 2: Initializing Playwright with cookies", "STEP")
+            if not self.init_playwright_with_cookies():
+                self.log("Failed to initialize Playwright", "ERROR")
                 return False
 
             self.delay_ms(5000)
@@ -511,11 +531,30 @@ class ExploretockAutomation:
             return []
 
         finally:
-            if self.driver:
-                try:
-                    self.driver.quit()
-                except:
-                    pass
+            self.cleanup()
+
+    def cleanup(self):
+        """Clean up browser resources"""
+        try:
+            if self.page:
+                self.page.close()
+                self.page = None
+        except Exception as e:
+            logger.warning(f"Error closing page: {e}")
+
+        try:
+            if self.context:
+                self.context.close()
+                self.context = None
+        except Exception as e:
+            logger.warning(f"Error closing context: {e}")
+
+        try:
+            if self.browser:
+                self.browser.close()
+                self.browser = None
+        except Exception as e:
+            logger.warning(f"Error closing browser: {e}")
 
 
 def scrape_puttery(guests, target_date):
@@ -565,11 +604,7 @@ def scrape_puttery(guests, target_date):
             logger.warning(f"[PUTTERY] No time slots found")
         
         # Cleanup is handled in the finally block of run()
-        if automation.driver:
-            try:
-                automation.driver.quit()
-            except:
-                pass
+        automation.cleanup()
                 
     except Exception as e:
         logger.error(f"[PUTTERY] Error during scraping: {e}", exc_info=True)
@@ -584,8 +619,8 @@ if __name__ == "__main__":
     print("\n⚠️  PREREQUISITES:")
     print("   1. FlareSolverr must be running on port 8191")
     print("      docker run -d -p 8191:8191 flaresolverr/flaresolverr")
-    print("\n   2. Chrome/Chromium browser installed")
-    print("   3. ChromeDriver compatible with your Chrome version")
+    print("\n   2. Playwright browsers installed")
+    print("      playwright install chromium")
     print("=" * 80 + "\n")
 
     # Configuration
