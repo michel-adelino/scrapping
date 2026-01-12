@@ -2299,7 +2299,8 @@ def trigger_next_refresh_cycle(self, results=None):
 @celery_app.task(bind=True, name='app.refresh_all_venues_task')
 def refresh_all_venues_task(self):
     """Periodic task to refresh all venues for guests 2-8, for 30 days in one cycle.
-    Creates tasks at venue × guest × date level (23 venues × 7 guests × 30 dates = 4,830 tasks).
+    Creates tasks at venue × guest × date level.
+    Note: daysmart_chelsea only supports 2 guests, so tasks for guests 3-8 are skipped for that venue.
     Tasks are shuffled to interleave different venues and reduce IP blocking risk.
     Automatically triggers the next cycle when all tasks complete."""
     with app.app_context():
@@ -2318,11 +2319,24 @@ def refresh_all_venues_task(self):
             # Scrape for guests 2 through 8
             guest_counts = list(range(2, 9))  # [2, 3, 4, 5, 6, 7, 8]
             
+            # Venues that only support specific guest counts
+            # daysmart_chelsea only supports 2 guests
+            VENUE_GUEST_RESTRICTIONS = {
+                'daysmart_chelsea': [2]  # Only scrape for 2 guests
+            }
+            
             # Create tasks at venue × guest × date level (not grouped by venue)
             all_tasks = []
             
             for venue in all_venues:
+                # Get allowed guest counts for this venue
+                allowed_guests = VENUE_GUEST_RESTRICTIONS.get(venue, guest_counts)
+                
                 for guests in guest_counts:
+                    # Skip if this venue doesn't support this guest count
+                    if guests not in allowed_guests:
+                        continue
+                    
                     for date_str in date_strings:
                         all_tasks.append(
                             scrape_venue_task.s(
@@ -2343,44 +2357,32 @@ def refresh_all_venues_task(self):
             # Shuffle all tasks to interleave different venues and reduce IP blocking risk
             random.shuffle(all_tasks)
             
-            total_tasks = len(all_tasks)  # 23 venues × 7 guests × 30 dates = 4,830 tasks
+            total_tasks = len(all_tasks)
             total_operations = total_tasks  # Each task is one operation
             
-            # Count tasks by guest count to verify all are created
-            guest_count_distribution = {}
-            for task in all_tasks:
-                try:
-                    # Extract guest count from task signature
-                    # Task signature stores kwargs in a specific way
-                    if hasattr(task, 'kwargs'):
-                        guests = task.kwargs.get('guests', 'unknown')
-                    elif hasattr(task, 'args') and len(task.args) > 0:
-                        # Try to get from args if kwargs not available
-                        guests = 'unknown'
-                    else:
-                        # Try to inspect the task's signature
-                        guests = 'unknown'
-                    # For signature tasks, we need to check differently
-                    # The guest count is stored in the task's signature
-                    # Let's try a different approach - check the task's repr or id
-                    # Actually, we can't easily extract this without executing
-                    # So let's just verify the count matches expected
-                    pass
-                except Exception as e:
-                    pass
-            
             # Calculate expected distribution
-            expected_per_guest = len(all_venues) * len(date_strings)  # 23 venues × 30 dates = 690 tasks per guest count
-            logger.info(f"[REFRESH] Expected tasks per guest count: {expected_per_guest} (23 venues × 30 dates)")
+            # Most venues support all guest counts, but daysmart_chelsea only supports 2
+            venues_with_all_guests = len(all_venues) - len(VENUE_GUEST_RESTRICTIONS)
+            venues_with_restrictions = len(VENUE_GUEST_RESTRICTIONS)
+            expected_per_guest_all_venues = venues_with_all_guests * len(date_strings)
+            expected_per_guest_restricted = sum(
+                len(restricted_guests) * len(date_strings)
+                for restricted_guests in VENUE_GUEST_RESTRICTIONS.values()
+            )
+            expected_total = expected_per_guest_all_venues * len(guest_counts) + expected_per_guest_restricted
             
-            # Verify task creation by checking a sample
-            # Note: We can't easily extract guest count from signature tasks without executing them
-            # But we can verify the total count matches expected
-            logger.info(f"[REFRESH] Created {total_tasks} tasks ({len(all_venues)} venues × {len(guest_counts)} guests × {len(date_strings)} dates)")
+            logger.info(f"[REFRESH] Venue guest restrictions: {VENUE_GUEST_RESTRICTIONS}")
+            logger.info(f"[REFRESH] Expected tasks: {expected_total} (most venues: {venues_with_all_guests} × {len(guest_counts)} guests × {len(date_strings)} dates = {expected_per_guest_all_venues * len(guest_counts)}, restricted venues: {expected_per_guest_restricted})")
+            
+            # Verify task creation
+            logger.info(f"[REFRESH] Created {total_tasks} tasks (actual count may be less due to venue guest restrictions)")
             logger.info(f"[REFRESH] Tasks shuffled to interleave different venues and reduce IP blocking risk")
             logger.info(f"[REFRESH] Total scraping operations: {total_operations}")
-            logger.info(f"[REFRESH] Expected distribution: {len(guest_counts)} guest counts × {expected_per_guest} tasks each = {len(guest_counts) * expected_per_guest} total")
             logger.info(f"[REFRESH] Guest counts included: {guest_counts}")
+            if total_tasks != expected_total:
+                logger.warning(f"[REFRESH] Task count mismatch: expected {expected_total}, got {total_tasks}")
+            else:
+                logger.info(f"[REFRESH] Task count matches expected: {total_tasks}")
             logger.info(f"[REFRESH] IMPORTANT: All tasks are shuffled before submission. Execution order depends on worker concurrency and queue processing.")
             
             # Use chord to wait for all tasks to complete, then trigger next cycle
