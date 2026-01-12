@@ -1,5 +1,70 @@
 # Quick Reference - Backend Scraper Commands
 
+## Clear All Caches (Fresh Start)
+
+### Quick Method (Recommended)
+```bash
+# Clear all caches except database
+python clear_all_cache.py
+
+# Clear everything including database
+python clear_all_cache.py --clear-db
+
+# Clear everything without confirmation prompts
+python clear_all_cache.py --clear-db --force
+```
+
+### Manual Method
+
+**1. Clear Redis (Celery queue and results):**
+```bash
+# Using Python
+python -c "import redis; r = redis.Redis(); r.flushdb(); print('Redis cleared')"
+
+# Using redis-cli
+redis-cli FLUSHDB
+```
+
+**2. Clear Python Cache:**
+```bash
+# Windows PowerShell
+Get-ChildItem -Path . -Recurse -Filter __pycache__ | Remove-Item -Recurse -Force
+Get-ChildItem -Path . -Recurse -Filter *.pyc | Remove-Item -Force
+
+# Linux/Mac
+find . -type d -name __pycache__ -exec rm -r {} +
+find . -type f -name "*.pyc" -delete
+```
+
+**3. Clear Database (Optional):**
+```bash
+# Delete database file (will be recreated)
+rm availability.db  # Linux/Mac
+del availability.db  # Windows
+```
+
+**4. Clear Browser Cache:**
+```bash
+# Playwright cache locations:
+# Windows: %LOCALAPPDATA%\ms-playwright
+# Linux/Mac: ~/.cache/ms-playwright
+
+# Windows PowerShell
+Remove-Item -Recurse -Force $env:LOCALAPPDATA\ms-playwright
+
+# Linux/Mac
+rm -rf ~/.cache/ms-playwright
+```
+
+**5. Restart Services:**
+```bash
+# Stop all services
+sudo systemctl stop backend-scraper-flask backend-scraper-celery-worker backend-scraper-celery-beat
+
+# Start all services
+sudo systemctl start backend-scraper-flask backend-scraper-celery-worker backend-scraper-celery-beat
+```
+
 ## Service Management
 
 ### Reload Systemd After Modifying Service Files
