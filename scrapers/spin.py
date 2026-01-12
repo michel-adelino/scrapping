@@ -6,9 +6,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# SPIN location mappings
+SPIN_LOCATIONS = {
+    'flatiron': 'new-york-flatiron',
+    'midtown': 'new-york-midtown'
+}
 
-def scrape_spin(guests, target_date, selected_time=None):
-    """SPIN NYC scraper function (Playwright version)"""
+# Venue name mappings for each location
+SPIN_VENUE_NAMES = {
+    'flatiron': 'SPIN (NYC - Flatiron)',
+    'midtown': 'SPIN (NYC - Midtown)'
+}
+
+
+def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
+    """SPIN NYC scraper function (Playwright version)
+    
+    Args:
+        guests: Number of guests
+        target_date: Target date in YYYY-MM-DD format
+        selected_time: Optional time preference
+        location: Location identifier ('flatiron' or 'midtown'), defaults to 'flatiron'
+    """
 
     results = []
 
@@ -19,6 +38,10 @@ def scrape_spin(guests, target_date, selected_time=None):
         adjust_picker,
     )
 
+    # Get the correct venue name and URL path based on location parameter
+    venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
+    location_path = SPIN_LOCATIONS.get(location, 'new-york-flatiron')
+
     try:
         dt = datetime.strptime(target_date, "%Y-%m-%d")
         formatted_date = dt.strftime("%a, %b ") + str(dt.day)
@@ -27,9 +50,19 @@ def scrape_spin(guests, target_date, selected_time=None):
 
             # ---- LOAD ROOT PAGE FAST ----
             try:
+                # Build URL based on location
+                if location == 'flatiron':
+                    # Flatiron uses the table-reservations path with elementor action
+                    url = (
+                        f"https://wearespin.com/location/{location_path}/table-reservations/"
+                        "#elementor-action%3Aaction%3Doff_canvas%3Aopen%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D"
+                    )
+                else:
+                    # Midtown and other locations use the base location URL
+                    url = f"https://wearespin.com/location/{location_path}"
+                
                 scraper.goto(
-                    "https://wearespin.com/location/new-york-flatiron/table-reservations/"
-                    "#elementor-action%3Aaction%3Doff_canvas%3Aopen%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D",
+                    url,
                     timeout=6000,
                     wait_until="domcontentloaded"
                 )
@@ -175,11 +208,11 @@ def scrape_spin(guests, target_date, selected_time=None):
                     "price": desc_txt,
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "SPIN (NYC)"
+                    "website": venue_name
                 })
 
             return results
 
     except Exception as e:
-        logger.error(f"Error scraping SPIN NYC: {e}", exc_info=True)
+        logger.error(f"Error scraping SPIN {location}: {e}", exc_info=True)
         return results

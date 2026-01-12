@@ -127,6 +127,7 @@ NYC_VENUES = [
     'lawn_club_nyc_curling_lawns',
     'lawn_club_nyc_croquet_lawns',
     'spin_nyc',
+    'spin_nyc_midtown',
     'five_iron_golf_nyc_fidi',
     'five_iron_golf_nyc_flatiron',
     'five_iron_golf_nyc_grand_central',
@@ -169,6 +170,8 @@ VENUE_BOOKING_URLS = {
     'Lawn Club (Curling Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'SPIN (NYC)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
+    'SPIN (NYC - Flatiron)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
+    'SPIN (NYC - Midtown)': 'https://wearespin.com/location/new-york-midtown',
     'Five Iron Golf (NYC)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - FiDi)': 'https://booking.fiveirongolf.com/session-length',
     'Five Iron Golf (NYC - Flatiron)': 'https://booking.fiveirongolf.com/session-length',
@@ -647,7 +650,7 @@ def run_scraper():
     
     required_date_websites = [
         'electric_shuffle_nyc', 'electric_shuffle_london', 'lawn_club_nyc_indoor_gaming', 
-        'lawn_club_nyc_curling_lawns', 'lawn_club_nyc_croquet_lawns', 'spin_nyc', 
+        'lawn_club_nyc_curling_lawns', 'lawn_club_nyc_croquet_lawns', 'spin_nyc', 'spin_nyc_midtown', 
         'five_iron_golf_nyc_fidi', 'five_iron_golf_nyc_flatiron', 'five_iron_golf_nyc_grand_central',
         'five_iron_golf_nyc_herald_square', 'five_iron_golf_nyc_long_island_city',
         'five_iron_golf_nyc_upper_east_side', 'five_iron_golf_nyc_rockefeller_center',
@@ -668,6 +671,7 @@ def run_scraper():
             'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
             'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
             'spin_nyc': 'SPIN NYC',
+            'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
             'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
             'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
             'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
@@ -686,7 +690,7 @@ def run_scraper():
             'puttery_nyc': 'Puttery (NYC)'
         }
         
-        # Handle dynamic venue names for Five Iron Golf, Lawn Club, and All Star Lanes
+        # Handle dynamic venue names for Five Iron Golf, Lawn Club, SPIN, and All Star Lanes
         if website.startswith('five_iron_golf_nyc_'):
             from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
             location = website.replace('five_iron_golf_nyc_', '')
@@ -695,6 +699,10 @@ def run_scraper():
             from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
             option = website.replace('lawn_club_nyc_', '')
             venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+        elif website.startswith('spin_nyc_'):
+            from scrapers.spin import SPIN_VENUE_NAMES
+            location = website.replace('spin_nyc_', '')
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
         elif website.startswith('allstarlanes_'):
             from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
             location = website.replace('allstarlanes_', '')
@@ -1380,21 +1388,25 @@ def scrape_lawn_club_task(self, guests, target_date, option, task_id=None, selec
 
 
 @celery_app.task(bind=True, name='app.scrape_spin_task')
-def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None):
+def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None, location='flatiron'):
     """SPIN scraper as Celery task"""
     with app.app_context():
         try:
+            from scrapers.spin import SPIN_VENUE_NAMES
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+            
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape SPIN NYC...', current_venue='SPIN (NYC)')
+                update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
             
             slots_saved = run_scraper_and_save_to_db(
                 spin.scrape_spin,
-                'SPIN (NYC)',
+                venue_name,
                 'NYC',
                 guests,
                 guests,
                 target_date,
                 selected_time,
+                location,
                 task_id=task_id
             )
             
@@ -1933,6 +1945,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
                 'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
                 'spin_nyc': 'SPIN (NYC)',
+                'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
                 'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
                 'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
                 'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
@@ -1996,7 +2009,16 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
             elif website == 'spin_nyc':
                 if not target_date:
                     raise ValueError("SPIN NYC requires a specific target date")
-                result = scrape_spin_task(guests, target_date, task_id, spin_time)
+                result = scrape_spin_task(guests, target_date, task_id, spin_time, location='flatiron')
+            elif website.startswith('spin_nyc_'):
+                if not target_date:
+                    raise ValueError("SPIN NYC requires a specific target date")
+                # Extract location from website name (e.g., 'spin_nyc_midtown' -> 'midtown')
+                location = website.replace('spin_nyc_', '')
+                from scrapers.spin import SPIN_VENUE_NAMES
+                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+                logger.info(f"[VENUE_TASK] {website}: Calling scrape_spin_task with location {location}")
+                result = scrape_spin_task(guests, target_date, task_id, spin_time, location=location)
             elif website.startswith('five_iron_golf_nyc_'):
                 if not target_date:
                     raise ValueError("Five Iron Golf NYC requires a specific target date")

@@ -31,8 +31,8 @@ const VENUE_IMAGE_MAP = {
   'Electric Shuffle (NYC)': 'Electric Shuffle.webp',
   'Electric Shuffle (London)': 'Electric Shuffle.webp',
   'Lawn Club (Indoor Gaming)': 'LawnClub.webp',
-  'Lawn Club (Curling Lawns)': 'LawnClub.webp',
-  'Lawn Club (Croquet Lawns)': 'LawnClub.webp',
+  'Lawn Club (Curling Lawns)': 'LawnClubCurlingNewYork.jpg',
+  'Lawn Club (Croquet Lawns)': 'LawnClubCroquetNewYork.webp',
   'SPIN (NYC)': 'sample.webp', // Add image if available
   'Five Iron Golf (NYC - FiDi)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Flatiron)': 'FiveIron.webp',
@@ -41,8 +41,8 @@ const VENUE_IMAGE_MAP = {
   'Five Iron Golf (NYC - Long Island City)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Upper East Side)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Rockefeller Center)': 'FiveIron.webp',
-  'Lucky Strike (NYC)': 'sample.webp', // Add image if available
-  'Easybowl (NYC)': 'sample.webp', // Add image if available
+  'Lucky Strike (NYC)': 'LuckyStrike.webp', // Add image if available
+  'Easybowl (NYC)': 'Frames.webp', // Add image if available
   'Fair Game (Canary Wharf)': 'Fairgame.webp',
   'Fair Game (City)': 'Fairgame.webp',
   'Clays Bar (Canary Wharf)': 'Clays.webp', // Add image if available
