@@ -81,6 +81,32 @@ class ExploretockAutomation:
             self.log(f"FlareSolverr error: {e}", "ERROR")
             return False
 
+    def build_direct_url(self):
+        """Build the direct URL that opens the modal with date and guest count pre-filled"""
+        # Use original_date_format if available (already in YYYY-MM-DD format)
+        # Otherwise convert from MM/DD/YYYY to YYYY-MM-DD format
+        if self.original_date_format:
+            date_str = self.original_date_format
+        elif '/' in self.desired_date:
+            # Convert from MM/DD/YYYY to YYYY-MM-DD
+            parts = self.desired_date.split('/')
+            if len(parts) == 3:
+                month, day, year = parts
+                date_str = f"{year}-{int(month):02d}-{int(day):02d}"
+            else:
+                # Fallback - assume it's already in YYYY-MM-DD
+                date_str = self.desired_date
+        else:
+            # Assume it's already in YYYY-MM-DD format
+            date_str = self.desired_date
+        
+        # Build direct URL with date and size parameters
+        direct_url = (
+            f"https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday"
+            f"?date={date_str}&size={self.guest_count}"
+        )
+        return direct_url
+
     def init_playwright_with_cookies(self):
         """Initialize Playwright browser with cookies from FlareSolverr"""
         try:
@@ -95,6 +121,10 @@ class ExploretockAutomation:
             
             # Create page
             self.page = create_page(self.context, timeout=30000)
+
+            # Build direct URL with date and size parameters
+            direct_url = self.build_direct_url()
+            self.log(f"Using direct URL: {direct_url}", "INFO")
 
             # Navigate to domain first (required to set cookies)
             self.log("Loading domain to inject cookies...", "INFO")
@@ -131,9 +161,9 @@ class ExploretockAutomation:
                     self.context.add_cookies(playwright_cookies)
                     self.log(f"Injected {len(playwright_cookies)} cookies into browser", "SUCCESS")
 
-            # Refresh page with cookies
-            self.log("Reloading page with injected cookies...", "INFO")
-            self.page.reload(wait_until="domcontentloaded", timeout=30000)
+            # Navigate to direct URL with date and size parameters (this opens the modal automatically)
+            self.log("Navigating to direct URL with date and size parameters...", "INFO")
+            self.page.goto(direct_url, wait_until="domcontentloaded", timeout=30000)
             self.delay_ms(3000)
 
             return True
@@ -474,47 +504,25 @@ class ExploretockAutomation:
                 self.log("Failed to bypass Cloudflare", "ERROR")
                 return False
 
-            # Step 2: Initialize Playwright with cookies
-            self.log("Step 2: Initializing Playwright with cookies", "STEP")
+            # Step 2: Initialize Playwright with cookies and navigate to direct URL
+            # The direct URL automatically opens the modal with date and guest count pre-filled
+            self.log("Step 2: Initializing Playwright and navigating to direct URL", "STEP")
             if not self.init_playwright_with_cookies():
                 self.log("Failed to initialize Playwright", "ERROR")
                 return False
 
-            self.delay_ms(5000)
+            self.delay_ms(3000)
 
-            # Step 3: Click reservation to open modal
-            self.log("Step 3: Clicking reservation to open modal", "STEP")
-            if not self.click_element_js(
-                    '[data-testid="offering-link_Play1CourseReservationWeekday"]',
-                    "First Reservation"
-            ):
-                self.log("Failed to click reservation", "ERROR")
-                return False
-
+            # Step 3: Wait for modal to open (it should open automatically from the URL)
+            self.log("Step 3: Waiting for modal to open automatically", "STEP")
             if not self.wait_for_modal_open():
                 self.log("Modal did not open properly", "ERROR")
                 return False
 
             self.delay_ms(3000)
 
-            # Step 4: Set guest count
-            self.log("Step 4: Setting guest count in modal", "STEP")
-            if not self.set_modal_guest_count(self.guest_count):
-                self.log("Failed to set guest count", "ERROR")
-                return False
-
-            self.delay_ms(1500)
-
-            # Step 5: Select date
-            self.log("Step 5: Selecting date in modal", "STEP")
-            if not self.select_modal_date(self.desired_date):
-                self.log("Failed to select date", "ERROR")
-                return False
-
-            self.delay_ms(2000)
-
-            # Step 6: Scrape times
-            self.log("Step 6: Scraping available times", "STEP")
+            # Step 4: Scrape times (date and guest count are already set via URL)
+            self.log("Step 4: Scraping available times", "STEP")
             times = self.scrape_modal_times()
 
             if times:
