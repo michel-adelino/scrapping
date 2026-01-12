@@ -6,28 +6,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# SPIN location mappings
-SPIN_LOCATIONS = {
-    'flatiron': 'new-york-flatiron',
-    'midtown': 'new-york-midtown'
-}
-
 # Venue name mappings for each location
 SPIN_VENUE_NAMES = {
     'flatiron': 'SPIN (NYC - Flatiron)',
     'midtown': 'SPIN (NYC - Midtown)'
 }
 
+# URL mappings for each location
+SPIN_URLS = {
+    'flatiron': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
+    'midtown': 'https://wearespin.com/location/new-york-midtown/table-reservations/'
+}
+
 
 def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
-    """SPIN NYC scraper function (Playwright version)
-    
-    Args:
-        guests: Number of guests
-        target_date: Target date in YYYY-MM-DD format
-        selected_time: Optional time preference
-        location: Location identifier ('flatiron' or 'midtown'), defaults to 'flatiron'
-    """
+    """SPIN NYC scraper function (Playwright version)"""
 
     results = []
 
@@ -38,10 +31,6 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
         adjust_picker,
     )
 
-    # Get the correct venue name and URL path based on location parameter
-    venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
-    location_path = SPIN_LOCATIONS.get(location, 'new-york-flatiron')
-
     try:
         dt = datetime.strptime(target_date, "%Y-%m-%d")
         formatted_date = dt.strftime("%a, %b ") + str(dt.day)
@@ -49,12 +38,12 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
         with BaseScraper() as scraper:
 
             # ---- LOAD ROOT PAGE FAST ----
+            # Get URL for the specified location
+            base_url = SPIN_URLS.get(location, SPIN_URLS['flatiron'])
             try:
-                # Both locations use the table-reservations path                
-                url = f"https://wearespin.com/location/{location_path}/table-reservations/"
-                
                 scraper.goto(
-                    url,
+                    base_url
+                    + "#elementor-action%3Aaction%3Doff_canvas%3Aopen%26settings%3DeyJpZCI6ImM4OGU1Y2EiLCJkaXNwbGF5TW9kZSI6Im9wZW4ifQ%3D%3D",
                     timeout=6000,
                     wait_until="domcontentloaded"
                 )
@@ -79,149 +68,28 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             scraper.wait_for_timeout(1500)
 
             # ---- CLICK RESERVE BUTTON ----
-            # Both locations use Elementor buttons, try multiple selectors
             try:
-                clicked = False
-                
-                # First, try Playwright locator API with text-based selectors (works for both locations)
-                try:
-                    # Try text-based locators (most reliable, works for both flatiron and midtown)
-                    # Button text is "RESERVE NOW" not "BOOK NOW"
-                    reserve_now_locator = scraper.page.locator('a:has-text("RESERVE NOW"), button:has-text("RESERVE NOW")').first
-                    if reserve_now_locator.is_visible(timeout=3000):
-                        reserve_now_locator.click()
-                        clicked = True
-                        logger.info(f"Clicked SPIN reservation button ({location}) via text locator")
-                except Exception as e:
-                    logger.debug(f"Text locator failed: {e}")
-                
-                # If text locator didn't work, try CSS selectors
-                if not clicked:
-                    selectors = [
-                        # Links to SevenRooms (most reliable)
-                        'a[href*="sevenrooms"]',
-                        # Elementor button selectors (generic - works for both locations)
-                        'div.elementor-widget-button a.elementor-button',
-                        'div.elementor-widget-button button.elementor-button',
-                        'a.elementor-button-link',
-                        'button.elementor-button',
-                        # More specific elementor selectors
-                        'div.elementor-element.elementor-widget-button a',
-                        'div.elementor-element.elementor-widget-button button',
-                        # Location-specific selectors (old - kept for backward compatibility)
-                        'div.elementor-element.elementor-element-16e99e3.elementor-widget-button',  # Flatiron
-                    ]
-                    
-                    for selector in selectors:
-                        try:
-                            # Try locator API first
-                            try:
-                                element = scraper.page.locator(selector).first
-                                if element.is_visible(timeout=2000):
-                                    element.click()
-                                    clicked = True
-                                    logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
-                                    break
-                            except:
-                                # Fallback to query_selector
-                                element = scraper.page.query_selector(selector)
-                                if element:
-                                    # Check if visible
-                                    is_visible = scraper.page.evaluate("""
-                                        (el) => {
-                                            const style = window.getComputedStyle(el);
-                                            return style.display !== 'none' && 
-                                                   style.visibility !== 'hidden' && 
-                                                   style.opacity !== '0' &&
-                                                   el.offsetParent !== null;
-                                        }
-                                    """, element)
-                                    if is_visible:
-                                        element.click()
-                                        clicked = True
-                                        logger.info(f"Clicked SPIN reservation button ({location}): {selector}")
-                                        break
-                        except Exception as e:
-                            logger.debug(f"Selector {selector} failed: {e}")
-                            continue
-                
-                # Last resort: JavaScript search for any element containing "RESERVE NOW" or similar text
-                if not clicked:
-                    try:
-                        clicked = scraper.page.evaluate("""
-                            () => {
-                                // Find all clickable elements
-                                const elements = Array.from(document.querySelectorAll('a, button, div[role="button"]'));
-                                
-                                // Look for "RESERVE NOW" text (case insensitive) - primary text on SPIN site
-                                const reserveNow = elements.find(el => {
-                                    const text = el.textContent.trim().toUpperCase();
-                                    return (text.includes('RESERVE NOW') || 
-                                            text.includes('RESERVE') ||
-                                            text.includes('BOOK NOW') ||
-                                            text.includes('BOOK A TABLE')) &&
-                                           el.offsetParent !== null; // Element is visible
-                                });
-                                
-                                if (reserveNow) {
-                                    // Scroll into view first
-                                    reserveNow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    // Small delay
-                                    setTimeout(() => {
-                                        reserveNow.click();
-                                    }, 100);
-                                    return true;
-                                }
-                                return false;
-                            }
-                        """)
-                        if clicked:
-                            logger.info(f"Clicked SPIN reservation button ({location}) via JavaScript text search")
-                            scraper.wait_for_timeout(500)  # Wait for click to register
-                        else:
-                            logger.warning(f"SPIN reservation button not found for {location}")
-                            return results
-                    except Exception as e:
-                        logger.warning(f"JavaScript fallback failed for {location}: {e}")
-                        return results
-                
-                scraper.wait_for_timeout(3500)
-            except Exception as e:
-                logger.warning(f"Could not click reservation button for {location}: {e}")
+                scraper.click(
+                    'div.elementor-element.elementor-element-16e99e3.elementor-widget-button'
+                )
+            except:
+                logger.warning("SPIN reservation button not found")
                 return results
+
+            scraper.wait_for_timeout(3500)
 
             # ---- GET SevenRooms Iframe ----
             try:
-                # Try multiple iframe selectors for different locations
-                # Flatiron uses: spinyc, Midtown uses: spinmidtown
-                iframe_selectors = [
-                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]',  # Flatiron
-                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinmidtown"]',  # Midtown
-                    'iframe[src*="sevenrooms.com/reservations/spinyc"]',  # Flatiron (loaded)
-                    'iframe[src*="sevenrooms.com/reservations/spinmidtown"]',  # Midtown (loaded)
-                    'iframe[nitro-lazy-src*="sevenrooms.com"]',  # Generic
-                    'iframe[src*="sevenrooms.com"]',  # Generic (loaded)
-                    'iframe[id*="sevenrooms"]',
-                    'iframe[data-test*="sevenrooms"]'
-                ]
-                
-                iframe_handle = None
-                for selector in iframe_selectors:
-                    try:
-                        iframe_handle = scraper.page.query_selector(selector)
-                        if iframe_handle:
-                            logger.info(f"Found SPIN iframe ({location}): {selector}")
-                            break
-                    except:
-                        continue
-                
+                iframe_handle = scraper.page.query_selector(
+                    'iframe[nitro-lazy-src*="sevenrooms.com/reservations/spinyc"]'
+                )
                 if not iframe_handle:
-                    logger.warning(f"SPIN SevenRooms iframe not found for {location}")
+                    logger.warning("SPIN SevenRooms iframe not found")
                     return results
 
                 frame = iframe_handle.content_frame()
             except Exception as e:
-                logger.error(f"Could not load iframe for {location}: {e}")
+                logger.error(f"Could not load iframe: {e}")
                 return results
 
             # ---- DATE PICKER ----
@@ -306,29 +174,16 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
 
             for btn in slot_buttons:
                 try:
-                    # Extract time from first direct child div
-                    # Structure for both Midtown and Flatiron: 
-                    # <button><div>time</div><div>description</div></button>
-                    direct_divs = btn.find_all("div", recursive=False)
-                    if direct_divs:
-                        time_txt = direct_divs[0].get_text(strip=True)
-                    else:
-                        time_txt = "None"
-                except Exception as e:
-                    logger.debug(f"Error extracting time: {e}")
+                    time_txt = btn.find_all("div")[0].get_text(strip=True)
+                except:
                     time_txt = "None"
 
                 try:
-                    # Extract description/price from second direct child div
-                    direct_divs = btn.find_all("div", recursive=False)
-                    if len(direct_divs) > 1:
-                        desc_txt = direct_divs[1].get_text(strip=True)
-                    else:
-                        desc_txt = "None"
-                except Exception as e:
-                    logger.debug(f"Error extracting description: {e}")
+                    desc_txt = btn.find_all("div")[1].get_text(strip=True)
+                except:
                     desc_txt = "None"
 
+                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
                 results.append({
                     "date": target_date,
                     "time": time_txt,
@@ -341,5 +196,5 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
             return results
 
     except Exception as e:
-        logger.error(f"Error scraping SPIN {location}: {e}", exc_info=True)
+        logger.error(f"Error scraping SPIN NYC: {e}", exc_info=True)
         return results

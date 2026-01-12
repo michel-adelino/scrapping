@@ -37,7 +37,8 @@ def test_spin_location(location, guests, target_date, selected_time=None):
     print(f"{'='*70}")
     
     try:
-        results = scrape_spin(guests, target_date, selected_time, location)
+        # Call with location as keyword argument for clarity
+        results = scrape_spin(guests, target_date, selected_time=selected_time, location=location)
         
         if results:
             print(f"[SUCCESS] Found {len(results)} available slots")
