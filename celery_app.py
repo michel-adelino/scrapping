@@ -1,6 +1,14 @@
 from celery import Celery
 import os
 
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, skip loading .env file
+    pass
+    
 # Get Redis URL from environment or use default
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 

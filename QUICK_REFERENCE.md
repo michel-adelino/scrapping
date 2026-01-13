@@ -67,6 +67,34 @@ sudo systemctl start backend-scraper-flask backend-scraper-celery-worker backend
 
 ## Service Management
 
+### Apply Environment Variable Changes
+
+After setting `CELERY_VENUES_FILTER` environment variable, restart Celery Beat:
+
+**Linux (Systemd):**
+```bash
+# If using systemd service file, add Environment line to service file first
+sudo systemctl daemon-reload
+sudo systemctl restart backend-scraper-celery-beat
+
+# Verify in logs
+sudo journalctl -u backend-scraper-celery-beat -n 20 | grep -i "filter\|venue"
+```
+
+**Windows (PowerShell):**
+```powershell
+# Set environment variable
+$env:CELERY_VENUES_FILTER = "puttery_nyc,kick_axe_brooklyn"
+
+# Stop current Celery processes
+Get-Process | Where-Object {$_.ProcessName -like "*celery*"} | Stop-Process -Force
+
+# Restart Celery Beat (reads env var on startup)
+celery -A celery_app beat --loglevel=info
+```
+
+**Note:** Only Celery Beat needs to be restarted - it reads the environment variable on startup and passes it to the refresh cycle.
+
 ### Reload Systemd After Modifying Service Files
 ```bash
 # After editing service files in /etc/systemd/system/
