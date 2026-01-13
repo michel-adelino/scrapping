@@ -34,7 +34,7 @@ const VENUE_IMAGE_MAP = {
   'Lawn Club (Curling Lawns)': 'LawnClubCurlingNewYork.jpg',
   'Lawn Club (Croquet Lawns)': 'LawnClubCroquetNewYork.webp',
   'SPIN (NYC - Midtown)': 'spin_midtown.webp', 
-  'SPIN (NYC - Flatiron)': 'spin_flatiron.webp', 
+  'SPIN (NYC - Flatiron)': 'spin_flatrion.webp', 
   'Five Iron Golf (NYC - FiDi)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Flatiron)': 'FiveIron.webp',
   'Five Iron Golf (NYC - Grand Central)': 'FiveIron.webp',
