@@ -75,11 +75,31 @@ from celery.signals import beat_init
 @beat_init.connect
 def on_beat_init(sender=None, **kwargs):
     """Trigger initial refresh cycle immediately when Beat starts.
-    The cycle will automatically trigger the next cycle when it completes."""
+    The cycle will automatically trigger the next cycle when it completes.
+    Can filter venues using CELERY_VENUES_FILTER environment variable (comma-separated list).
+    
+    To hardcode specific venues, uncomment and modify the venues_filter line below.
+    """
     try:
         from app import refresh_all_venues_task
-        result = refresh_all_venues_task.delay()
+        import os
+        
+        # OPTION 1: Use environment variable (recommended for flexibility)
+        venues_filter = None
+        env_filter = os.getenv('CELERY_VENUES_FILTER')
+        if env_filter:
+            venues_filter = [v.strip() for v in env_filter.split(',')]
+            print(f"[Beat Startup] Venue filter from environment: {venues_filter}")
+        
+        # OPTION 2: Hardcode specific venues (uncomment to use)
+        # venues_filter = ['puttery_nyc', 'kick_axe_brooklyn']
+        # print(f"[Beat Startup] Using hardcoded venue filter: {venues_filter}")
+        
+        result = refresh_all_venues_task.delay(venues_filter=venues_filter)
         print(f"[Beat Startup] ✓ Triggered initial refresh cycle immediately (ID: {result.id})")
+        if venues_filter:
+            print(f"[Beat Startup] Filtered to venues: {venues_filter}")
+            print(f"[Beat Startup] Expected tasks: {len(venues_filter)} venues × 7 guests × 30 days = {len(venues_filter) * 7 * 30} tasks per cycle")
         print(f"[Beat Startup] Cycle will run now, then automatically trigger next cycle when complete")
         print(f"[Beat Startup] Cycles will continue automatically until worker stops")
     except Exception as e:

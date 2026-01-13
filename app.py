@@ -2359,14 +2359,19 @@ def update_parent_task_duration(self, results, parent_task_id=None, total_tasks=
 
 
 @celery_app.task(bind=True, name='app.trigger_next_refresh_cycle')
-def trigger_next_refresh_cycle(self, results=None):
-    """Callback task to trigger the next refresh cycle after current cycle completes"""
+def trigger_next_refresh_cycle(self, results=None, venues_filter=None):
+    """Callback task to trigger the next refresh cycle after current cycle completes
+    
+    Args:
+        results: Results from the previous cycle (unused but required by chord callback)
+        venues_filter: Optional list of venue names to filter for next cycle
+    """
     with app.app_context():
         logger = logging.getLogger(__name__)
         try:
             logger.info("[REFRESH] Current cycle completed. Starting next cycle...")
-            # Trigger the next refresh cycle
-            refresh_all_venues_task.delay()
+            # Trigger the next refresh cycle with the same filter (if any)
+            refresh_all_venues_task.delay(venues_filter=venues_filter)
             logger.info("[REFRESH] Next refresh cycle triggered successfully")
         except Exception as e:
             logger.error(f"[REFRESH] Error triggering next cycle: {e}", exc_info=True)
@@ -2374,12 +2379,18 @@ def trigger_next_refresh_cycle(self, results=None):
 
 
 @celery_app.task(bind=True, name='app.refresh_all_venues_task')
-def refresh_all_venues_task(self):
+def refresh_all_venues_task(self, venues_filter=None):
     """Periodic task to refresh all venues for guests 2-8, for 30 days in one cycle.
     Creates tasks at venue × guest × date level.
     Note: daysmart_chelsea only supports 2 guests, so tasks for guests 3-8 are skipped for that venue.
     Tasks are shuffled to interleave different venues and reduce IP blocking risk.
-    Automatically triggers the next cycle when all tasks complete."""
+    Automatically triggers the next cycle when all tasks complete.
+    
+    Args:
+        venues_filter: Optional list of venue names to filter. If provided, only these venues will be scraped.
+                      Example: ['puttery_nyc', 'kick_axe_brooklyn'] to only scrape those venues.
+                      If None, all venues are scraped.
+    """
     with app.app_context():
         try:
             from datetime import date
@@ -2392,6 +2403,39 @@ def refresh_all_venues_task(self):
             
             # Combine all venues from both cities
             all_venues = NYC_VENUES + LONDON_VENUES
+            
+            # Filter venues if filter is provided
+            if venues_filter:
+                if isinstance(venues_filter, str):
+                    venues_filter = [venues_filter]  # Convert single string to list
+                # Validate that all filtered venues exist
+                valid_venues = []
+                invalid_venues = []
+                for venue in venues_filter:
+                    if venue in all_venues:
+                        valid_venues.append(venue)
+                    else:
+                        invalid_venues.append(venue)
+                
+                if invalid_venues:
+                    logger.warning(f"[REFRESH] Invalid venues in filter (will be ignored): {invalid_venues}")
+                
+                if valid_venues:
+                    all_venues = valid_venues
+                    logger.info(f"[REFRESH] Venue filter applied: {len(valid_venues)} venues selected: {valid_venues}")
+                else:
+                    logger.error(f"[REFRESH] No valid venues in filter! Using all venues instead.")
+                    all_venues = NYC_VENUES + LONDON_VENUES
+            else:
+                # Check for environment variable as fallback
+                import os
+                env_filter = os.getenv('CELERY_VENUES_FILTER')
+                if env_filter:
+                    env_venues = [v.strip() for v in env_filter.split(',')]
+                    valid_venues = [v for v in env_venues if v in all_venues]
+                    if valid_venues:
+                        all_venues = valid_venues
+                        logger.info(f"[REFRESH] Venue filter from environment variable: {len(valid_venues)} venues selected: {valid_venues}")
             logger.info(f"[REFRESH] Total venues: {len(all_venues)} (NYC: {len(NYC_VENUES)}, London: {len(LONDON_VENUES)})")
             logger.info(f"[REFRESH] NYC venues: {NYC_VENUES}")
             logger.info(f"[REFRESH] London venues: {LONDON_VENUES}")
@@ -2505,7 +2549,8 @@ def refresh_all_venues_task(self):
             logger.info(f"[REFRESH] IMPORTANT: All tasks are shuffled before submission. Execution order depends on worker concurrency and queue processing.")
             
             # Use chord to wait for all tasks to complete, then trigger next cycle
-            callback = trigger_next_refresh_cycle.s()
+            # Pass venues_filter to callback so next cycle uses same filter
+            callback = trigger_next_refresh_cycle.s(venues_filter=venues_filter)
             job = chord(all_tasks)(callback)
             
             logger.info(f"[REFRESH] All {total_tasks} tasks submitted (shuffled). Next cycle will start automatically when this cycle completes.")
