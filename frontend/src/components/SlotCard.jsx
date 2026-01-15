@@ -98,7 +98,7 @@ function SlotCard({ item }) {
 
   return (
     <div
-      className={`slot-card ${item.booking_url ? '' : ''}`}
+      className={`slot-card ${item.booking_url ? 'slot-card-clickable' : ''}`}
       onClick={item.booking_url ? handleClick : undefined}
       style={{ cursor: item.booking_url ? 'pointer' : 'default' }}
       role={item.booking_url ? 'button' : undefined}
@@ -111,13 +111,14 @@ function SlotCard({ item }) {
       }}
     >
       <div className="slot-time">{normalizedTime}</div>
+      {item.price && item.price !== '-' && (
+        <div className="slot-price">{item.price}</div>
+      )}
       <div className={`slot-status ${getStatusClass(item.status)}`}>
-        Available
+        {item.status || 'Available'}
       </div>
       {item.booking_url && (
-        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
-          Click to book
-        </div>
+        <div className="slot-book-hint">Click to book</div>
       )}
     </div>
   )

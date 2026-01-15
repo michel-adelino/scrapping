@@ -151,17 +151,56 @@ function VenueDetail({ data, venueName }) {
     }
   }
 
+  const formatDateHeader = (dateStr) => {
+    if (!dateStr) return { weekday: '', date: 'Unknown' }
+    try {
+      const dateParts = dateStr.split('-')
+      const date = new Date(
+        parseInt(dateParts[0], 10),
+        parseInt(dateParts[1], 10) - 1,
+        parseInt(dateParts[2], 10)
+      )
+      return {
+        weekday: date.toLocaleDateString('en-US', { weekday: 'long' }),
+        date: date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      }
+    } catch (err) {
+      return { weekday: '', date: dateStr }
+    }
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="venue-detail-empty">
+        <p>No available slots found for this venue.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="venue-detail-container">
-      <div className="venue-slots">
-        {groupedByDate.map(({ date, slots }) => (
-          <div key={date} className="venue-date-group">
-            <div className="date-divider-text-inline">{formatDate(date)}</div>
-            {slots.map((item, idx) => (
-              <SlotCard key={`${venueName}-${date}-${idx}`} item={item} />
-            ))}
-          </div>
-        ))}
+      <div className="venue-detail-content">
+        {groupedByDate.map(({ date, slots }) => {
+          const dateInfo = formatDateHeader(date)
+          return (
+            <div key={date} className="venue-date-section">
+              <div className="venue-date-header">
+                <div className="venue-date-weekday">{dateInfo.weekday}</div>
+                <div className="venue-date-full">{dateInfo.date}</div>
+                <div className="venue-date-count">{slots.length} {slots.length === 1 ? 'slot' : 'slots'}</div>
+              </div>
+              <div className="venue-slots-grid">
+                {slots.map((item, idx) => (
+                  <SlotCard key={`${venueName}-${date}-${idx}`} item={item} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
