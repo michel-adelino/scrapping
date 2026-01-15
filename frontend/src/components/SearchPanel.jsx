@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -135,10 +135,20 @@ const VENUE_NAME_MAP = {
 };
 
 function SearchPanel({ onSearch, onClear, isLoading = false }) {
-  const [location, setLocation] = useState("all_new_york"); // 'all_new_york' or 'all_london'
-  const [guests, setGuests] = useState(6);
+  const [location, setLocation] = useState("all_london"); // 'all_new_york' or 'all_london'
+  const [guests, setGuests] = useState(2);
   const [targetDate, setTargetDate] = useState(null); // Date object or null for DatePicker
-  const [targetDateEnabled, setTargetDateEnabled] = useState(false);
+  const [dateSelectionMode, setDateSelectionMode] = useState("dates"); // "dates", "months", "flexible"
+  const [flexibleDays, setFlexibleDays] = useState(0); // 0 for exact, 1, 2, 3, 7, 14 for flexible
+  const [dateRangeStart, setDateRangeStart] = useState(null); // Start date for Flexible mode
+  const [dateRangeEnd, setDateRangeEnd] = useState(null); // End date for Flexible mode
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // Track if calendar should be open
+  const [activeSection, setActiveSection] = useState(null); // Track which section overlay is open: "where", "when", "who", or null
+  const datePickerRef = useRef(null); // Ref for Dates mode DatePicker
+  const flexibleDatePickerRef = useRef(null); // Ref for Flexible mode DatePicker
+  const whereSectionRef = useRef(null); // Ref for Where section (for overlay positioning)
+  const whenSectionRef = useRef(null); // Ref for When section (for overlay positioning)
+  const whoSectionRef = useRef(null); // Ref for Who section (for overlay positioning)
   const [lawnClubOption, setLawnClubOption] = useState(
     "Curling Lawns & Cabins"
   );
@@ -162,6 +172,21 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     };
   };
 
+  const calculateDateRange = (selectedDate, flexibleDays) => {
+    if (!selectedDate) return null;
+    
+    const startDate = new Date(selectedDate);
+    startDate.setDate(startDate.getDate() - flexibleDays);
+    
+    const endDate = new Date(selectedDate);
+    endDate.setDate(endDate.getDate() + flexibleDays);
+    
+    return {
+      date_from: startDate.toISOString().split("T")[0],
+      date_to: endDate.toISOString().split("T")[0]
+    };
+  };
+
   const handleSearch = (e) => {
     e?.preventDefault();
     const filters = {};
@@ -170,11 +195,30 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     // User can still specify a date if they want
     const isMultiVenue = true; // Always true since we only have all_new_york or all_london
 
-    // For multi-venue searches, only apply date filter if user explicitly selects a date
-    if (targetDate && targetDateEnabled) {
-      const dateStr = targetDate.toISOString().split("T")[0];
-      filters.date_from = dateStr;
-      filters.date_to = dateStr;
+    // Handle date filters based on selection mode
+    if (dateSelectionMode === "dates") {
+      // Dates mode: single date with flexible days
+      if (targetDate) {
+        const dateRange = calculateDateRange(targetDate, flexibleDays);
+        if (dateRange) {
+          filters.date_from = dateRange.date_from;
+          filters.date_to = dateRange.date_to;
+        }
+      }
+    } else if (dateSelectionMode === "months") {
+      // Months mode: auto 30-day range from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 30);
+      filters.date_from = today.toISOString().split("T")[0];
+      filters.date_to = endDate.toISOString().split("T")[0];
+    } else if (dateSelectionMode === "flexible") {
+      // Flexible mode: use selected date range
+      if (dateRangeStart && dateRangeEnd) {
+        filters.date_from = dateRangeStart.toISOString().split("T")[0];
+        filters.date_to = dateRangeEnd.toISOString().split("T")[0];
+      }
     }
     // Otherwise, no date filter - show all available slots
 
@@ -197,7 +241,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     setTargetDate(today);
-    setTargetDateEnabled(true);
+    setDateSelectionMode("dates");
   };
 
   const handleTomorrow = () => {
@@ -205,266 +249,776 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
     setTargetDate(tomorrow);
-    setTargetDateEnabled(true);
+    setDateSelectionMode("dates");
   };
 
-  useEffect(() => {
-    if (requiresDate) {
-      setTargetDateEnabled(true);
+  const handleFlexibleRangeAdjust = (days) => {
+    if (dateRangeStart && dateRangeEnd) {
+      // Expand/contract existing range
+      const newStart = new Date(dateRangeStart);
+      newStart.setDate(newStart.getDate() - days);
+      
+      const newEnd = new Date(dateRangeEnd);
+      newEnd.setDate(newEnd.getDate() + days);
+      
+      setDateRangeStart(newStart);
+      setDateRangeEnd(newEnd);
+    } else if (targetDate) {
+      // If no range but single date selected, create range around it
+      const start = new Date(targetDate);
+      start.setDate(start.getDate() - days);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(targetDate);
+      end.setDate(end.getDate() + days);
+      end.setHours(0, 0, 0, 0);
+      setDateRangeStart(start);
+      setDateRangeEnd(end);
+    } else {
+      // If no date selected, create range around today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const start = new Date(today);
+      start.setDate(start.getDate() - days);
+      const end = new Date(today);
+      end.setDate(end.getDate() + days);
+      setDateRangeStart(start);
+      setDateRangeEnd(end);
     }
-  }, [requiresDate]);
+  };
+
+  // Handle section click to toggle overlay
+  const handleSectionClick = (section) => {
+    setActiveSection(activeSection === section ? null : section);
+  };
+
+  // Handle location selection
+  const handleLocationSelect = (loc) => {
+    setLocation(loc);
+    setActiveSection(null); // Close overlay after selection
+  };
+
+  // Get display text for Where section
+  const getWhereDisplayText = () => {
+    if (location === "all_new_york") return "New York";
+    if (location === "all_london") return "London";
+    return "Search destinations";
+  };
+
+  // Get display text for When section
+  const getWhenDisplayText = () => {
+    if (dateSelectionMode === "months") {
+      return "Next 30 days";
+    }
+    if (dateSelectionMode === "flexible" && dateRangeStart && dateRangeEnd) {
+      const startStr = dateRangeStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const endStr = dateRangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return `${startStr} - ${endStr}`;
+    }
+    if (dateSelectionMode === "dates" && targetDate) {
+      return targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    return "Add dates";
+  };
+
+  // Get display text for Who section
+  const getWhoDisplayText = () => {
+    if (guests === 0) return "Add guests";
+    if (guests === 1) return "1 guest";
+    return `${guests} guests`;
+  };
+
+  // Click outside detection to close overlays
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (activeSection) {
+        // Check if click is outside the section and overlay
+        const isClickInSection = e.target.closest('.search-bar-section');
+        const isClickInOverlay = e.target.closest('.search-overlay');
+        const isClickInCalendar = e.target.closest('.react-datepicker');
+        
+        if (!isClickInSection && !isClickInOverlay && !isClickInCalendar) {
+          setActiveSection(null);
+        }
+      }
+    };
+
+    if (activeSection) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [activeSection]);
+
+  // Keep calendar open when switching between dates and flexible modes
+  const previousModeRef = useRef(dateSelectionMode);
+  const shouldKeepOpenRef = useRef(false);
+  
+  useEffect(() => {
+    const previousMode = previousModeRef.current;
+    
+    // If switching between dates and flexible (and calendar was open), reopen it
+    if (shouldKeepOpenRef.current && 
+        ((previousMode === "dates" && dateSelectionMode === "flexible") ||
+         (previousMode === "flexible" && dateSelectionMode === "dates"))) {
+      // Wait for React to render the new DatePicker, then open it by clicking the input
+      setTimeout(() => {
+        // Find the input element - react-datepicker renders it with the id we provide
+        const inputId = dateSelectionMode === "dates" ? "targetDate" : "dateRange";
+        const input = document.getElementById(inputId);
+        
+        if (input) {
+          // Trigger click to open the calendar
+          input.focus();
+          input.click();
+          shouldKeepOpenRef.current = false; // Reset flag
+        } else {
+          // Fallback: try to find input in the wrapper
+          const wrapper = document.querySelector(`.datepicker-wrapper`);
+          const fallbackInput = wrapper?.querySelector('input[type="text"]');
+          if (fallbackInput) {
+            fallbackInput.focus();
+            fallbackInput.click();
+            shouldKeepOpenRef.current = false;
+          }
+        }
+      }, 100);
+    } else {
+      // Reset flag if not switching between dates/flexible
+      shouldKeepOpenRef.current = false;
+    }
+    
+    previousModeRef.current = dateSelectionMode;
+  }, [dateSelectionMode]);
+
+  // Inject buttons into calendar popup when it opens
+  useEffect(() => {
+    // Use event delegation for mode selector buttons
+    const handleModeSelectorClick = (e) => {
+      const btn = e.target.closest('.segmented-btn[data-mode]');
+      if (!btn) return;
+      
+      e.stopPropagation();
+      e.preventDefault();
+      
+      const mode = btn.getAttribute('data-mode');
+      const wasCalendarOpen = document.querySelector('.react-datepicker') !== null;
+      
+      if (mode === "months") {
+        // For months mode, close the calendar
+        setIsCalendarOpen(false);
+        shouldKeepOpenRef.current = false;
+        setDateSelectionMode(mode);
+      } else {
+        // For dates/flexible, keep calendar open if it was open
+        if (wasCalendarOpen) {
+          shouldKeepOpenRef.current = true;
+          setIsCalendarOpen(true);
+        }
+        setDateSelectionMode(mode);
+      }
+    };
+
+    const injectButtons = () => {
+      const calendar = document.querySelector('.react-datepicker');
+      if (!calendar) return;
+
+      // Check if mode selector already exists - if so, just update active state
+      let existingModeSelector = calendar.querySelector('.calendar-mode-selector');
+      
+      if (!existingModeSelector) {
+        // Create mode selector (Dates/Months/Flexible) at the top
+        existingModeSelector = document.createElement('div');
+        existingModeSelector.className = 'calendar-mode-selector';
+        existingModeSelector.innerHTML = `
+          <div class="segmented-control calendar-segmented-control">
+            <button type="button" class="segmented-btn" data-mode="dates">Dates</button>
+            <button type="button" class="segmented-btn" data-mode="months">Months</button>
+            <button type="button" class="segmented-btn" data-mode="flexible">Flexible</button>
+          </div>
+        `;
+
+        // Insert mode selector at the beginning of calendar (before month containers)
+        const firstChild = calendar.firstChild;
+        if (firstChild) {
+          calendar.insertBefore(existingModeSelector, firstChild);
+        } else {
+          calendar.appendChild(existingModeSelector);
+        }
+        
+        // Add event listener to the mode selector using delegation
+        // Only attach once when the selector is created
+        existingModeSelector.addEventListener('click', handleModeSelectorClick, true);
+      }
+      
+      // Update active state without removing/recreating buttons
+      existingModeSelector.querySelectorAll('.segmented-btn').forEach(btn => {
+        const btnMode = btn.getAttribute('data-mode');
+        if (btnMode === dateSelectionMode) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Remove existing quick/flexible buttons if any
+      const existingQuick = calendar.querySelector('.calendar-quick-buttons');
+      const existingFlexible = calendar.querySelector('.calendar-flexible-buttons');
+      if (existingQuick) existingQuick.remove();
+      if (existingFlexible) existingFlexible.remove();
+
+      // Create quick buttons (Today/Tomorrow) for Dates mode
+      if (dateSelectionMode === "dates") {
+        const quickButtons = document.createElement('div');
+        quickButtons.className = 'calendar-quick-buttons';
+        quickButtons.innerHTML = `
+          <button type="button" class="calendar-quick-btn" data-action="today">Today</button>
+          <button type="button" class="calendar-quick-btn" data-action="tomorrow">Tomorrow</button>
+        `;
+        calendar.appendChild(quickButtons);
+
+        // Add event listeners for quick buttons
+        const todayBtn = quickButtons.querySelector('[data-action="today"]');
+        const tomorrowBtn = quickButtons.querySelector('[data-action="tomorrow"]');
+        
+        if (todayBtn) {
+          todayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            setTargetDate(today);
+            setDateSelectionMode("dates");
+          });
+        }
+        
+        if (tomorrowBtn) {
+          tomorrowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            setTargetDate(tomorrow);
+            setDateSelectionMode("dates");
+          });
+        }
+      }
+
+      // Create flexible buttons for Flexible mode (for expanding/contracting range)
+      if (dateSelectionMode === "flexible") {
+        const flexibleButtons = document.createElement('div');
+        flexibleButtons.className = 'calendar-flexible-buttons';
+        const daysOptions = [1, 2, 3, 7, 14];
+        const labels = ['±1', '±2', '±3', '±7', '±14'];
+        flexibleButtons.innerHTML = daysOptions.map((days, idx) => 
+          `<button type="button" class="calendar-flexible-btn" data-days="${days}">${labels[idx]}</button>`
+        ).join('');
+        calendar.appendChild(flexibleButtons);
+
+        // Add event listeners for flexible buttons in Flexible mode
+        flexibleButtons.querySelectorAll('.calendar-flexible-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const days = parseInt(btn.getAttribute('data-days') || '0');
+            handleFlexibleRangeAdjust(days);
+          });
+        });
+      }
+    };
+
+    // Use MutationObserver to detect when calendar opens
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1 && (node.classList?.contains('react-datepicker') || node.querySelector?.('.react-datepicker'))) {
+              setTimeout(injectButtons, 50);
+            }
+          });
+        }
+      });
+    });
+
+    // Observe the document body for calendar popup
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Also check periodically when calendar might be open
+    const interval = setInterval(() => {
+      if (document.querySelector('.react-datepicker')) {
+        injectButtons();
+      }
+    }, 200);
+
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
+  }, [flexibleDays, dateSelectionMode, dateRangeStart, dateRangeEnd, targetDate]);
+
+  // Trigger button injection when When overlay opens
+  useEffect(() => {
+    if (activeSection === "when") {
+      // Wait for calendar to render, then inject buttons
+      const checkAndInject = () => {
+        const calendar = document.querySelector('.react-datepicker');
+        if (calendar) {
+          // Use the existing injectButtons function logic
+          const injectButtons = () => {
+            const calendar = document.querySelector('.react-datepicker');
+            if (!calendar) return;
+
+            // Check if mode selector already exists - if so, just update active state
+            let existingModeSelector = calendar.querySelector('.calendar-mode-selector');
+            
+            if (!existingModeSelector) {
+              // Create mode selector (Dates/Months/Flexible) at the top
+              existingModeSelector = document.createElement('div');
+              existingModeSelector.className = 'calendar-mode-selector';
+              existingModeSelector.innerHTML = `
+                <div class="segmented-control calendar-segmented-control">
+                  <button type="button" class="segmented-btn" data-mode="dates">Dates</button>
+                  <button type="button" class="segmented-btn" data-mode="months">Months</button>
+                  <button type="button" class="segmented-btn" data-mode="flexible">Flexible</button>
+                </div>
+              `;
+
+              // Insert mode selector at the beginning of calendar (before month containers)
+              const firstChild = calendar.firstChild;
+              if (firstChild) {
+                calendar.insertBefore(existingModeSelector, firstChild);
+              } else {
+                calendar.appendChild(existingModeSelector);
+              }
+              
+              // Add event listener for mode selector buttons
+              existingModeSelector.querySelectorAll('.segmented-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const mode = btn.getAttribute('data-mode');
+                  const wasCalendarOpen = document.querySelector('.react-datepicker') !== null;
+                  
+                  if (mode === "months") {
+                    setIsCalendarOpen(false);
+                    shouldKeepOpenRef.current = false;
+                    setDateSelectionMode(mode);
+                  } else {
+                    if (wasCalendarOpen) {
+                      shouldKeepOpenRef.current = true;
+                      setIsCalendarOpen(true);
+                    }
+                    setDateSelectionMode(mode);
+                  }
+                  
+                  // Update active state
+                  existingModeSelector.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
+                  btn.classList.add('active');
+                });
+              });
+            }
+            
+            // Update active state
+            existingModeSelector.querySelectorAll('.segmented-btn').forEach(btn => {
+              const btnMode = btn.getAttribute('data-mode');
+              if (btnMode === dateSelectionMode) {
+                btn.classList.add('active');
+              } else {
+                btn.classList.remove('active');
+              }
+            });
+
+            // Remove existing quick/flexible buttons if any
+            const existingQuick = calendar.querySelector('.calendar-quick-buttons');
+            const existingFlexible = calendar.querySelector('.calendar-flexible-buttons');
+            if (existingQuick) existingQuick.remove();
+            if (existingFlexible) existingFlexible.remove();
+
+            // Create quick buttons (Today/Tomorrow) for Dates mode
+            if (dateSelectionMode === "dates") {
+              const quickButtons = document.createElement('div');
+              quickButtons.className = 'calendar-quick-buttons';
+              quickButtons.innerHTML = `
+                <button type="button" class="calendar-quick-btn" data-action="today">Today</button>
+                <button type="button" class="calendar-quick-btn" data-action="tomorrow">Tomorrow</button>
+              `;
+              calendar.appendChild(quickButtons);
+
+              // Add event listeners for quick buttons
+              const todayBtn = quickButtons.querySelector('[data-action="today"]');
+              const tomorrowBtn = quickButtons.querySelector('[data-action="tomorrow"]');
+              
+              if (todayBtn) {
+                todayBtn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  setTargetDate(today);
+                  setDateSelectionMode("dates");
+                });
+              }
+              
+              if (tomorrowBtn) {
+                tomorrowBtn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  tomorrow.setHours(0, 0, 0, 0);
+                  setTargetDate(tomorrow);
+                  setDateSelectionMode("dates");
+                });
+              }
+            }
+
+            // Create flexible buttons for Flexible mode
+            if (dateSelectionMode === "flexible") {
+              const flexibleButtons = document.createElement('div');
+              flexibleButtons.className = 'calendar-flexible-buttons';
+              const daysOptions = [1, 2, 3, 7, 14];
+              const labels = ['±1', '±2', '±3', '±7', '±14'];
+              flexibleButtons.innerHTML = daysOptions.map((days, idx) => 
+                `<button type="button" class="calendar-flexible-btn" data-days="${days}">${labels[idx]}</button>`
+              ).join('');
+              calendar.appendChild(flexibleButtons);
+
+              // Add event listeners for flexible buttons
+              flexibleButtons.querySelectorAll('.calendar-flexible-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const days = parseInt(btn.getAttribute('data-days') || '0');
+                  handleFlexibleRangeAdjust(days);
+                });
+              });
+            }
+          };
+
+          injectButtons();
+        }
+      };
+
+      // Try immediately, then with delays to ensure calendar is rendered
+      checkAndInject();
+      const timeout1 = setTimeout(checkAndInject, 100);
+      const timeout2 = setTimeout(checkAndInject, 300);
+      const timeout3 = setTimeout(checkAndInject, 500);
+
+      return () => {
+        clearTimeout(timeout1);
+        clearTimeout(timeout2);
+        clearTimeout(timeout3);
+      };
+    }
+  }, [activeSection, dateSelectionMode, flexibleDays, dateRangeStart, dateRangeEnd, targetDate]);
 
   return (
     <div className="control-panel">
       <form onSubmit={handleSearch}>
-        <div className="search-panel">
-          <div className="input-card">
-            <label>Location</label>
-            <div className="location-buttons">
-              <button
-                type="button"
-                className={`location-btn ${
-                  location === "all_new_york" ? "active" : ""
-                }`}
-                onClick={() => setLocation("all_new_york")}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M10 12h4" />
-                  <path d="M10 8h4" />
-                  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
-                  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />
-                  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
-                </svg>{" "}
-                New York
-              </button>
-              <button
-                type="button"
-                className={`location-btn ${
-                  location === "all_london" ? "active" : ""
-                }`}
-                onClick={() => setLocation("all_london")}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M10 12h4" />
-                  <path d="M10 8h4" />
-                  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
-                  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />
-                  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
-                </svg>{" "}
-                London
-              </button>
-            </div>
-          </div>
-
-          <div className="input-card">
-            <label htmlFor="targetDate">Date</label>
-            <div className="date-row">
-              <div className="input-field">
-                <span className="icon">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M8 2v4" />
-                    <path d="M16 2v4" />
-                    <rect width="18" height="18" x="3" y="4" rx="2" />
-                    <path d="M3 10h18" />
-                    <path d="M8 14h.01" />
-                    <path d="M12 14h.01" />
-                    <path d="M16 14h.01" />
-                    <path d="M8 18h.01" />
-                    <path d="M12 18h.01" />
-                    <path d="M16 18h.01" />
-                  </svg>
-                </span>
-                <DatePicker
-                  id="targetDate"
-                  selected={targetDate}
-                  onChange={(date) => setTargetDate(date)}
-                  disabled={!targetDateEnabled}
-                  dateFormat="MMM dd, yyyy"
-                  placeholderText="Select a date"
-                  minDate={new Date()}
-                  className="form-control datepicker-input"
-                  wrapperClassName="datepicker-wrapper"
-                  calendarClassName="modern-calendar"
-                />
-              </div>
-              <div className="quick-date-row">
+        <div className="airbnb-search-bar">
+          {/* Where Section */}
+          <div 
+            ref={whereSectionRef}
+            className={`search-bar-section ${activeSection === "where" ? "active" : ""}`}
+            onClick={() => handleSectionClick("where")}
+          >
+            <div className="search-bar-label">Where</div>
+            <div className="search-bar-value">{getWhereDisplayText()}</div>
+            
+            {activeSection === "where" && (
+              <div className="search-overlay search-overlay-where">
                 <button
                   type="button"
-                  className="quick-date-btn"
-                  onClick={handleToday}
+                  className={`location-option ${location === "all_london" ? "active" : ""}`}
+                  onClick={() => handleLocationSelect("all_london")}
                 >
-                  Today
+                  London
                 </button>
                 <button
                   type="button"
-                  className="quick-date-btn"
-                  onClick={handleTomorrow}
+                  className={`location-option ${location === "all_new_york" ? "active" : ""}`}
+                  onClick={() => handleLocationSelect("all_new_york")}
                 >
-                  Tomorrow
+                  New York
                 </button>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="input-card input-card--narrow">
-            <label htmlFor="guests">Group Size</label>
-            <div className="guest-picker">
-              <button
-                type="button"
-                onClick={() => setGuests(Math.max(1, guests - 1))}
-                aria-label="Decrease guests"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-              <input
-                type="number"
-                id="guests"
-                min="1"
-                value={guests}
-                readOnly
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setGuests(guests + 1)}
-                aria-label="Increase guests"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14" />
-                  <path d="M12 5v14" />
-                </svg>
-              </button>
-            </div>
+          <div className="search-bar-separator"></div>
+
+          {/* When Section */}
+          <div 
+            ref={whenSectionRef}
+            className={`search-bar-section ${activeSection === "when" ? "active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSectionClick("when");
+            }}
+          >
+            <div className="search-bar-label">When</div>
+            <div className="search-bar-value">{getWhenDisplayText()}</div>
+            
+            {activeSection === "when" && (
+              <div className="search-overlay search-overlay-when" onClick={(e) => e.stopPropagation()}>
+                <div className="date-selection-section">
+              {dateSelectionMode === "dates" && (
+                <div className="calendar-container">
+                  <div className="input-field">
+                    <span className="icon">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 2v4" />
+                        <path d="M16 2v4" />
+                        <rect width="18" height="18" x="3" y="4" rx="2" />
+                        <path d="M3 10h18" />
+                        <path d="M8 14h.01" />
+                        <path d="M12 14h.01" />
+                        <path d="M16 14h.01" />
+                        <path d="M8 18h.01" />
+                        <path d="M12 18h.01" />
+                        <path d="M16 18h.01" />
+                      </svg>
+                    </span>
+                    <DatePicker
+                      ref={datePickerRef}
+                      id="targetDate"
+                      selected={targetDate}
+                      onChange={(date) => setTargetDate(date)}
+                      onCalendarOpen={() => setIsCalendarOpen(true)}
+                      onCalendarClose={() => setIsCalendarOpen(false)}
+                      open={activeSection === "when"}
+                      withPortal={false}
+                      dateFormat="MMM dd, yyyy"
+                      placeholderText="Select a date"
+                      minDate={new Date()}
+                      monthsShown={1}
+                      className="form-control datepicker-input"
+                      wrapperClassName="datepicker-wrapper"
+                      calendarClassName="modern-calendar"
+                    />
+                  </div>
+                </div>
+              )}
+              {dateSelectionMode === "flexible" && (
+                <div className="calendar-container">
+                  <div className="input-field">
+                    <span className="icon">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 2v4" />
+                        <path d="M16 2v4" />
+                        <rect width="18" height="18" x="3" y="4" rx="2" />
+                        <path d="M3 10h18" />
+                        <path d="M8 14h.01" />
+                        <path d="M12 14h.01" />
+                        <path d="M16 14h.01" />
+                        <path d="M8 18h.01" />
+                        <path d="M12 18h.01" />
+                        <path d="M16 18h.01" />
+                      </svg>
+                    </span>
+                    <DatePicker
+                      ref={flexibleDatePickerRef}
+                      id="dateRange"
+                      selectsRange={true}
+                      startDate={dateRangeStart}
+                      endDate={dateRangeEnd}
+                      onChange={(dates) => {
+                        const [start, end] = dates;
+                        setDateRangeStart(start);
+                        setDateRangeEnd(end);
+                      }}
+                      onCalendarOpen={() => setIsCalendarOpen(true)}
+                      onCalendarClose={() => setIsCalendarOpen(false)}
+                      open={activeSection === "when"}
+                      withPortal={false}
+                      dateFormat="MMM dd, yyyy"
+                      placeholderText="Select date range"
+                      minDate={new Date()}
+                      monthsShown={1}
+                      className="form-control datepicker-input"
+                      wrapperClassName="datepicker-wrapper"
+                      calendarClassName="modern-calendar"
+                    />
+                  </div>
+                </div>
+              )}
+              {dateSelectionMode === "months" && (
+                <div className="calendar-container">
+                  <div className="input-field">
+                    <span className="icon">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 2v4" />
+                        <path d="M16 2v4" />
+                        <rect width="18" height="18" x="3" y="4" rx="2" />
+                        <path d="M3 10h18" />
+                        <path d="M8 14h.01" />
+                        <path d="M12 14h.01" />
+                        <path d="M16 14h.01" />
+                        <path d="M8 18h.01" />
+                        <path d="M12 18h.01" />
+                        <path d="M16 18h.01" />
+                      </svg>
+                    </span>
+                    <DatePicker
+                      ref={datePickerRef}
+                      id="monthsDatePicker"
+                      selected={null}
+                      onChange={() => {}}
+                      onCalendarOpen={() => {
+                        setIsCalendarOpen(true);
+                        // Switch to dates mode when calendar opens, with a small delay to ensure calendar stays open
+                        setTimeout(() => {
+                          setDateSelectionMode("dates");
+                        }, 10);
+                      }}
+                      onCalendarClose={() => setIsCalendarOpen(false)}
+                      open={activeSection === "when"}
+                      withPortal={false}
+                      dateFormat="MMM dd, yyyy"
+                      placeholderText="Next 30 days"
+                      minDate={new Date()}
+                      monthsShown={1}
+                      className="form-control datepicker-input"
+                      wrapperClassName="datepicker-wrapper"
+                      calendarClassName="modern-calendar"
+                    />
+                  </div>
+                </div>
+              )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="search-actions">
-            <button type="submit" className="primary-btn" disabled={isLoading}>
-              <span>
-                {isLoading ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 2v4" />
-                    <path d="m16.2 7.8 2.9-2.9" />
-                    <path d="M18 12h4" />
-                    <path d="m16.2 16.2 2.9 2.9" />
-                    <path d="M12 18v4" />
-                    <path d="m4.9 19.1 2.9-2.9" />
-                    <path d="M2 12h4" />
-                    <path d="m4.9 4.9 2.9 2.9" />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m21 21-4.34-4.34" />
-                    <circle cx="11" cy="11" r="8" />
-                  </svg>
-                )}
-              </span>
-              {isLoading ? "Loading..." : "Search"}
-            </button>
-            <button type="button" className="ghost-btn" onClick={onClear}>
-              <span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </span>
-              Clear
-            </button>
+          <div className="search-bar-separator"></div>
+
+          {/* Who Section */}
+          <div 
+            ref={whoSectionRef}
+            className={`search-bar-section ${activeSection === "who" ? "active" : ""}`}
+            onClick={() => handleSectionClick("who")}
+          >
+            <div className="search-bar-label">Who</div>
+            <div className="search-bar-value">{getWhoDisplayText()}</div>
+            
+            {activeSection === "who" && (
+              <div className="search-overlay search-overlay-who">
+                <div className="guest-selector-overlay">
+                  <div className="guest-picker">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGuests(Math.max(1, guests - 1));
+                      }}
+                      aria-label="Decrease guests"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <input
+                      type="number"
+                      id="guests"
+                      min="1"
+                      max="8"
+                      value={guests}
+                      readOnly
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGuests(Math.min(8, guests + 1));
+                      }}
+                      aria-label="Increase guests"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Search Button */}
+          <button 
+            type="submit" 
+            className="search-bar-button" 
+            disabled={isLoading}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSearch(e);
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m21 21-4.34-4.34" />
+              <circle cx="11" cy="11" r="8" />
+            </svg>
+          </button>
         </div>
 
-        <div className="target-toggle">
-          <input
-            type="checkbox"
-            id="targetDateEnabled"
-            checked={targetDateEnabled}
-            onChange={(e) => setTargetDateEnabled(e.target.checked)}
-            disabled={requiresDate}
-          />
-          <label htmlFor="targetDateEnabled">Filter by specific date</label>
-        </div>
 
         <div className="options-grid">
           {false && location === "lawn_club_nyc" && (

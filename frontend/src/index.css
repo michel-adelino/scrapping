@@ -5,26 +5,28 @@
 }
 
 :root {
-  --bg: #f4f5fb;
+  --bg: #f7f7f7;
   --surface: #ffffff;
-  --surface-alt: #f8f9ff;
-  --border: #e3e6ef;
-  --primary: #3c5bfd;
-  --primary-dark: #324ad1;
-  --text: #1c1f2e;
-  --muted: #6b7280;
-  --success: #16a34a;
-  --warning: #eab308;
-  --error: #ef4444;
-  --radius: 12px;
+  --surface-alt: #fafafa;
+  --border: #dddddd;
+  --primary: #ff385c;
+  --primary-dark: #e61e4d;
+  --text: #222222;
+  --muted: #717171;
+  --success: #00a699;
+  --warning: #ffb400;
+  --error: #c13515;
+  --radius: 16px;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  padding: 32px 16px 60px;
+  padding: 40px 20px 80px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app-shell {
@@ -43,7 +45,7 @@ body {
   gap: 6px;
   padding: 6px 14px;
   border-radius: var(--radius);
-  background: rgba(60, 91, 253, 0.08);
+  background: rgba(255, 56, 92, 0.08);
   color: var(--primary);
   font-weight: 600;
   font-size: 14px;
@@ -67,17 +69,17 @@ body {
 .data-section {
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 28px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  padding: 32px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border);
-  margin-bottom: 26px;
-  transition: box-shadow 0.2s ease;
+  margin-bottom: 32px;
+  transition: box-shadow 0.3s ease;
 }
 
 .control-panel:hover,
 .status-section:hover,
 .data-section:hover {
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .search-panel {
@@ -94,6 +96,106 @@ body {
 .search-panel .input-card--narrow {
   flex: 0 0 170px;
   max-width: 170px;
+}
+
+/* Airbnb-style Search Bar */
+.airbnb-search-bar {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 8px 8px 8px 24px;
+  position: relative;
+  transition: box-shadow 0.2s ease;
+}
+
+.airbnb-search-bar:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+.search-bar-section {
+  flex: 1;
+  padding: 14px 24px;
+  cursor: pointer;
+  border-radius: 32px;
+  transition: background-color 0.2s ease;
+  position: relative;
+  min-width: 0;
+}
+
+.search-bar-section:hover {
+  background-color: var(--surface-alt);
+}
+
+.search-bar-section.active {
+  background-color: var(--surface-alt);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.search-bar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+.search-bar-value {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-bar-section.active .search-bar-value {
+  color: var(--text);
+}
+
+.search-bar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border);
+  flex-shrink: 0;
+}
+
+.search-bar-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  margin-left: 8px;
+}
+
+.search-bar-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: scale(1.05);
+}
+
+.search-bar-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.search-bar-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-bar-button svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
 }
 
 .search-actions {
@@ -113,12 +215,11 @@ body {
 
 .input-card label {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+  color: var(--text);
+  margin-bottom: 12px;
   transition: color 0.2s ease;
 }
 
@@ -132,7 +233,7 @@ body {
   align-items: center;
   gap: 12px;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0 16px;
   height: 48px;
@@ -140,8 +241,8 @@ body {
 }
 
 .input-field:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(60, 91, 253, 0.1);
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .input-field .icon {
@@ -164,9 +265,9 @@ body {
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
-  font-weight: 500;
+  font-weight: 400;
   outline: none;
   transition: color 0.2s ease;
 }
@@ -201,8 +302,8 @@ body {
 }
 
 .guest-picker:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(60, 91, 253, 0.1);
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .guest-picker button {
@@ -212,7 +313,7 @@ body {
   background: transparent;
   font-size: 20px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--text);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -233,12 +334,12 @@ body {
 }
 
 .guest-picker button:hover:not(:disabled) {
-  background: rgba(60, 91, 253, 0.1);
-  color: var(--primary-dark);
+  background: var(--surface-alt);
+  color: var(--text);
 }
 
 .guest-picker button:active:not(:disabled) {
-  background: rgba(60, 91, 253, 0.15);
+  background: var(--surface-alt);
 }
 
 .guest-picker input {
@@ -293,18 +394,18 @@ body {
 }
 
 .location-btn:hover {
-  border-color: var(--primary);
-  background: rgba(60, 91, 253, 0.08);
+  border-color: var(--text);
+  background: var(--surface-alt);
 }
 
 .location-btn.active {
-  border-color: var(--primary);
-  background: var(--primary);
+  border-color: var(--text);
+  background: var(--text);
   color: white;
 }
 
 .location-btn.active:hover {
-  background: var(--primary-dark);
+  background: var(--text);
 }
 
 .primary-btn,
@@ -343,7 +444,7 @@ body {
 .primary-btn {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(60, 91, 253, 0.3), 0 2px 4px rgba(60, 91, 253, 0.2);
+  box-shadow: 0 2px 8px rgba(255, 56, 92, 0.25), 0 1px 3px rgba(255, 56, 92, 0.15);
 }
 
 .primary-btn:hover:not(:disabled) {
@@ -374,14 +475,14 @@ body {
 }
 
 .ghost-btn {
-  background: rgba(60, 91, 253, 0.08);
-  color: var(--primary);
-  border: 1px solid rgba(60, 91, 253, 0.2);
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .ghost-btn:hover {
-  background: rgba(60, 91, 253, 0.12);
-  border-color: rgba(60, 91, 253, 0.3);
+  background: var(--surface-alt);
+  border-color: var(--text);
 }
 
 .ghost-btn:active {
@@ -422,55 +523,104 @@ body {
 }
 
 .quick-date-btn:hover {
-  background: rgba(60, 91, 253, 0.1);
-  color: var(--primary);
-  border-color: var(--primary);
+  background: var(--surface-alt);
+  color: var(--text);
+  border-color: var(--text);
 }
 
 .quick-date-btn:active {
-  background: rgba(60, 91, 253, 0.15);
+  background: rgba(0, 0, 0, 0.05);
 }
 
-.target-toggle {
-  margin: 22px 0 8px;
-  padding: 14px 18px;
-  border-radius: var(--radius);
+/* Date Selection Section */
+.date-selection-section {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  border: 1.5px dashed var(--border);
+  flex-direction: column;
+  gap: 20px;
+}
+
+.date-mode-selector {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.segmented-control {
+  display: inline-flex;
   background: var(--surface-alt);
-  cursor: pointer;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 0;
 }
 
-.target-toggle:hover {
-  border-color: var(--primary);
-  background: rgba(60, 91, 253, 0.04);
-}
-
-.target-toggle input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: var(--primary);
-  flex-shrink: 0;
-}
-
-.target-toggle label {
+.segmented-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
   font-size: 14px;
+  font-weight: 500;
   color: var(--muted);
   cursor: pointer;
-  transition: color 0.2s ease;
-  user-select: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
-.target-toggle:hover label {
+.segmented-btn:hover {
   color: var(--text);
 }
 
-.target-toggle input[type="checkbox"]:checked + label {
-  color: var(--primary);
+.segmented-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+}
+
+/* Calendar Container */
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calendar-container .input-field {
+  width: 100%;
+}
+
+/* Flexible Date Options */
+.flexible-date-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.flexible-date-btn {
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.flexible-date-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.flexible-date-btn.active {
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-alt);
   font-weight: 600;
 }
 
@@ -517,7 +667,7 @@ body {
 }
 
 .chip-group::-webkit-scrollbar-thumb {
-  background: rgba(60, 91, 253, 0.35);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius);
 }
 
@@ -534,14 +684,14 @@ body {
 }
 
 .chip:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--text);
+  color: var(--text);
 }
 
 .chip.active {
-  background: rgba(60, 91, 253, 0.12);
-  color: var(--primary);
-  border-color: rgba(60, 91, 253, 0.4);
+  background: var(--surface-alt);
+  color: var(--text);
+  border-color: var(--text);
 }
 
 .website-info {
@@ -592,9 +742,9 @@ body {
 }
 
 .status-completed {
-  background: rgba(60, 91, 253, 0.12);
+  background: rgba(255, 56, 92, 0.12);
   color: var(--primary);
-  border-color: rgba(60, 91, 253, 0.2);
+  border-color: rgba(255, 56, 92, 0.2);
 }
 
 .status-error {
@@ -614,7 +764,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3c5bfd, #7c4dff);
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
   width: 0%;
   transition: width 0.3s ease;
   animation: pulse 2s infinite;
@@ -649,7 +799,7 @@ body {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text);
   margin-bottom: 6px;
 }
 
@@ -720,7 +870,7 @@ body {
 }
 
 .data-table tr:hover td {
-  background: rgba(60, 91, 253, 0.04);
+  background: var(--surface-alt);
 }
 
 .new-row {
@@ -754,13 +904,13 @@ body {
 }
 
 .price-cell {
-  color: var(--primary-dark);
+  color: var(--text);
   font-weight: 600;
 }
 
 .website-cell {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--text);
 }
 
 /* Enhanced Booking Button */
@@ -769,7 +919,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: var(--primary);
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -777,19 +927,19 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(60, 91, 253, 0.2);
+  box-shadow: 0 2px 8px rgba(255, 56, 92, 0.25);
   white-space: nowrap;
 }
 
 .booking-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(60, 91, 253, 0.35);
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  box-shadow: 0 4px 12px rgba(255, 56, 92, 0.35);
+  background: var(--primary-dark);
 }
 
 .booking-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(60, 91, 253, 0.25);
+  box-shadow: 0 2px 6px rgba(255, 56, 92, 0.25);
 }
 
 .booking-btn-text {
@@ -828,7 +978,7 @@ body {
 }
 
 .auto-scroll::-webkit-scrollbar-thumb {
-  background: rgba(60, 91, 253, 0.2);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius);
 }
 
@@ -935,7 +1085,7 @@ body {
   overflow-y: hidden;
   padding-bottom: 8px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(60, 91, 253, 0.3) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
 
 /* Date group within venue row - horizontal flow with divider at start */
@@ -952,11 +1102,11 @@ body {
 .date-divider-text-inline {
   font-weight: 600;
   font-size: 11px;
-  color: var(--primary);
+  color: var(--text);
   white-space: nowrap;
   padding: 4px 10px;
   background: var(--surface-alt);
-  border: 1px solid var(--primary);
+  border: 1px solid var(--text);
   border-radius: 12px;
   flex-shrink: 0;
   align-self: flex-start;
@@ -968,7 +1118,7 @@ body {
 }
 
 .venue-slots::-webkit-scrollbar-thumb {
-  background: rgba(60, 91, 253, 0.3);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius);
 }
 
@@ -990,14 +1140,14 @@ body {
 
 .slot-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 18px rgba(60, 91, 253, 0.15);
-  border-color: rgba(60, 91, 253, 0.4);
+  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.12);
+  border-color: var(--text);
 }
 
 .slot-time {
   font-weight: 700;
   font-size: 16px;
-  color: var(--primary);
+  color: var(--text);
 }
 
 .slot-date {
@@ -1170,11 +1320,11 @@ body {
 }
 
 .toast-info {
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--text);
 }
 
 .toast-info .toast-message {
-  color: var(--primary);
+  color: var(--text);
 }
 
 /* Modern DatePicker Styles */
@@ -1201,9 +1351,9 @@ body {
   padding: 0;
   border: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
-  font-weight: 500;
+  font-weight: 400;
   outline: none;
   cursor: pointer;
 }
@@ -1222,9 +1372,9 @@ body {
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
-  font-weight: 500;
+  font-weight: 400;
   outline: none;
   cursor: pointer;
 }
@@ -1236,120 +1386,603 @@ body {
 
 /* Calendar popup styles */
 .react-datepicker {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
   background: var(--surface);
-  padding: 8px;
+  padding: 16px;
+  padding-top: 20px;
+  font-size: 14px;
+  position: relative;
+}
+
+/* Calendar mode selector at the top */
+.calendar-mode-selector {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  margin-bottom: 12px;
+}
+
+.calendar-segmented-control {
+  display: inline-flex;
+  background: var(--surface-alt);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 0;
+}
+
+.calendar-segmented-control .segmented-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.calendar-segmented-control .segmented-btn:hover {
+  color: var(--text);
+}
+
+.calendar-segmented-control .segmented-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
 }
 
 .react-datepicker__header {
   background: transparent;
   border-bottom: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 40px;
+  padding-bottom: 16px;
   border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .react-datepicker__current-month {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  letter-spacing: -0.2px;
 }
 
 .react-datepicker__day-names {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .react-datepicker__day-name {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  width: 36px;
-  line-height: 36px;
+  width: 40px;
+  line-height: 40px;
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.react-datepicker__month-container {
+  float: left;
 }
 
 .react-datepicker__month {
-  margin: 8px 0;
+  margin: 0;
+  padding: 0 8px;
 }
 
 .react-datepicker__week {
   display: flex;
   justify-content: space-around;
+  margin: 4px 0;
 }
 
 .react-datepicker__day {
-  width: 36px;
-  height: 36px;
-  line-height: 36px;
-  margin: 2px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  margin: 0;
+  border-radius: 50%;
   color: var(--text);
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-weight: 400;
+  transition: all 0.15s ease;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
-  background: rgba(60, 91, 253, 0.1);
-  color: var(--primary);
+.react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected):not(.react-datepicker__day--outside-month) {
+  background: var(--surface-alt);
+  color: var(--text);
+  border-radius: 50%;
 }
 
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
-  background: var(--primary);
-  color: white;
+  background: var(--text) !important;
+  color: white !important;
   font-weight: 600;
+  border-radius: 50%;
 }
 
 .react-datepicker__day--selected:hover,
 .react-datepicker__day--keyboard-selected:hover {
-  background: var(--primary-dark);
+  background: var(--text) !important;
+  color: white !important;
+}
+
+/* Date range selection styles */
+.react-datepicker__day--in-range {
+  background: var(--surface-alt) !important;
+  color: var(--text) !important;
+  border-radius: 0;
+}
+
+.react-datepicker__day--in-selecting-range {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--text) !important;
+  border-radius: 0;
+}
+
+.react-datepicker__day--range-start {
+  background: var(--text) !important;
+  color: white !important;
+  border-radius: 50% 0 0 50% !important;
+  font-weight: 600;
+}
+
+.react-datepicker__day--range-end {
+  background: var(--text) !important;
+  color: white !important;
+  border-radius: 0 50% 50% 0 !important;
+  font-weight: 600;
+}
+
+.react-datepicker__day--range-start.react-datepicker__day--range-end {
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--in-range:not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end) {
+  border-radius: 0;
 }
 
 .react-datepicker__day--disabled {
-  color: #d1d5db;
+  color: #b0b0b0;
   cursor: not-allowed;
   opacity: 0.4;
 }
 
 .react-datepicker__day--today {
   font-weight: 600;
-  border: 2px solid var(--primary);
+  color: var(--text);
+}
+
+.react-datepicker__day--today:not(.react-datepicker__day--selected) {
+  border: 1px solid var(--text);
 }
 
 .react-datepicker__day--outside-month {
-  color: #d1d5db;
-  opacity: 0.5;
+  color: #b0b0b0;
+  opacity: 0.3;
 }
 
 .react-datepicker__navigation {
-  top: 12px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  top: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   transition: all 0.2s ease;
+  background: transparent;
 }
 
 .react-datepicker__navigation:hover {
-  background: rgba(60, 91, 253, 0.1);
+  background: var(--surface-alt);
 }
 
 .react-datepicker__navigation-icon::before {
   border-color: var(--text);
   border-width: 2px 2px 0 0;
+  top: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
-  border-color: var(--primary);
+  border-color: var(--text);
+}
+
+.react-datepicker__navigation--previous {
+  left: 16px;
+}
+
+.react-datepicker__navigation--next {
+  right: 16px;
 }
 
 .react-datepicker__triangle {
   display: none;
+}
+
+/* Dual month spacing */
+.react-datepicker__month-container + .react-datepicker__month-container {
+  margin-left: 32px;
+}
+
+/* Calendar with buttons - buttons are injected via JavaScript */
+
+/* Inject buttons into calendar popup */
+.react-datepicker {
+  position: relative;
+  padding-bottom: 90px !important;
+}
+
+.react-datepicker .calendar-quick-buttons,
+.react-datepicker .calendar-flexible-buttons {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 100%;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.react-datepicker .calendar-quick-buttons {
+  bottom: 56px;
+}
+
+/* Fix button positioning in overlay */
+.search-overlay-when .react-datepicker .calendar-quick-buttons,
+.search-overlay-when .react-datepicker .calendar-flexible-buttons {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: calc(100% - 32px);
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.calendar-quick-btn,
+.calendar-flexible-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 18px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.calendar-quick-btn:hover,
+.calendar-flexible-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.calendar-flexible-btn.active {
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-alt);
+  font-weight: 600;
+}
+
+/* Search Overlays */
+.search-overlay {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  z-index: 1000;
+  min-width: 300px;
+  padding: 24px;
+  animation: fadeInUp 0.2s ease;
+}
+
+.search-overlay-where {
+  top: 72px!important;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 200px;
+  padding: 16px;
+}
+
+.search-overlay-when {
+  min-width: 400px;
+  max-width: 500px;
+  padding: 24px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.search-overlay-when .input-field {
+  position: relative;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  margin-bottom: 0;
+}
+
+.search-overlay-when .input-field .icon {
+  display: none;
+}
+
+.search-overlay-when .datepicker-wrapper {
+  position: relative;
+  width: 100%;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.search-overlay-when .react-datepicker__input-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0.01;
+  z-index: 1;
+}
+
+.search-overlay-when .react-datepicker__input-container input {
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  border: none !important;
+  font-size: 1px !important;
+}
+
+.search-overlay-when .calendar-container {
+  padding: 0;
+  position: relative;
+  min-height: 400px;
+  width: 100%;
+}
+
+.search-overlay-when .react-datepicker {
+  position: relative !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  display: block !important;
+  background: var(--surface) !important;
+  padding: 16px !important;
+  padding-top: 20px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 0 !important;
+  color: var(--text) !important;
+}
+
+.search-overlay-when .react-datepicker * {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure date selection styles work in overlay - override the broad rule for selected dates */
+/* These must come after the general .react-datepicker__day rule to have proper specificity */
+.search-overlay-when .react-datepicker__day.react-datepicker__day--selected,
+.search-overlay-when .react-datepicker__day.react-datepicker__day--keyboard-selected {
+  background: var(--text) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 50% !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--selected:hover,
+.search-overlay-when .react-datepicker__day.react-datepicker__day--keyboard-selected:hover {
+  background: var(--text) !important;
+  color: white !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--in-range {
+  background: var(--surface-alt) !important;
+  color: var(--text) !important;
+  border-radius: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--in-selecting-range {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--text) !important;
+  border-radius: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--range-start {
+  background: var(--text) !important;
+  color: white !important;
+  border-radius: 50% 0 0 50% !important;
+  font-weight: 600 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--range-end {
+  background: var(--text) !important;
+  color: white !important;
+  border-radius: 0 50% 50% 0 !important;
+  font-weight: 600 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--range-start.react-datepicker__day--range-end {
+  border-radius: 50% !important;
+}
+
+.search-overlay-when .react-datepicker__day.react-datepicker__day--in-range:not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end) {
+  border-radius: 0 !important;
+}
+
+.search-overlay-when .react-datepicker__month-container {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  float: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+.search-overlay-when .react-datepicker__day {
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: var(--text) !important;
+}
+
+/* Only apply transparent background to non-selected, non-range days */
+.search-overlay-when .react-datepicker__day:not(.react-datepicker__day--selected):not(.react-datepicker__day--keyboard-selected):not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end):not(.react-datepicker__day--in-range):not(.react-datepicker__day--in-selecting-range) {
+  background: transparent !important;
+}
+
+.search-overlay-when .react-datepicker__day-name {
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: var(--muted) !important;
+}
+
+.search-overlay-when .react-datepicker__header {
+  visibility: visible !important;
+  opacity: 1 !important;
+  background: transparent !important;
+}
+
+.search-overlay-when .react-datepicker__current-month {
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: var(--text) !important;
+}
+
+.search-overlay-when .react-datepicker__navigation {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.search-overlay-who {
+  top: 72px!important;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 200px;
+  padding: 24px;
+}
+
+.location-option {
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 8px;
+}
+
+.location-option:last-child {
+  margin-bottom: 0;
+}
+
+.location-option:hover {
+  border-color: var(--text);
+  background: var(--surface-alt);
+}
+
+.location-option.active {
+  border-color: var(--primary);
+  background: rgba(255, 56, 92, 0.08);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.guest-selector-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.guest-selector-overlay .guest-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.guest-selector-overlay .guest-picker button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.guest-selector-overlay .guest-picker button:hover:not(:disabled) {
+  border-color: var(--text);
+  background: var(--surface-alt);
+}
+
+.guest-selector-overlay .guest-picker button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.guest-selector-overlay .guest-picker input {
+  width: 60px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0;
 }
 

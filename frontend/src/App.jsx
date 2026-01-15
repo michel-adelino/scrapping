@@ -138,11 +138,11 @@ function App() {
     }
   }, [showToast])
 
-  // Initial load - load All NYC data without date filter, with default 6 guests
+  // Initial load - load All London data without date filter, with default 2 guests
   useEffect(() => {
-    const defaultFilters = { city: 'NYC', guests: 6 } // Load All NYC without date selection, with 6 guests
-    setIsMultiVenueMode(true) // Set multi-venue mode for All NYC
-    fetchData(defaultFilters, 6) // Default to 6 guests
+    const defaultFilters = { city: 'London', guests: 2 } // Load All London without date selection, with 2 guests
+    setIsMultiVenueMode(true) // Set multi-venue mode for All London
+    fetchData(defaultFilters, 2) // Default to 2 guests
   }, [fetchData])
 
   return (
@@ -152,8 +152,8 @@ function App() {
           <span>🍽️</span>
           <span>Live Availability</span>
         </div>
-        <h1>Find venues with available slots in seconds</h1>
-        <p>Choose a city, set your date and group size, then search for available slots.</p>
+        <h1>Discover and access group reservations in seconds</h1>
+        <p>Choose a city, set your date and group size, and book directly with the company</p>
       </header>
 
       <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />

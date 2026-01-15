@@ -6,7 +6,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0', // Allow external access (for VPS)
-    port: 3000,
     // No proxy needed - frontend calls backend directly on port 8010
   },
   build: {
