@@ -1,3 +1,6 @@
+import { formatVenueName, isLawnClubVenue, getLawnClubActivities } from '../utils/venueFormatting'
+import { getVenueMetadata } from '../data/venueMetadata'
+
 // Map venue names to image filenames in the public folder
 const VENUE_IMAGE_MAP = {
   'Swingers (NYC)': 'Swingers.webp',
@@ -47,7 +50,7 @@ const VENUE_IMAGE_MAP = {
   'All Star Lanes (Brick Lane)': 'AllStarLanes.webp',
 }
 
-function VenueCard({ venueName, slotCount, onClick }) {
+function VenueCard({ venueName, slotCount, onClick, city = null }) {
   const getVenueImage = (venueName) => {
     const imageFile = VENUE_IMAGE_MAP[venueName] || 'sample.webp'
     return `/${imageFile}`
@@ -58,6 +61,13 @@ function VenueCard({ venueName, slotCount, onClick }) {
     if (count === 1) return '1 available slot'
     return `${count} available slots`
   }
+
+  // Format venue name and get metadata
+  const formattedName = formatVenueName(venueName, city)
+  const metadata = getVenueMetadata(venueName)
+  const description = metadata?.description || ''
+  const isLawnClub = isLawnClubVenue(venueName)
+  const activities = isLawnClub ? getLawnClubActivities(venueName) : []
 
   return (
     <div 
@@ -75,7 +85,7 @@ function VenueCard({ venueName, slotCount, onClick }) {
       <div className="venue-card-image-container">
         <img 
           src={getVenueImage(venueName)} 
-          alt={venueName}
+          alt={formattedName}
           className="venue-card-image"
           onError={(e) => {
             e.target.src = '/sample.webp'
@@ -83,7 +93,15 @@ function VenueCard({ venueName, slotCount, onClick }) {
         />
       </div>
       <div className="venue-card-content">
-        <div className="venue-card-name">{venueName}</div>
+        <div className="venue-card-name">{formattedName}</div>
+        {isLawnClub && activities.length > 0 && (
+          <div className="venue-card-activities">
+            {activities.join(', ')}
+          </div>
+        )}
+        {description && (
+          <div className="venue-card-description">{description}</div>
+        )}
         <div className="venue-card-slots">{formatSlotCount(slotCount)}</div>
       </div>
     </div>

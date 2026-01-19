@@ -1,3 +1,5 @@
+import { formatPrice } from '../utils/currencyFormatting'
+
 function SlotCard({ item }) {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A'
@@ -112,7 +114,7 @@ function SlotCard({ item }) {
     >
       <div className="slot-time">{normalizedTime}</div>
       {item.price && item.price !== '-' && (
-        <div className="slot-price">{item.price}</div>
+        <div className="slot-price">{formatPrice(item.price)}</div>
       )}
       <div className={`slot-status ${getStatusClass(item.status)}`}>
         {item.status || 'Available'}

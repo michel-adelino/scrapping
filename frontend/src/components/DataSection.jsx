@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect } from 'react'
 import SlotCard from './SlotCard'
 import DataTable from './DataTable'
 import VenueCard from './VenueCard'
+import { formatVenueName, isLawnClubVenue, getLawnClubActivities } from '../utils/venueFormatting'
+import { getVenueMetadata } from '../data/venueMetadata'
 
 function DataSection({ data, isMultiVenueMode }) {
   const [selectedVenue, setSelectedVenue] = useState(null)
@@ -10,6 +12,9 @@ function DataSection({ data, isMultiVenueMode }) {
   useEffect(() => {
     setSelectedVenue(null)
   }, [data])
+
+  // Extract city from data (assume all items have same city)
+  const city = data.length > 0 ? (data[0]?.city || null) : null
 
   // Group venues and calculate slot counts for list view
   const venueSummary = useMemo(() => {
@@ -83,9 +88,9 @@ function DataSection({ data, isMultiVenueMode }) {
             No data available. Use the search panel to find available slots.
           </div>
         ) : isMultiVenueMode && !selectedVenue ? (
-          <VenueList venues={venueSummary} onVenueClick={handleVenueClick} />
+          <VenueList venues={venueSummary} onVenueClick={handleVenueClick} city={city} />
         ) : isMultiVenueMode && selectedVenue ? (
-          <VenueDetail data={selectedVenueData} venueName={selectedVenue} />
+          <VenueDetail data={selectedVenueData} venueName={selectedVenue} city={city} />
         ) : (
           <DataTable data={data} />
         )}
@@ -96,7 +101,7 @@ function DataSection({ data, isMultiVenueMode }) {
 
 
 // Venue list view - shows grid of venue cards
-function VenueList({ venues, onVenueClick }) {
+function VenueList({ venues, onVenueClick, city }) {
   return (
     <div className="venue-list-grid">
       {venues.map(({ venueName, slotCount }) => (
@@ -104,6 +109,7 @@ function VenueList({ venues, onVenueClick }) {
           key={venueName}
           venueName={venueName}
           slotCount={slotCount}
+          city={city}
           onClick={() => onVenueClick(venueName)}
         />
       ))}
@@ -112,7 +118,13 @@ function VenueList({ venues, onVenueClick }) {
 }
 
 // Venue detail view - shows slots for selected venue
-function VenueDetail({ data, venueName }) {
+function VenueDetail({ data, venueName, city = null }) {
+  // Format venue name and get metadata
+  const formattedName = formatVenueName(venueName, city)
+  const metadata = getVenueMetadata(venueName)
+  const description = metadata?.description || ''
+  const isLawnClub = isLawnClubVenue(venueName)
+  const activities = isLawnClub ? getLawnClubActivities(venueName) : []
   const groupedByDate = useMemo(() => {
     const grouped = {}
     data.forEach(item => {
@@ -183,6 +195,17 @@ function VenueDetail({ data, venueName }) {
 
   return (
     <div className="venue-detail-container">
+      <div className="venue-detail-header">
+        <div className="venue-detail-name">{formattedName}</div>
+        {isLawnClub && activities.length > 0 && (
+          <div className="venue-detail-activities">
+            {activities.join(', ')}
+          </div>
+        )}
+        {description && (
+          <div className="venue-detail-description">{description}</div>
+        )}
+      </div>
       <div className="venue-detail-content">
         {groupedByDate.map(({ date, slots }) => {
           const dateInfo = formatDateHeader(date)

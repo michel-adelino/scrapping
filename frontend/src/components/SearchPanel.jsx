@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { getNeighborhoodsForCity } from "../data/venueMetadata";
 
 const LAWN_CLUB_TIMES = [
   "6:00 AM",
@@ -158,6 +159,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
   const [claysLocation, setClaysLocation] = useState("Canary Wharf");
   const [puttshackLocation, setPuttshackLocation] = useState("Bank");
   const [f1Experience, setF1Experience] = useState("Team Racing");
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState([]); // Array of selected neighborhoods
 
   const venueInfo = VENUE_INFO[location] || VENUE_INFO["all_new_york"];
   const requiresDate = false; // Always false since we're only showing all_new_york or all_london
@@ -229,6 +231,13 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     } else if (location === "all_london") {
       filters.city = "London";
       delete filters.venue_name;
+    }
+
+    // Add neighborhood filter (only if neighborhoods are selected)
+    if (selectedNeighborhoods.length > 0) {
+      // For now, we'll pass the first selected neighborhood
+      // The backend can be updated to handle multiple neighborhoods if needed
+      filters.neighborhood = selectedNeighborhoods[0];
     }
 
     // Add guests filter
@@ -326,6 +335,11 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
     if (guests === 1) return "1 guest";
     return `${guests} guests`;
   };
+
+  // Reset neighborhood selection when city changes
+  useEffect(() => {
+    setSelectedNeighborhoods([]);
+  }, [location]);
 
   // Click outside detection to close overlays
   useEffect(() => {
@@ -1019,6 +1033,40 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
           </button>
         </div>
 
+
+        {/* Neighborhood Filter */}
+        <div className="neighborhood-filter-section">
+          <div className="neighborhood-filter-label">Neighborhood</div>
+          <div className="neighborhood-filter-tags">
+            {(() => {
+              const currentCity = location === "all_new_york" ? "NYC" : location === "all_london" ? "London" : null;
+              const neighborhoods = currentCity ? getNeighborhoodsForCity(currentCity) : [];
+              
+              if (neighborhoods.length === 0) {
+                return <div className="neighborhood-filter-empty">No neighborhoods available for this city</div>;
+              }
+              
+              return neighborhoods.map((neighborhood) => (
+                <button
+                  key={neighborhood}
+                  type="button"
+                  className={`neighborhood-filter-tag ${selectedNeighborhoods.includes(neighborhood) ? "active" : ""}`}
+                  onClick={() => {
+                    setSelectedNeighborhoods(prev => {
+                      if (prev.includes(neighborhood)) {
+                        return prev.filter(n => n !== neighborhood);
+                      } else {
+                        return [...prev, neighborhood];
+                      }
+                    });
+                  }}
+                >
+                  {neighborhood}
+                </button>
+              ));
+            })()}
+          </div>
+        </div>
 
         <div className="options-grid">
           {false && location === "lawn_club_nyc" && (

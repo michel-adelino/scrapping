@@ -919,6 +919,7 @@ def get_data():
         date_to = request.args.get('date_to')
         status_filter = request.args.get('status')
         guests = request.args.get('guests')
+        neighborhood = request.args.get('neighborhood')
         search_term = request.args.get('search', '').lower()
         
         limit = request.args.get('limit', type=int)
@@ -931,7 +932,7 @@ def get_data():
         
         logger = logging.getLogger(__name__)
         
-        debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, status={status_filter}, limit={limit if limit is not None else 'unlimited'}, offset={offset}"
+        debug_msg = f"[API DEBUG] Request params: city={city}, venue_name={venue_name}, date_from={date_from}, date_to={date_to}, guests={guests}, neighborhood={neighborhood}, status={status_filter}, limit={limit if limit is not None else 'unlimited'}, offset={offset}"
         print(debug_msg, flush=True)
         logger.info(debug_msg)
         
@@ -1127,6 +1128,72 @@ def get_data():
                 logger.error(error_msg, exc_info=True)
                 error_count += 1
                 continue
+        
+        # Neighborhood filtering (after data fetch since neighborhood is not in DB)
+        if neighborhood:
+            # Venue name to neighborhood mapping (simplified version of frontend metadata)
+            venue_neighborhood_map = {
+                # NYC venues
+                'Swingers (NYC)': 'Midtown',
+                'Electric Shuffle (NYC)': 'Midtown',
+                'Puttery (NYC)': 'Downtown',
+                'Five Iron Golf (NYC - FiDi)': 'Downtown',
+                'Five Iron Golf (NYC - Flatiron)': 'Midtown',
+                'Five Iron Golf (NYC - Grand Central)': 'Midtown',
+                'Five Iron Golf (NYC - Midtown East)': 'Midtown',
+                'Five Iron Golf (NYC - Herald Square)': 'Midtown',
+                'Five Iron Golf (NYC - Long Island City)': 'Brooklyn/Queens',
+                'Five Iron Golf (NYC - Upper East Side)': 'Uptown',
+                'Five Iron Golf (NYC - Rockefeller Center)': 'Midtown',
+                'SPIN (NYC - Flatiron)': 'Midtown',
+                'SPIN (NYC - Midtown)': 'Midtown',
+                'T-Squared Social': 'Midtown',
+                'Lucky Strike (Times Square)': 'Midtown',
+                'Lucky Strike (Chelsea Piers)': 'Midtown',
+                'The Lawn Club (Financial District)': 'Downtown',
+                'Lawn Club (Croquet Lawns)': 'Downtown',
+                'Lawn Club (Curling Lawns)': 'Downtown',
+                'Lawn Club (Indoor Gaming)': 'Downtown',
+                'Kick Axe (Brooklyn)': 'Brooklyn/Queens',
+                'Chelsea Piers Golf': 'Midtown',
+                # London venues
+                'Puttshack (Bank)': 'The City',
+                'Swingers (London)': 'West End',
+                'Flight Club Darts (Shoreditch)': 'The City',
+                'Flight Club Darts (Bloomsbury)': 'West End',
+                'Flight Club Darts (Victoria)': 'Westminster',
+                'Flight Club Darts (Angel)': 'The City',
+                'Electric Shuffle (London)': 'Canary Wharf',
+                'Electric Shuffle (London Bridge)': 'The City',
+                'Clays Bar (Canary Wharf)': 'Canary Wharf',
+                'Clays Bar (The City)': 'The City',
+                'Clays Bar (Soho)': 'West End',
+                'F1 Arcade': 'The City',
+                'Fair Game (Canary Wharf)': 'Canary Wharf',
+                'Fair Game (City)': 'The City',
+                'Bounce': 'The City',
+                'All Star Lanes (Holborn)': 'West End',
+                'All Star Lanes (Shoreditch)': 'The City',
+                'Hijingo': 'The City',
+            }
+            
+            # Filter data by neighborhood
+            filtered_data = []
+            for item in data:
+                venue_name = item.get('venue_name', '')
+                item_neighborhood = venue_neighborhood_map.get(venue_name)
+                
+                # Also try partial matching for venue names that might have slight variations
+                if not item_neighborhood:
+                    for mapped_venue, mapped_neighborhood in venue_neighborhood_map.items():
+                        if mapped_venue.lower() in venue_name.lower() or venue_name.lower() in mapped_venue.lower():
+                            item_neighborhood = mapped_neighborhood
+                            break
+                
+                if item_neighborhood == neighborhood:
+                    filtered_data.append(item)
+            
+            data = filtered_data
         
         if search_term:
             data = [

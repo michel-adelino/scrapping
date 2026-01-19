@@ -82,6 +82,103 @@ body {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* Neighborhood Filter Section */
+.neighborhood-filter-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.neighborhood-filter-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.neighborhood-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neighborhood-filter-tag {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.neighborhood-filter-tag:hover {
+  border-color: var(--text);
+  background: var(--surface-alt);
+}
+
+.neighborhood-filter-tag.active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 500;
+}
+
+.neighborhood-filter-empty {
+  color: var(--muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Venue Card Description and Activities */
+.venue-card-description {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.venue-card-activities {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* Venue Detail Header */
+.venue-detail-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.venue-detail-name {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.venue-detail-activities {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.venue-detail-description {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .search-panel {
   display: flex;
   gap: 18px;

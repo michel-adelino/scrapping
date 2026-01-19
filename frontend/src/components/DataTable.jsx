@@ -1,3 +1,6 @@
+import { formatVenueName } from '../utils/venueFormatting'
+import { formatPrice } from '../utils/currencyFormatting'
+
 function DataTable({ data }) {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A'
@@ -61,12 +64,15 @@ function DataTable({ data }) {
       <tbody>
         {data.map((item, idx) => {
           const venueName = item.venue_name || item.website || '-'
+          const city = item.city || null
+          const formattedVenueName = formatVenueName(venueName, city)
+          const formattedPrice = formatPrice(item.price)
           return (
             <tr key={idx}>
-              <td className="website-cell">{venueName}</td>
+              <td className="website-cell">{formattedVenueName}</td>
               <td>{formatDate(item.date)}</td>
               <td>{item.time || '-'}</td>
-              <td className="price-cell">{item.price || '-'}</td>
+              <td className="price-cell">{formattedPrice}</td>
               <td className={getStatusClass(item.status)}>{item.status || '-'}</td>
               <td>{formatTime(item.timestamp)}</td>
               <td>
