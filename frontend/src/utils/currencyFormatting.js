@@ -76,15 +76,43 @@ export const formatPrice = (price) => {
   }
   
   // Extract the numeric value (with optional decimal)
-  // Look for patterns like: 45, 45.00, 45.5
-  const numericMatch = originalPrice.match(/(\d+\.?\d*)/);
-  
-  if (numericMatch) {
-    numericValue = parseFloat(numericMatch[1]);
-    
-    // Validate the numeric value
+  // PRIORITY 1: Look for number immediately after currency symbol (e.g., "$45", "£30.50")
+  const currencyWithNumber = originalPrice.match(/[$£€]\s*(\d+\.?\d*)/);
+  if (currencyWithNumber) {
+    numericValue = parseFloat(currencyWithNumber[1]);
     if (!isNaN(numericValue) && numericValue > 0) {
-      // Format to exactly 2 decimal places
+      return `${currencySymbol}${numericValue.toFixed(2)}`;
+    }
+  }
+  
+  // PRIORITY 2: Look for number immediately before currency symbol (e.g., "45$", "30£")
+  // const numberWithCurrency = originalPrice.match(/(\d+\.?\d*)\s*[$£€]/);
+  // if (numberWithCurrency) {
+  //   numericValue = parseFloat(numberWithCurrency[1]);
+  //   if (!isNaN(numericValue) && numericValue > 0) {
+  //     return `${currencySymbol}${numericValue.toFixed(2)}`;
+  //   }
+  // }
+  
+  // PRIORITY 3: If currency symbol exists but not adjacent, find the largest number
+  // (to avoid matching duration numbers like "1h" or "30min")
+  if (hasCurrency) {
+    const allNumbers = originalPrice.match(/\d+\.?\d*/g);
+    if (allNumbers && allNumbers.length > 0) {
+      // Convert to numbers and find the largest (likely the price, not duration)
+      const numbers = allNumbers.map(n => parseFloat(n)).filter(n => !isNaN(n) && n > 0);
+      if (numbers.length > 0) {
+        numericValue = Math.max(...numbers);
+        return `${currencySymbol}${numericValue.toFixed(2)}`;
+      }
+    }
+  }
+  
+  // PRIORITY 4: No currency symbol - look for standalone number
+  const standaloneNumber = originalPrice.match(/^\s*(\d+\.?\d*)\s*$/);
+  if (standaloneNumber) {
+    numericValue = parseFloat(standaloneNumber[1]);
+    if (!isNaN(numericValue) && numericValue > 0) {
       return `${currencySymbol}${numericValue.toFixed(2)}`;
     }
   }
