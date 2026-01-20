@@ -5,7 +5,7 @@ import VenueCard from './VenueCard'
 import { formatVenueName, isLawnClubVenue, getLawnClubActivities } from '../utils/venueFormatting'
 import { getVenueMetadata } from '../data/venueMetadata'
 
-function DataSection({ data, isMultiVenueMode }) {
+function DataSection({ data, isMultiVenueMode, isLoading = false }) {
   const [selectedVenue, setSelectedVenue] = useState(null)
 
   // Reset selected venue when data changes (new search)
@@ -83,6 +83,11 @@ function DataSection({ data, isMultiVenueMode }) {
       </div>
 
       <div className="auto-scroll">
+        {isLoading && (
+          <div className="loading-overlay">
+            <div className="spinner"></div>
+          </div>
+        )}
         {data.length === 0 ? (
           <div className="no-data">
             No data available. Use the search panel to find available slots.

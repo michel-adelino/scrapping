@@ -162,6 +162,7 @@ function App() {
       <DataSection
         data={tableData}
         isMultiVenueMode={isMultiVenueMode}
+        isLoading={isLoading}
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
