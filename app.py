@@ -163,30 +163,30 @@ LONDON_VENUES = [
 ]
 
 VENUE_BOOKING_URLS = {
-    'Swingers (NYC)': 'https://www.swingers.club/us/locations/nyc/book-now',
-    'Swingers (London)': 'https://www.swingers.club/uk/book-now',
-    'Electric Shuffle (NYC)': 'https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search',
-    'Electric Shuffle (London)': 'https://electricshuffle.com/uk/london/book',
-    'Lawn Club NYC': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'Swingers (Nomad)': 'https://www.swingers.club/us/locations/nyc/book-now',
+    'Swingers (Oxford Circus)': 'https://www.swingers.club/uk/book-now',
+    'Electric Shuffle (Nomad)': 'https://www.sevenrooms.com/explore/electricshufflenyc/reservations/create/search',
+    'Electric Shuffle (Canary Wharf)': 'https://electricshuffle.com/uk/london/book',
+    'Electric Shuffle (London Bridge)': 'https://electricshuffle.com/uk/london/book',
+    'Electric Shuffle (King\'s Cross)': 'https://electricshuffle.com/uk/london/book',
+    'The Lawn Club (Financial District)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Indoor Gaming)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Curling Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
-    'SPIN (NYC)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
-    'SPIN (NYC - Flatiron)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
-    'SPIN (NYC - Midtown)': 'https://wearespin.com/location/new-york-midtown/table-reservations/',
-    'Five Iron Golf (NYC)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - FiDi)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Flatiron)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Grand Central)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Herald Square)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Long Island City)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Upper East Side)': 'https://booking.fiveirongolf.com/session-length',
-    'Five Iron Golf (NYC - Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
+    'SPIN (Flatiron)': 'https://wearespin.com/location/new-york-flatiron/table-reservations/',
+    'SPIN (Midtown East)': 'https://wearespin.com/location/new-york-midtown/table-reservations/',
+    'Five Iron Golf (Financial District)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Flatiron)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Midtown East)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Herald Square)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Long Island City)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Upper East Side)': 'https://booking.fiveirongolf.com/session-length',
+    'Five Iron Golf (Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
     'Lucky Strike (Chelsea Piers)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
     'Lucky Strike (Times Square)': 'https://www.luckystrikeent.com/location/lucky-strike-times-square/booking/lane-reservation',
     'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
-    'T-Squared Social': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
-    'Chelsea Piers Golf': 'https://apps.daysmartrecreation.com/dash/chelsea/program-finder',
+    'T-Squared Social (Midtown East)': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
+    'Chelsea Piers (Chelsea)': 'https://apps.daysmartrecreation.com/dash/chelsea/program-finder',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
     'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
     'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
@@ -201,11 +201,14 @@ VENUE_BOOKING_URLS = {
     'Flight Club Darts (Angel)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Shoreditch)': 'https://flightclubdarts.com/book',
     'Flight Club Darts (Victoria)': 'https://flightclubdarts.com/book',
-    'F1 Arcade': 'https://f1arcade.com/uk/booking/venue/london',
-    'Topgolf Chigwell': 'https://www.sevenrooms.com/explore/topgolfchigwell/reservations/create/search',
-    'Bounce': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB',
-    'Puttery (NYC)': 'https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday',
-    'Kick Axe (Brooklyn)': 'https://www.exploretock.com/kick-axe-throwing-brooklyn-2025/experience/573671/axe-throwing-75-mins'
+    'Flight Club Darts (Bloomsbury)': 'https://flightclubdarts.com/book',
+    'F1 Arcade (St Paul\'s)': 'https://f1arcade.com/uk/booking/venue/london',
+    'Topgolf (Chigwell)': 'https://www.sevenrooms.com/explore/topgolfchigwell/reservations/create/search',
+    'Bounce (Farringdon)': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB',
+    'Bounce (Shoreditch)': 'https://bookings.designmynight.com/book?widget_version=2&venue_id=512b203fd5d190d2978ca644&venue_group=5536821278727915249864d6&type=5955253c91c098669b3202d3&duration=55&marketing_preferences=&tags=%7B%7D&source=partner&return_url=https%3A%2F%2Fwww.bouncepingpong.com%2Fapi%2Fbooking-confirmed%2F&return_method=post&gtm_account=Farringdon_booknow&locale=en-GB',
+    'Puttery (Meatpacking)': 'https://www.exploretock.com/puttery-new-york/experience/556314/play-1-course-reservation-weekday',
+    'Kick Axe (Brooklyn)': 'https://www.exploretock.com/kick-axe-throwing-brooklyn-2025/experience/573671/axe-throwing-75-mins',
+    'Hijingo (Shoreditch)': 'https://hijingo.com/book'
 }
 
 
@@ -701,15 +704,15 @@ def run_scraper():
         if website.startswith('five_iron_golf_nyc_'):
             from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
             location = website.replace('five_iron_golf_nyc_', '')
-            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf NYC')
+            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (Financial District)')
         elif website.startswith('lawn_club_nyc_'):
             from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
             option = website.replace('lawn_club_nyc_', '')
             venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
-        elif website.startswith('spin_nyc_'):
+        elif website.startswith('spin_nyc'):
             from scrapers.spin import SPIN_VENUE_NAMES
-            location = website.replace('spin_nyc_', '')
-            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
+            location = 'flatiron' if website == 'spin_nyc' else website.replace('spin_nyc_', '')
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (Flatiron)')
         elif website.startswith('allstarlanes_'):
             from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
             location = website.replace('allstarlanes_', '')
@@ -1134,20 +1137,19 @@ def get_data():
             # Venue name to neighborhood mapping (simplified version of frontend metadata)
             venue_neighborhood_map = {
                 # NYC venues
-                'Swingers (NYC)': 'Midtown',
-                'Electric Shuffle (NYC)': 'Midtown',
-                'Puttery (NYC)': 'Downtown',
-                'Five Iron Golf (NYC - FiDi)': 'Downtown',
-                'Five Iron Golf (NYC - Flatiron)': 'Midtown',
-                'Five Iron Golf (NYC - Grand Central)': 'Midtown',
-                'Five Iron Golf (NYC - Midtown East)': 'Midtown',
-                'Five Iron Golf (NYC - Herald Square)': 'Midtown',
-                'Five Iron Golf (NYC - Long Island City)': 'Brooklyn/Queens',
-                'Five Iron Golf (NYC - Upper East Side)': 'Uptown',
-                'Five Iron Golf (NYC - Rockefeller Center)': 'Midtown',
-                'SPIN (NYC - Flatiron)': 'Midtown',
-                'SPIN (NYC - Midtown)': 'Midtown',
-                'T-Squared Social': 'Midtown',
+                'Swingers (Nomad)': 'Midtown',
+                'Electric Shuffle (Nomad)': 'Midtown',
+                'Puttery (Meatpacking)': 'Downtown',
+                'Five Iron Golf (Financial District)': 'Downtown',
+                'Five Iron Golf (Flatiron)': 'Midtown',
+                'Five Iron Golf (Midtown East)': 'Midtown',
+                'Five Iron Golf (Herald Square)': 'Midtown',
+                'Five Iron Golf (Long Island City)': 'Brooklyn/Queens',
+                'Five Iron Golf (Upper East Side)': 'Uptown',
+                'Five Iron Golf (Rockefeller Center)': 'Midtown',
+                'SPIN (Flatiron)': 'Midtown',
+                'SPIN (Midtown East)': 'Midtown',
+                'T-Squared Social (Midtown East)': 'Midtown',
                 'Lucky Strike (Times Square)': 'Midtown',
                 'Lucky Strike (Chelsea Piers)': 'Midtown',
                 'The Lawn Club (Financial District)': 'Downtown',
@@ -1155,26 +1157,29 @@ def get_data():
                 'Lawn Club (Curling Lawns)': 'Downtown',
                 'Lawn Club (Indoor Gaming)': 'Downtown',
                 'Kick Axe (Brooklyn)': 'Brooklyn/Queens',
-                'Chelsea Piers Golf': 'Midtown',
+                'Chelsea Piers (Chelsea)': 'Midtown',
                 # London venues
                 'Puttshack (Bank)': 'The City',
-                'Swingers (London)': 'West End',
+                'Swingers (Oxford Circus)': 'West End',
                 'Flight Club Darts (Shoreditch)': 'The City',
                 'Flight Club Darts (Bloomsbury)': 'West End',
                 'Flight Club Darts (Victoria)': 'Westminster',
                 'Flight Club Darts (Angel)': 'The City',
-                'Electric Shuffle (London)': 'Canary Wharf',
+                'Electric Shuffle (Canary Wharf)': 'Canary Wharf',
                 'Electric Shuffle (London Bridge)': 'The City',
+                'Electric Shuffle (King\'s Cross)': None,
                 'Clays Bar (Canary Wharf)': 'Canary Wharf',
                 'Clays Bar (The City)': 'The City',
                 'Clays Bar (Soho)': 'West End',
-                'F1 Arcade': 'The City',
+                'F1 Arcade (St Paul\'s)': 'The City',
                 'Fair Game (Canary Wharf)': 'Canary Wharf',
                 'Fair Game (City)': 'The City',
-                'Bounce': 'The City',
+                'Bounce (Farringdon)': 'The City',
+                'Bounce (Shoreditch)': 'The City',
                 'All Star Lanes (Holborn)': 'West End',
                 'All Star Lanes (Shoreditch)': 'The City',
-                'Hijingo': 'The City',
+                'Hijingo (Shoreditch)': 'The City',
+                'Topgolf (Chigwell)': None,
             }
             
             # Filter data by neighborhood
@@ -1320,11 +1325,11 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers NYC...', current_venue='Swingers (NYC)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers NYC...', current_venue='Swingers (Nomad)')
             
             slots_saved = run_scraper_and_save_to_db(
                 swingers.scrape_swingers,
-                'Swingers (NYC)',
+                'Swingers (Nomad)',
                 'NYC',
                 guests,
                 guests,
@@ -1348,11 +1353,11 @@ def scrape_swingers_uk_task(self, guests, target_date, task_id=None):
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers UK...', current_venue='Swingers (London)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers UK...', current_venue='Swingers (Oxford Circus)')
             
             slots_saved = run_scraper_and_save_to_db(
                 swingers.scrape_swingers_uk,
-                'Swingers (London)',
+                'Swingers (Oxford Circus)',
                 'London',
                 guests,
                 guests,
@@ -1376,11 +1381,11 @@ def scrape_electric_shuffle_task(self, guests, target_date, task_id=None):
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle NYC...', current_venue='Electric Shuffle (NYC)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle NYC...', current_venue='Electric Shuffle (Nomad)')
             
             slots_saved = run_scraper_and_save_to_db(
                 electric_shuffle.scrape_electric_shuffle,
-                'Electric Shuffle (NYC)',
+                'Electric Shuffle (Nomad)',
                 'NYC',
                 guests,
                 guests,
@@ -1404,11 +1409,11 @@ def scrape_electric_shuffle_london_task(self, guests, target_date, task_id=None)
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle London...', current_venue='Electric Shuffle (London)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle London...', current_venue='Electric Shuffle (Canary Wharf)')
             
             slots_saved = run_scraper_and_save_to_db(
                 electric_shuffle.scrape_electric_shuffle_london,
-                'Electric Shuffle (London)',
+                'Electric Shuffle (Canary Wharf)',
                 'London',
                 guests,
                 guests,
@@ -1467,7 +1472,7 @@ def scrape_spin_task(self, guests, target_date, task_id=None, selected_time=None
     with app.app_context():
         try:
             from scrapers.spin import SPIN_VENUE_NAMES
-            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
+            venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (Flatiron)')
             
             if task_id:
                 update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
@@ -1501,7 +1506,7 @@ def scrape_five_iron_golf_task(self, guests, target_date, task_id=None, location
         try:
             # Map location to venue name
             from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
-            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+            venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (Financial District)')
             
             if task_id:
                 update_task_status(task_id, status='STARTED', progress=f'Starting to scrape {venue_name}...', current_venue=venue_name)
@@ -2042,37 +2047,37 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
             
             city = 'NYC' if 'nyc' in website or website in NYC_VENUES else 'London'
             venue_name_map = {
-                'swingers_nyc': 'Swingers (NYC)',
-                'swingers_london': 'Swingers (London)',
-                'electric_shuffle_nyc': 'Electric Shuffle (NYC)',
-                'electric_shuffle_london': 'Electric Shuffle (London)',
+                'swingers_nyc': 'Swingers (Nomad)',
+                'swingers_london': 'Swingers (Oxford Circus)',
+                'electric_shuffle_nyc': 'Electric Shuffle (Nomad)',
+                'electric_shuffle_london': 'Electric Shuffle (Canary Wharf)',
                 'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
                 'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
                 'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
-                'spin_nyc': 'SPIN (NYC - Flatiron)',
-                'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
-                'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
-                'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
-                'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
-                'five_iron_golf_nyc_herald_square': 'Five Iron Golf (NYC - Herald Square)',
-                'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
-                'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
-                'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
+                'spin_nyc': 'SPIN (Flatiron)',
+                'spin_nyc_midtown': 'SPIN (Midtown East)',
+                'five_iron_golf_nyc_fidi': 'Five Iron Golf (Financial District)',
+                'five_iron_golf_nyc_flatiron': 'Five Iron Golf (Flatiron)',
+                'five_iron_golf_nyc_grand_central': 'Five Iron Golf (Midtown East)',
+                'five_iron_golf_nyc_herald_square': 'Five Iron Golf (Herald Square)',
+                'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (Long Island City)',
+                'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (Upper East Side)',
+                'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (Rockefeller Center)',
                 'lucky_strike_nyc': 'Lucky Strike (Chelsea Piers)',
                 'lucky_strike_nyc_times_square': 'Lucky Strike (Times Square)',
                 'easybowl_nyc': 'Easybowl (NYC)',
-                'tsquaredsocial_nyc': 'T-Squared Social',
-                'daysmart_chelsea': 'Chelsea Piers Golf',
+                'tsquaredsocial_nyc': 'T-Squared Social (Midtown East)',
+                'daysmart_chelsea': 'Chelsea Piers (Chelsea)',
                 'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
                 'fair_game_city': 'Fair Game (City)',
                 'clays_bar': f'Clays Bar ({clays_location or "Canary Wharf"})',
                 'puttshack': f'Puttshack ({puttshack_location or "Bank"})',
-                'flight_club_darts': 'Flight Club Darts',
-                'f1_arcade': 'F1 Arcade',
-                'topgolf_chigwell': 'Topgolf Chigwell',
-                'hijingo': 'Hijingo',
-                'pingpong': 'Bounce',
-                'puttery_nyc': 'Puttery (NYC)',
+                'flight_club_darts': 'Flight Club Darts (Shoreditch)',
+                'f1_arcade': 'F1 Arcade (St Paul\'s)',
+                'topgolf_chigwell': 'Topgolf (Chigwell)',
+                'hijingo': 'Hijingo (Shoreditch)',
+                'pingpong': 'Bounce (Farringdon)',
+                'puttery_nyc': 'Puttery (Meatpacking)',
                 'kick_axe_brooklyn': 'Kick Axe (Brooklyn)'
             }
             
@@ -2084,7 +2089,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
             elif website.startswith('five_iron_golf_nyc_'):
                 from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
                 location = website.replace('five_iron_golf_nyc_', '')
-                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (Financial District)')
             elif website.startswith('allstarlanes_'):
                 from scrapers.allstarlanes_bowling import ALLSTARLANES_VENUE_NAMES
                 location = website.replace('allstarlanes_', '')
@@ -2123,7 +2128,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 # Extract location from website name (e.g., 'spin_nyc_midtown' -> 'midtown')
                 location = website.replace('spin_nyc_', '')
                 from scrapers.spin import SPIN_VENUE_NAMES
-                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC - Flatiron)')
+                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (Flatiron)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_spin_task with location {location}")
                 result = scrape_spin_task(guests, target_date, task_id, spin_time, location=location)
             elif website.startswith('five_iron_golf_nyc_'):
@@ -2132,7 +2137,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
                 location = website.replace('five_iron_golf_nyc_', '')
                 from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
-                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+                venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (Financial District)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_five_iron_golf_task with location {location}")
                 result = scrape_five_iron_golf_task(guests, target_date, task_id, location)
             elif website.startswith('lucky_strike_nyc'):

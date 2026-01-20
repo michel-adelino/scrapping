@@ -16,7 +16,7 @@
 
 -- Five Iron Golf venues
 UPDATE availability_slots 
-SET venue_name = 'Five Iron Golf (FiDi)' 
+SET venue_name = 'Five Iron Golf (Financial District)' 
 WHERE venue_name = 'Five Iron Golf (NYC - FiDi)';
 
 UPDATE availability_slots 
@@ -24,7 +24,7 @@ SET venue_name = 'Five Iron Golf (Flatiron)'
 WHERE venue_name = 'Five Iron Golf (NYC - Flatiron)';
 
 UPDATE availability_slots 
-SET venue_name = 'Five Iron Golf (Grand Central)' 
+SET venue_name = 'Five Iron Golf (Midtown East)' 
 WHERE venue_name = 'Five Iron Golf (NYC - Grand Central)';
 
 UPDATE availability_slots 
@@ -53,7 +53,7 @@ SET venue_name = 'SPIN (Flatiron)'
 WHERE venue_name = 'SPIN (NYC - Flatiron)';
 
 UPDATE availability_slots 
-SET venue_name = 'SPIN (Midtown)' 
+SET venue_name = 'SPIN (Midtown East)' 
 WHERE venue_name = 'SPIN (NYC - Midtown)';
 
 -- ============================================
@@ -69,28 +69,70 @@ WHERE venue_name = 'SPIN (NYC - Midtown)';
 -- WHERE venue_name LIKE '%(London - %';
 
 -- ============================================
--- Step 4: Handle Lawn Club special cases
+-- Step 4: Update specific venue names from CSV format
 -- ============================================
 
+-- Swingers venues
+UPDATE availability_slots 
+SET venue_name = 'Swingers (Nomad)' 
+WHERE venue_name = 'Swingers (NYC)';
+
+UPDATE availability_slots 
+SET venue_name = 'Swingers (Oxford Circus)' 
+WHERE venue_name = 'Swingers (London)';
+
+-- Electric Shuffle venues
+UPDATE availability_slots 
+SET venue_name = 'Electric Shuffle (Nomad)' 
+WHERE venue_name = 'Electric Shuffle (NYC)';
+
+-- Note: Electric Shuffle (London) has multiple locations - update based on which location is scraped
+-- If only one location exists in DB, update to that location, otherwise may need separate handling
+UPDATE availability_slots 
+SET venue_name = 'Electric Shuffle (Canary Wharf)' 
+WHERE venue_name = 'Electric Shuffle (London)' AND city = 'London';
+
+-- Puttery
+UPDATE availability_slots 
+SET venue_name = 'Puttery (Meatpacking)' 
+WHERE venue_name = 'Puttery (NYC)';
+
+-- T-Squared Social
+UPDATE availability_slots 
+SET venue_name = 'T-Squared Social (Midtown East)' 
+WHERE venue_name = 'T-Squared Social';
+
+-- Chelsea Piers
+UPDATE availability_slots 
+SET venue_name = 'Chelsea Piers (Chelsea)' 
+WHERE venue_name = 'Chelsea Piers Golf';
+
+-- Bounce
+UPDATE availability_slots 
+SET venue_name = 'Bounce (Farringdon)' 
+WHERE venue_name = 'Bounce';
+
+-- F1 Arcade
+UPDATE availability_slots 
+SET venue_name = 'F1 Arcade (St Paul''s)' 
+WHERE venue_name = 'F1 Arcade';
+
+-- Hijingo
+UPDATE availability_slots 
+SET venue_name = 'Hijingo (Shoreditch)' 
+WHERE venue_name = 'Hijingo';
+
+-- Topgolf
+UPDATE availability_slots 
+SET venue_name = 'Topgolf (Chigwell)' 
+WHERE venue_name = 'Topgolf Chigwell';
+
 -- Lawn Club venues should be updated to "The Lawn Club (Financial District)"
--- but keep the activity information if needed, or update to base name
 -- Based on the requirements, all Lawn Club venues should show as "The Lawn Club (Financial District)"
 -- with activities shown separately
-
 UPDATE availability_slots 
 SET venue_name = 'The Lawn Club (Financial District)' 
 WHERE venue_name LIKE 'Lawn Club (%';
-
--- Alternative: If you want to keep activity in the name for now:
--- UPDATE availability_slots 
--- SET venue_name = 'Lawn Club (Financial District)' 
--- WHERE venue_name = 'Lawn Club (Croquet Lawns)';
--- UPDATE availability_slots 
--- SET venue_name = 'Lawn Club (Financial District)' 
--- WHERE venue_name = 'Lawn Club (Curling Lawns)';
--- UPDATE availability_slots 
--- SET venue_name = 'Lawn Club (Financial District)' 
--- WHERE venue_name = 'Lawn Club (Indoor Gaming)';
 
 -- ============================================
 -- Step 5: Generic update for any remaining "NYC - " patterns

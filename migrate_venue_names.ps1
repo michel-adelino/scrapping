@@ -22,9 +22,9 @@ Write-Host "`nRunning migration SQL commands..." -ForegroundColor Yellow
 
 $sqlCommands = @"
 -- Five Iron Golf venues
-UPDATE availability_slots SET venue_name = 'Five Iron Golf (FiDi)' WHERE venue_name = 'Five Iron Golf (NYC - FiDi)';
+UPDATE availability_slots SET venue_name = 'Five Iron Golf (Financial District)' WHERE venue_name = 'Five Iron Golf (NYC - FiDi)';
 UPDATE availability_slots SET venue_name = 'Five Iron Golf (Flatiron)' WHERE venue_name = 'Five Iron Golf (NYC - Flatiron)';
-UPDATE availability_slots SET venue_name = 'Five Iron Golf (Grand Central)' WHERE venue_name = 'Five Iron Golf (NYC - Grand Central)';
+UPDATE availability_slots SET venue_name = 'Five Iron Golf (Midtown East)' WHERE venue_name = 'Five Iron Golf (NYC - Grand Central)';
 UPDATE availability_slots SET venue_name = 'Five Iron Golf (Midtown East)' WHERE venue_name = 'Five Iron Golf (NYC - Midtown East)';
 UPDATE availability_slots SET venue_name = 'Five Iron Golf (Herald Square)' WHERE venue_name = 'Five Iron Golf (NYC - Herald Square)';
 UPDATE availability_slots SET venue_name = 'Five Iron Golf (Long Island City)' WHERE venue_name = 'Five Iron Golf (NYC - Long Island City)';
@@ -33,7 +33,36 @@ UPDATE availability_slots SET venue_name = 'Five Iron Golf (Rockefeller Center)'
 
 -- SPIN venues
 UPDATE availability_slots SET venue_name = 'SPIN (Flatiron)' WHERE venue_name = 'SPIN (NYC - Flatiron)';
-UPDATE availability_slots SET venue_name = 'SPIN (Midtown)' WHERE venue_name = 'SPIN (NYC - Midtown)';
+UPDATE availability_slots SET venue_name = 'SPIN (Midtown East)' WHERE venue_name = 'SPIN (NYC - Midtown)';
+
+-- Swingers venues
+UPDATE availability_slots SET venue_name = 'Swingers (Nomad)' WHERE venue_name = 'Swingers (NYC)';
+UPDATE availability_slots SET venue_name = 'Swingers (Oxford Circus)' WHERE venue_name = 'Swingers (London)';
+
+-- Electric Shuffle venues
+UPDATE availability_slots SET venue_name = 'Electric Shuffle (Nomad)' WHERE venue_name = 'Electric Shuffle (NYC)';
+UPDATE availability_slots SET venue_name = 'Electric Shuffle (Canary Wharf)' WHERE venue_name = 'Electric Shuffle (London)' AND city = 'London';
+
+-- Puttery
+UPDATE availability_slots SET venue_name = 'Puttery (Meatpacking)' WHERE venue_name = 'Puttery (NYC)';
+
+-- T-Squared Social
+UPDATE availability_slots SET venue_name = 'T-Squared Social (Midtown East)' WHERE venue_name = 'T-Squared Social';
+
+-- Chelsea Piers
+UPDATE availability_slots SET venue_name = 'Chelsea Piers (Chelsea)' WHERE venue_name = 'Chelsea Piers Golf';
+
+-- Bounce
+UPDATE availability_slots SET venue_name = 'Bounce (Farringdon)' WHERE venue_name = 'Bounce';
+
+-- F1 Arcade
+UPDATE availability_slots SET venue_name = 'F1 Arcade (St Paul''s)' WHERE venue_name = 'F1 Arcade';
+
+-- Hijingo
+UPDATE availability_slots SET venue_name = 'Hijingo (Shoreditch)' WHERE venue_name = 'Hijingo';
+
+-- Topgolf
+UPDATE availability_slots SET venue_name = 'Topgolf (Chigwell)' WHERE venue_name = 'Topgolf Chigwell';
 
 -- Lawn Club venues
 UPDATE availability_slots SET venue_name = 'The Lawn Club (Financial District)' WHERE venue_name LIKE 'Lawn Club (%';

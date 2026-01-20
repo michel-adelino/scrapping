@@ -153,7 +153,7 @@ def scrape_electric_shuffle(guests, target_date):
                     "price": desc_str,      # Using description as price/value
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Electric Shuffle (NYC)",
+                    "website": "Electric Shuffle (Nomad)",
                     "booking_url": booking_url
                 }
 
@@ -335,7 +335,7 @@ def scrape_electric_shuffle_london(guests, target_date):
                         "time": time_val,
                         "details": details,
                         "timestamp": datetime.now().isoformat(),
-                        "website": "Electric Shuffle (London)",
+                        "website": "Electric Shuffle (Canary Wharf)",
                         "booking_url": url
                     }
 

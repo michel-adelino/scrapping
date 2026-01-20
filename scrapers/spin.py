@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 # Venue name mappings for each location
 SPIN_VENUE_NAMES = {
-    'flatiron': 'SPIN (NYC - Flatiron)',
-    'midtown': 'SPIN (NYC - Midtown)'
+    'flatiron': 'SPIN (Flatiron)',
+    'midtown': 'SPIN (Midtown East)'
 }
 
 # URL mappings for each location
@@ -476,7 +476,7 @@ def scrape_spin(guests, target_date, selected_time=None, location='flatiron'):
                 except:
                     desc_txt = "None"
 
-                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (NYC)')
+                venue_name = SPIN_VENUE_NAMES.get(location, 'SPIN (Flatiron)')
                 results.append({
                     "date": target_date,
                     "time": time_txt,

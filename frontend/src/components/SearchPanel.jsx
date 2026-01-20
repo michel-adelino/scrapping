@@ -25,22 +25,22 @@ const LAWN_CLUB_DURATIONS = [
 
 const VENUE_INFO = {
   swingers_nyc: {
-    name: "Swingers (NYC)",
+    name: "Swingers (Nomad)",
     description:
       "Golf club and restaurant offering crazy golf, cocktails, and street food. Can scrape multiple dates if no specific date is selected.",
   },
   swingers_london: {
-    name: "Swingers (London)",
+    name: "Swingers (Oxford Circus)",
     description:
       "Golf club and restaurant offering crazy golf, cocktails, and street food. Can scrape multiple dates if no specific date is selected.",
   },
   electric_shuffle_nyc: {
-    name: "Electric Shuffle (NYC)",
+    name: "Electric Shuffle (Nomad)",
     description:
       "Shuffleboard bar and restaurant. Requires a specific target date.",
   },
   electric_shuffle_london: {
-    name: "Electric Shuffle (London)",
+    name: "Electric Shuffle (Canary Wharf)",
     description:
       "Shuffleboard bar and restaurant. Requires a specific target date.",
   },
@@ -101,7 +101,7 @@ const VENUE_INFO = {
     description: "Darts and entertainment. Requires a specific target date.",
   },
   f1_arcade: {
-    name: "F1 Arcade",
+    name: "F1 Arcade (St Paul's)",
     description: "F1 racing simulation. Requires a specific target date.",
   },
   all_new_york: {
@@ -115,10 +115,10 @@ const VENUE_INFO = {
 };
 
 const VENUE_NAME_MAP = {
-  swingers_nyc: "Swingers (NYC)",
-  swingers_london: "Swingers (London)",
-  electric_shuffle_nyc: "Electric Shuffle (NYC)",
-  electric_shuffle_london: "Electric Shuffle (London)",
+  swingers_nyc: "Swingers (Nomad)",
+  swingers_london: "Swingers (Oxford Circus)",
+  electric_shuffle_nyc: "Electric Shuffle (Nomad)",
+  electric_shuffle_london: "Electric Shuffle (Canary Wharf)",
   lawn_club_nyc: "Lawn Club NYC",
   spin_nyc: "SPIN (NYC)",
   five_iron_golf_nyc: "Five Iron Golf (NYC)",
@@ -132,7 +132,7 @@ const VENUE_NAME_MAP = {
   flight_club_darts_angel: "Flight Club Darts (Angel)",
   flight_club_darts_shoreditch: "Flight Club Darts (Shoreditch)",
   flight_club_darts_victoria: "Flight Club Darts (Victoria)",
-  f1_arcade: "F1 Arcade",
+  f1_arcade: "F1 Arcade (St Paul's)",
 };
 
 function SearchPanel({ onSearch, onClear, isLoading = false }) {

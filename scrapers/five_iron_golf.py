@@ -32,13 +32,13 @@ FIVE_IRON_LOCATION_IDS = {
 
 # Venue name mappings for each location
 FIVE_IRON_VENUE_NAMES = {
-    'fidi': 'Five Iron Golf (NYC - FiDi)',
-    'flatiron': 'Five Iron Golf (NYC - Flatiron)',
-    'grand_central': 'Five Iron Golf (NYC - Grand Central)',
-    'herald_square': 'Five Iron Golf (NYC - Herald Square)',
-    'long_island_city': 'Five Iron Golf (NYC - Long Island City)',
-    'upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
-    'rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)'
+    'fidi': 'Five Iron Golf (Financial District)',
+    'flatiron': 'Five Iron Golf (Flatiron)',
+    'grand_central': 'Five Iron Golf (Midtown East)',
+    'herald_square': 'Five Iron Golf (Herald Square)',
+    'long_island_city': 'Five Iron Golf (Long Island City)',
+    'upper_east_side': 'Five Iron Golf (Upper East Side)',
+    'rockefeller_center': 'Five Iron Golf (Rockefeller Center)'
 }
 
 
@@ -52,7 +52,7 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
     unique_set = set()  # prevent duplicates
 
     # Get the correct venue name based on location parameter
-    venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (NYC - FiDi)')
+    venue_name = FIVE_IRON_VENUE_NAMES.get(location, 'Five Iron Golf (Financial District)')
     
     # Get the location-specific location_id
     location_id = FIVE_IRON_LOCATION_IDS.get(location, '31f9eb4b-7fa7-4073-9c36-132b626c8b7e')

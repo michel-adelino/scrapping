@@ -112,7 +112,7 @@ def scrape_swingers(guests, target_date):
                     "price": price_val,
                     "status": status,
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Swingers (NYC)"
+                    "website": "Swingers (Nomad)"
                 }
                 results.append(slot_data)
 
@@ -218,7 +218,7 @@ def scrape_swingers_uk(guests, target_date):
                     "price": price_val,
                     "status": status,
                     "timestamp": datetime.now().isoformat(),
-                    "website": "Swingers (London)"
+                    "website": "Swingers (Oxford Circus)"
                 }
                 results.append(slot_data) 
         return results

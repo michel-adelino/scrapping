@@ -25,91 +25,91 @@ const extractLocation = (venueName) => {
 
 // NYC venues metadata
 const nycVenues = {
-  'Swingers (NYC)': {
+  'Swingers (Nomad)': {
     venueName: 'Swingers',
     location: 'Nomad',
     neighborhood: 'Midtown',
     description: 'Adults-only mini-golf paired with street-food style dining and bar service',
     city: 'NYC'
   },
-  'Electric Shuffle (NYC)': {
+  'Electric Shuffle (Nomad)': {
     venueName: 'Electric Shuffle',
     location: 'Nomad',
     neighborhood: 'Midtown',
     description: 'Technology-enabled shuffleboard with TV screens and restaurant service',
     city: 'NYC'
   },
-  'Puttery (NYC)': {
+  'Puttery (Meatpacking)': {
     venueName: 'Puttery',
     location: 'Meatpacking',
     neighborhood: 'Downtown',
     description: '21+ indoor mini-golf positioned around cocktails and full-service dining.',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - FiDi)': {
+  'Five Iron Golf (Financial District)': {
     venueName: 'Five Iron Golf',
     location: 'Financial District',
     neighborhood: 'Downtown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Flatiron)': {
+  'Five Iron Golf (Flatiron)': {
     venueName: 'Five Iron Golf',
     location: 'Flatiron',
     neighborhood: 'Midtown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Grand Central)': {
+  'Five Iron Golf (Midtown East)': {
     venueName: 'Five Iron Golf',
     location: 'Midtown East',
     neighborhood: 'Midtown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Herald Square)': {
+  'Five Iron Golf (Herald Square)': {
     venueName: 'Five Iron Golf',
     location: 'Herald Square',
     neighborhood: 'Midtown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Long Island City)': {
+  'Five Iron Golf (Long Island City)': {
     venueName: 'Five Iron Golf',
     location: 'Long Island City',
     neighborhood: 'Brooklyn/Queens',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Upper East Side)': {
+  'Five Iron Golf (Upper East Side)': {
     venueName: 'Five Iron Golf',
     location: 'Upper East Side',
     neighborhood: 'Uptown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'Five Iron Golf (NYC - Rockefeller Center)': {
+  'Five Iron Golf (Rockefeller Center)': {
     venueName: 'Five Iron Golf',
     location: 'Rockefeller Center',
     neighborhood: 'Midtown',
     description: 'Indoor golf simulator venues offering practice, leagues, and bar service',
     city: 'NYC'
   },
-  'SPIN (NYC - Flatiron)': {
+  'SPIN (Flatiron)': {
     venueName: 'SPIN New York',
     location: 'Flatiron',
     neighborhood: 'Midtown',
     description: 'Table-tennis-centered social club with bar, events, and group bookings.',
     city: 'NYC'
   },
-  'SPIN (NYC - Midtown)': {
+  'SPIN (Midtown East)': {
     venueName: 'SPIN New York',
     location: 'Midtown East',
     neighborhood: 'Midtown',
     description: 'Table-tennis-centered social club with bar, events, and group bookings.',
     city: 'NYC'
   },
-  'T-Squared Social': {
+  'T-Squared Social (Midtown East)': {
     venueName: 'T-Squared Social',
     location: 'Midtown East',
     neighborhood: 'Midtown',
@@ -169,7 +169,7 @@ const nycVenues = {
     description: 'Lodge-style axe-throwing bar with events',
     city: 'NYC'
   },
-  'Chelsea Piers Golf': {
+  'Chelsea Piers (Chelsea)': {
     venueName: 'Chelsea Piers',
     location: 'Chelsea',
     neighborhood: 'Midtown',
@@ -180,7 +180,7 @@ const nycVenues = {
 
 // London venues metadata
 const londonVenues = {
-  'Topgolf Chigwell': {
+  'Topgolf (Chigwell)': {
     venueName: 'Topgolf',
     location: 'Chigwell',
     neighborhood: null,
@@ -215,7 +215,7 @@ const londonVenues = {
     description: 'Tech-enabled crazy golf',
     city: 'London'
   },
-  'Swingers (London)': {
+  'Swingers (Oxford Circus)': {
     venueName: 'Swingers',
     location: 'Oxford Circus',
     neighborhood: 'West End',
@@ -250,7 +250,7 @@ const londonVenues = {
     description: 'Tech-enabled social darts with automated scoring and group games',
     city: 'London'
   },
-  'Electric Shuffle (London)': {
+  'Electric Shuffle (Canary Wharf)': {
     venueName: 'Electric Shuffle',
     location: 'Canary Wharf',
     neighborhood: 'Canary Wharf',
@@ -292,7 +292,7 @@ const londonVenues = {
     description: 'Virtual clay shooting using simulated targets in an indoor bar environment',
     city: 'London'
   },
-  'F1 Arcade': {
+  'F1 Arcade (St Paul\'s)': {
     venueName: 'F1 Arcade',
     location: 'St Paul\'s',
     neighborhood: 'The City',
@@ -313,9 +313,16 @@ const londonVenues = {
     description: 'Competitive fairground games in an adult social setting',
     city: 'London'
   },
-  'Bounce': {
+  'Bounce (Farringdon)': {
     venueName: 'Bounce',
     location: 'Farringdon',
+    neighborhood: 'The City',
+    description: 'Table-tennis-led social venue with food, drink, and group play',
+    city: 'London'
+  },
+  'Bounce (Shoreditch)': {
+    venueName: 'Bounce',
+    location: 'Shoreditch',
     neighborhood: 'The City',
     description: 'Table-tennis-led social venue with food, drink, and group play',
     city: 'London'
@@ -348,7 +355,7 @@ const londonVenues = {
     description: 'Boutique bowling concept combined with karaoke, dining, and bar space',
     city: 'London'
   },
-  'Hijingo': {
+  'Hijingo (Shoreditch)': {
     venueName: 'Hijingo',
     location: 'Shoreditch',
     neighborhood: 'The City',
