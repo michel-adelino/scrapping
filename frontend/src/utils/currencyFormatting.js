@@ -40,71 +40,56 @@ export const formatPrice = (price) => {
     'quote'
   ];
   
-  // Check if the string matches or contains a non-price term
-  if (nonPriceTerms.some(term => lowerPrice === term || lowerPrice.includes(term))) {
+  // Check if the entire string matches a non-price term (without numbers)
+  if (nonPriceTerms.some(term => lowerPrice === term)) {
+    return null;
+  }
+  
+  // Check if it contains a non-price term AND no numbers
+  const hasNumbers = /\d/.test(originalPrice);
+  if (!hasNumbers && nonPriceTerms.some(term => lowerPrice.includes(term))) {
     return null;
   }
   
   // Check if it's a description containing words (not just numbers/currency)
-  // If it has multiple words and no currency, it's likely descriptive
+  // If it has multiple words and no currency/numbers, it's likely descriptive text
   const wordCount = lowerPrice.split(/\s+/).filter(word => word.length > 0).length;
   const hasCurrency = /[$£€]/.test(originalPrice);
   
-  // If it has multiple words but no currency, it's likely descriptive text
-  if (wordCount > 3 && !hasCurrency) {
+  // If it has many words but no currency and no numbers, it's likely descriptive text
+  if (wordCount > 3 && !hasCurrency && !hasNumbers) {
     return null;
   }
   
-  // If has currency symbol, it's likely a real price - extract and format
-  if (hasCurrency) {
-    // Remove currency symbols and commas for parsing
-    let priceStr = originalPrice.replace(/[$£€,]/g, '').trim();
-    
-    // Try to extract first numeric value
-    const numericMatch = priceStr.match(/(\d+\.?\d*)/);
-    if (!numericMatch) {
-      // Has currency but no number - not a valid price
-      return null;
-    }
-    
-    const numericValue = parseFloat(numericMatch[1]);
-    if (isNaN(numericValue)) {
-      // Can't parse number - not a valid price
-      return null;
-    }
-    
-    // Format to 2 decimal places
-    const formatted = numericValue.toFixed(2);
-    
-    // Determine currency symbol from original
-    let currencySymbol = '$';
-    if (originalPrice.includes('£')) {
-      currencySymbol = '£';
-    } else if (originalPrice.includes('€')) {
-      currencySymbol = '€';
-    }
-    
-    // If original had complex format (like "1h : $45"), preserve it
-    // Only reformat if it's a simple price format
-    const simpleFormat = /^[$£€]?\s*\d+\.?\d*\s*[$£€]?$/;
-    if (simpleFormat.test(originalPrice)) {
-      return `${currencySymbol}${formatted}`;
-    }
-    
-    // For complex formats with currency, return as-is (e.g., "1h : $45")
-    return originalPrice;
+  // Try to extract currency symbol and numeric value
+  // Match patterns like: $45, £30.50, €20, 45.00, $45.00, "1h : $45", etc.
+  let currencySymbol = '$'; // Default currency
+  let numericValue = null;
+  
+  // First, check if there's a currency symbol and extract it
+  if (originalPrice.includes('£')) {
+    currencySymbol = '£';
+  } else if (originalPrice.includes('€')) {
+    currencySymbol = '€';
+  } else if (originalPrice.includes('$')) {
+    currencySymbol = '$';
   }
   
-  // No currency symbol - check if it's a pure numeric value
-  const pureNumeric = /^\d+\.?\d*$/;
-  if (pureNumeric.test(lowerPrice)) {
-    const numericValue = parseFloat(lowerPrice);
-    if (!isNaN(numericValue)) {
-      return `$${numericValue.toFixed(2)}`;
+  // Extract the numeric value (with optional decimal)
+  // Look for patterns like: 45, 45.00, 45.5
+  const numericMatch = originalPrice.match(/(\d+\.?\d*)/);
+  
+  if (numericMatch) {
+    numericValue = parseFloat(numericMatch[1]);
+    
+    // Validate the numeric value
+    if (!isNaN(numericValue) && numericValue > 0) {
+      // Format to exactly 2 decimal places
+      return `${currencySymbol}${numericValue.toFixed(2)}`;
     }
   }
   
-  // Otherwise, it's descriptive text - return null to hide
+  // If no valid price found, return null to hide
   return null;
 };
 

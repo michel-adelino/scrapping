@@ -1534,6 +1534,7 @@ body {
   color: var(--muted);
   font-weight: 500;
   margin-top: 2px;
+  word-wrap: break-word;
 }
 
 .slot-status {

@@ -131,7 +131,7 @@ def scrape_flight_club_darts(guests, target_date, venue_id=None):
                         desc = (
                             slot.find("div", {"class": "fc_dmnbook-time_wrapper"})
                             .get_text(strip=True)
-                            .replace("\n", "")
+                            .replace("\n", " | ")
                         )
                     except:
                         desc = "None"
