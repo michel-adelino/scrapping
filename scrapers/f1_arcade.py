@@ -238,7 +238,7 @@ def scrape_f1_arcade(guests, target_date, f1_experience):
                     "price": final_price,
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "F1 Arcade"
+                    "website": "F1 Arcade (St Paul's)"
                 })
 
             print(f"[DEBUG] Extracted {len(results)} slots")

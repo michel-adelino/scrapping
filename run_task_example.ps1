@@ -54,8 +54,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# SPIN NYC - Flatiron
-Write-Host "Example: SPIN (NYC - Flatiron)" -ForegroundColor Cyan
+# SPIN (Flatiron)
+Write-Host "Example: SPIN (Flatiron)" -ForegroundColor Cyan
 $body = @{
     website = "spin_nyc"
     guests = $defaultGuests
@@ -63,8 +63,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# SPIN NYC - Midtown
-Write-Host "Example: SPIN (NYC - Midtown)" -ForegroundColor Cyan
+# SPIN (Midtown East)
+Write-Host "Example: SPIN (Midtown East)" -ForegroundColor Cyan
 $body = @{
     website = "spin_nyc_midtown"
     guests = $defaultGuests
@@ -73,7 +73,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - FiDi
-Write-Host "Example: Five Iron Golf (NYC - FiDi)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Financial District)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_fidi"
     guests = $defaultGuests
@@ -82,7 +82,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Flatiron
-Write-Host "Example: Five Iron Golf (NYC - Flatiron)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Flatiron)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_flatiron"
     guests = $defaultGuests
@@ -91,7 +91,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Grand Central
-Write-Host "Example: Five Iron Golf (NYC - Grand Central)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Midtown East)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_grand_central"
     guests = $defaultGuests
@@ -100,7 +100,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Herald Square
-Write-Host "Example: Five Iron Golf (NYC - Herald Square)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Herald Square)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_herald_square"
     guests = $defaultGuests
@@ -109,7 +109,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Long Island City
-Write-Host "Example: Five Iron Golf (NYC - Long Island City)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Long Island City)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_long_island_city"
     guests = $defaultGuests
@@ -118,7 +118,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Upper East Side
-Write-Host "Example: Five Iron Golf (NYC - Upper East Side)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Upper East Side)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_upper_east_side"
     guests = $defaultGuests
@@ -127,7 +127,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Five Iron Golf - Rockefeller Center
-Write-Host "Example: Five Iron Golf (NYC - Rockefeller Center)" -ForegroundColor Cyan
+Write-Host "Example: Five Iron Golf (Rockefeller Center)" -ForegroundColor Cyan
 $body = @{
     website = "five_iron_golf_nyc_rockefeller_center"
     guests = $defaultGuests
@@ -163,7 +163,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # T-Squared Social
-Write-Host "Example: T-Squared Social" -ForegroundColor Cyan
+Write-Host "Example: T-Squared Social (Midtown East)" -ForegroundColor Cyan
 $body = @{
     website = "tsquaredsocial_nyc"
     guests = $defaultGuests
@@ -171,8 +171,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# Chelsea Piers Golf (DaySmart) - Only supports 2 guests
-Write-Host "Example: Chelsea Piers Golf (DaySmart) - Only supports 2 guests" -ForegroundColor Cyan
+# Chelsea Piers (Chelsea) (DaySmart) - Only supports 2 guests
+Write-Host "Example: Chelsea Piers (Chelsea) (DaySmart) - Only supports 2 guests" -ForegroundColor Cyan
 $body = @{
     website = "daysmart_chelsea"
     guests = 2
@@ -181,7 +181,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Puttery NYC
-Write-Host "Example: Puttery (NYC)" -ForegroundColor Cyan
+Write-Host "Example: Puttery (Meatpacking)" -ForegroundColor Cyan
 $body = @{
     website = "puttery_nyc"
     guests = $defaultGuests
@@ -327,8 +327,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# F1 Arcade (with experience option)
-Write-Host "Example: F1 Arcade (Team Racing)" -ForegroundColor Green
+# F1 Arcade (St Paul's) (with experience option)
+Write-Host "Example: F1 Arcade (St Paul's) (Team Racing)" -ForegroundColor Green
 $body = @{
     website = "f1_arcade"
     guests = $defaultGuests
@@ -337,8 +337,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# F1 Arcade - Grand Prix
-Write-Host "Example: F1 Arcade (Grand Prix)" -ForegroundColor Green
+# F1 Arcade (St Paul's) - Grand Prix
+Write-Host "Example: F1 Arcade (St Paul's) (Grand Prix)" -ForegroundColor Green
 $body = @{
     website = "f1_arcade"
     guests = $defaultGuests
@@ -347,8 +347,8 @@ $body = @{
 } | ConvertTo-Json
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
-# Topgolf Chigwell
-Write-Host "Example: Topgolf Chigwell" -ForegroundColor Green
+# Topgolf (Chigwell)
+Write-Host "Example: Topgolf (Chigwell)" -ForegroundColor Green
 $body = @{
     website = "topgolf_chigwell"
     guests = $defaultGuests
@@ -357,7 +357,7 @@ $body = @{
 # Invoke-RestMethod -Uri $baseUrl -Method POST -Body $body -ContentType "application/json"
 
 # Hijingo
-Write-Host "Example: Hijingo" -ForegroundColor Green
+Write-Host "Example: Hijingo (Shoreditch)" -ForegroundColor Green
 $body = @{
     website = "hijingo"
     guests = $defaultGuests
@@ -444,7 +444,7 @@ $body = @{
 # 2. Optional parameters for specific venues:
 #    - clays_location: For Clays Bar ("Canary Wharf", "The City", "Birmingham", "Soho")
 #    - puttshack_location: For Puttshack ("Bank", "Lakeside", "White City", "Watford")
-#    - f1_experience: For F1 Arcade ("Team Racing", "Grand Prix")
+#    - f1_experience: For F1 Arcade (St Paul's) ("Team Racing", "Grand Prix")
 #    - lawn_club_option: For Lawn Club (auto-detected from website name)
 #    - lawn_club_time: Optional time filter for Lawn Club
 #    - lawn_club_duration: Optional duration for Lawn Club

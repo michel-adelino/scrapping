@@ -1,5 +1,5 @@
 """
-Topgolf Chigwell SevenRooms scraper (direct URL based)
+Topgolf (Chigwell) SevenRooms scraper (direct URL based)
 """
 
 from datetime import datetime
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 """
-Topgolf Chigwell SevenRooms scraper (FIXED selectors)
+Topgolf (Chigwell) SevenRooms scraper (FIXED selectors)
 """
 
 from datetime import datetime
@@ -86,7 +86,7 @@ def scrape_topgolf_chigwell(guests, target_date, start_time=None):
                 "price": price_el.get_text(strip=True) if price_el else None,
                 "status": "Available",
                 "timestamp": datetime.now().isoformat(),
-                "website": "Topgolf Chigwell",
+                "website": "Topgolf (Chigwell)",
                 "booking_url": search_url
             })
 

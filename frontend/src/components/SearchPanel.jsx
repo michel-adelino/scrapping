@@ -64,7 +64,7 @@ const VENUE_INFO = {
       "Bowling alley and entertainment. Requires a specific target date.",
   },
   easybowl_nyc: {
-    name: "Easybowl (NYC)",
+    name: "Frames Bowling Lounge (Midtown)",
     description: "Bowling and entertainment. Requires a specific target date.",
   },
   fair_game_canary_wharf: {
@@ -123,7 +123,7 @@ const VENUE_NAME_MAP = {
   spin_nyc: "SPIN (NYC)",
   five_iron_golf_nyc: "Five Iron Golf (NYC)",
   lucky_strike_nyc: "Lucky Strike (NYC)",
-  easybowl_nyc: "Easybowl (NYC)",
+  easybowl_nyc: "Frames Bowling Lounge (Midtown)",
   fair_game_canary_wharf: "Fair Game (Canary Wharf)",
   fair_game_city: "Fair Game (City)",
   clays_bar: "Clays Bar",

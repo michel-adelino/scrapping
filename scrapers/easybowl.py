@@ -176,7 +176,7 @@ def scrape_easybowl(guests, target_date):
                                     "price": price,
                                     "status": name,
                                     "timestamp": datetime.now().isoformat(),
-                                    "website": "Easybowl (NYC)"
+                                    "website": "Frames Bowling Lounge (Midtown)"
                                 })
 
                             print("[DEBUG] Going BACK from nested product page")
@@ -206,7 +206,7 @@ def scrape_easybowl(guests, target_date):
                                 "price": price,
                                 "status": name,
                                 "timestamp": datetime.now().isoformat(),
-                                "website": "Easybowl (NYC)"
+                                "website": "Frames Bowling Lounge (Midtown)"
                             })
 
                     print("[DEBUG] Going BACK from group page")

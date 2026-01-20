@@ -66,6 +66,9 @@ UPDATE availability_slots SET venue_name = 'Hijingo (Shoreditch)' WHERE venue_na
 -- Topgolf
 UPDATE availability_slots SET venue_name = 'Topgolf (Chigwell)' WHERE venue_name = 'Topgolf Chigwell';
 
+-- Easybowl (renamed to Frames Bowling Lounge)
+UPDATE availability_slots SET venue_name = 'Frames Bowling Lounge (Midtown)' WHERE venue_name = 'Easybowl (NYC)';
+
 -- Lawn Club venues
 UPDATE availability_slots SET venue_name = 'The Lawn Club (Financial District)' WHERE venue_name LIKE 'Lawn Club (%';
 

@@ -183,7 +183,7 @@ def get_slots_for_league(league_id, target_date):
                 "team_id": team_id,
                 "product_id": product_id,
                 "timestamp": datetime.now().isoformat(),
-                "website": "Chelsea Piers Golf",
+                "website": "Chelsea Piers (Chelsea)",
             })
 
         meta = payload.get("meta", {}).get("page", {})

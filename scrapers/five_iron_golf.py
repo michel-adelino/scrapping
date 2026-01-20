@@ -7,17 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Five Iron Golf location mappings
-FIVE_IRON_LOCATIONS = {
-    'fidi': 'NYC - FiDi',
-    'flatiron': 'NYC - Flatiron',
-    'grand_central': 'NYC - Grand Central',
-    'herald_square': 'NYC - Herald Square',
-    'long_island_city': 'NYC - Long Island City',
-    'upper_east_side': 'NYC - Upper East Side',
-    'rockefeller_center': 'NYC - Rockefeller Center'
-}
-
 # Location IDs for each Five Iron Golf location
 # TODO: Update these with the correct location IDs for each location
 FIVE_IRON_LOCATION_IDS = {
@@ -115,6 +104,11 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
                 for block in entry.get("availabilities", []):
                     for d in block.get("durations", []):
                         mins = d.get("duration", 0)
+                        
+                        # Filter: only include 30 and 60 minute durations
+                        if mins not in [30, 60]:
+                            continue
+                        
                         cost = d.get("cost", 0)
 
                         hours = mins / 60
@@ -130,7 +124,7 @@ def scrape_five_iron_golf(guests, target_date, location='fidi'):
                         results.append({
                             "date": target_date,
                             "time": time_str,
-                            "price": f"{dur_str} : ${cost}",
+                            "price": f"${float(cost):.2f}",
                             "status": "Available",
                             "timestamp": datetime.now().isoformat(),
                             "website": venue_name

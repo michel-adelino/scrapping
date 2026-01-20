@@ -24,7 +24,7 @@ const VENUE_IMAGE_MAP = {
   'Five Iron Golf (Rockefeller Center)': 'FiveIron.webp',
   'Lucky Strike (Chelsea Piers)': 'LuckyStrike.webp', 
   'Lucky Strike (Times Square)': 'LuckyStrike.webp', 
-  'Easybowl (NYC)': 'Frames.webp', 
+  'Frames Bowling Lounge (Midtown)': 'Frames.webp', 
   'Fair Game (Canary Wharf)': 'Fairgame.webp',
   'Fair Game (City)': 'Fairgame.webp',
   'Clays Bar (Canary Wharf)': 'Clays.webp', 

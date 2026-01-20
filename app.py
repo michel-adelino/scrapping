@@ -184,9 +184,9 @@ VENUE_BOOKING_URLS = {
     'Five Iron Golf (Rockefeller Center)': 'https://booking.fiveirongolf.com/session-length',
     'Lucky Strike (Chelsea Piers)': 'https://www.luckystrikeent.com/location/lucky-strike-chelsea-piers/booking/lane-reservation',
     'Lucky Strike (Times Square)': 'https://www.luckystrikeent.com/location/lucky-strike-times-square/booking/lane-reservation',
-    'Easybowl (NYC)': 'https://www.easybowl.com/bc/LET/booking',
+    'Frames Bowling Lounge (Midtown)': 'https://www.easybowl.com/bc/LET/booking',
     'T-Squared Social (Midtown East)': 'https://www.opentable.com/booking/restref/availability?lang=en-US&restRef=1331374&otSource=Restaurant%20website',
-    'Chelsea Piers (Chelsea)': 'https://apps.daysmartrecreation.com/dash/chelsea/program-finder',
+    'Chelsea Piers (Chelsea)': 'https://apps.daysmartrecreation.com/dash/x/#/online/chelsea/programs/37/level?&facility_ids=3&sport_ids=32',
     'Fair Game (Canary Wharf)': 'https://www.sevenrooms.com/explore/fairgame/reservations/create/search',
     'Fair Game (City)': 'https://www.sevenrooms.com/explore/fairgamecity/reservations/create/search',
     'Clays Bar (Canary Wharf)': 'https://clays.bar/book',
@@ -673,30 +673,30 @@ def run_scraper():
         if website in ['all_new_york', 'all_london']:
             return jsonify({'error': f'{website.replace("_", " ").title()} requires a specific target date'}), 400
         website_names = {
-            'electric_shuffle_nyc': 'Electric Shuffle NYC',
-            'electric_shuffle_london': 'Electric Shuffle London',
+            'electric_shuffle_nyc': 'Electric Shuffle (Nomad)',
+            'electric_shuffle_london': 'Electric Shuffle (Canary Wharf)',
             'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
             'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
             'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
-            'spin_nyc': 'SPIN (NYC - Flatiron)',
-            'spin_nyc_midtown': 'SPIN (NYC - Midtown)',
-            'five_iron_golf_nyc_fidi': 'Five Iron Golf (NYC - FiDi)',
-            'five_iron_golf_nyc_flatiron': 'Five Iron Golf (NYC - Flatiron)',
-            'five_iron_golf_nyc_grand_central': 'Five Iron Golf (NYC - Grand Central)',
-            'five_iron_golf_nyc_herald_square': 'Five Iron Golf (NYC - Herald Square)',
-            'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (NYC - Long Island City)',
-            'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (NYC - Upper East Side)',
-            'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (NYC - Rockefeller Center)',
+            'spin_nyc': 'SPIN (Flatiron)',
+            'spin_nyc_midtown': 'SPIN (Midtown East)',
+            'five_iron_golf_nyc_fidi': 'Five Iron Golf (Financial District)',
+            'five_iron_golf_nyc_flatiron': 'Five Iron Golf (Flatiron)',
+            'five_iron_golf_nyc_grand_central': 'Five Iron Golf (Midtown East)',
+            'five_iron_golf_nyc_herald_square': 'Five Iron Golf (Herald Square)',
+            'five_iron_golf_nyc_long_island_city': 'Five Iron Golf (Long Island City)',
+            'five_iron_golf_nyc_upper_east_side': 'Five Iron Golf (Upper East Side)',
+            'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (Rockefeller Center)',
             'lucky_strike_nyc': 'Lucky Strike (Chelsea Piers)',
             'lucky_strike_nyc_times_square': 'Lucky Strike (Times Square)',
-            'easybowl_nyc': 'Easybowl NYC',
+            'easybowl_nyc': 'Frames Bowling Lounge (Midtown)',
             'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
             'fair_game_city': 'Fair Game (City)',
             'clays_bar': 'Clays Bar',
             'puttshack': 'Puttshack',
             'flight_club_darts': 'Flight Club Darts (all locations)',
-            'f1_arcade': 'F1 Arcade',
-            'puttery_nyc': 'Puttery (NYC)',
+            'f1_arcade': 'F1 Arcade (St Paul\'s)',
+            'puttery_nyc': 'Puttery (Meatpacking)',
             'kick_axe_brooklyn': 'Kick Axe (Brooklyn)'
         }
         
@@ -1321,11 +1321,11 @@ def refresh_data():
 # Celery Tasks
 @celery_app.task(bind=True, name='app.scrape_swingers_task')
 def scrape_swingers_task(self, guests, target_date, task_id=None):
-    """Swingers NYC scraper as Celery task"""
+    """Swingers (Nomad) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers NYC...', current_venue='Swingers (Nomad)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers (Nomad)...', current_venue='Swingers (Nomad)')
             
             slots_saved = run_scraper_and_save_to_db(
                 swingers.scrape_swingers,
@@ -1349,11 +1349,11 @@ def scrape_swingers_task(self, guests, target_date, task_id=None):
 
 @celery_app.task(bind=True, name='app.scrape_swingers_uk_task')
 def scrape_swingers_uk_task(self, guests, target_date, task_id=None):
-    """Swingers UK scraper as Celery task"""
+    """Swingers (Oxford Circus) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers UK...', current_venue='Swingers (Oxford Circus)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Swingers (Oxford Circus)...', current_venue='Swingers (Oxford Circus)')
             
             slots_saved = run_scraper_and_save_to_db(
                 swingers.scrape_swingers_uk,
@@ -1377,11 +1377,11 @@ def scrape_swingers_uk_task(self, guests, target_date, task_id=None):
 
 @celery_app.task(bind=True, name='app.scrape_electric_shuffle_task')
 def scrape_electric_shuffle_task(self, guests, target_date, task_id=None):
-    """Electric Shuffle NYC scraper as Celery task"""
+    """Electric Shuffle (Nomad) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle NYC...', current_venue='Electric Shuffle (Nomad)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle (Nomad)...', current_venue='Electric Shuffle (Nomad)')
             
             slots_saved = run_scraper_and_save_to_db(
                 electric_shuffle.scrape_electric_shuffle,
@@ -1405,11 +1405,11 @@ def scrape_electric_shuffle_task(self, guests, target_date, task_id=None):
 
 @celery_app.task(bind=True, name='app.scrape_electric_shuffle_london_task')
 def scrape_electric_shuffle_london_task(self, guests, target_date, task_id=None):
-    """Electric Shuffle London scraper as Celery task"""
+    """Electric Shuffle (Canary Wharf) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle London...', current_venue='Electric Shuffle (Canary Wharf)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Electric Shuffle (Canary Wharf)...', current_venue='Electric Shuffle (Canary Wharf)')
             
             slots_saved = run_scraper_and_save_to_db(
                 electric_shuffle.scrape_electric_shuffle_london,
@@ -1598,15 +1598,15 @@ def scrape_lucky_strike_task(self, guests, target_date, task_id=None, location='
 
 @celery_app.task(bind=True, name='app.scrape_easybowl_task')
 def scrape_easybowl_task(self, guests, target_date, task_id=None):
-    """Easybowl scraper as Celery task"""
+    """Frames Bowling Lounge (Midtown) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Easybowl...', current_venue='Easybowl (NYC)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Frames Bowling Lounge (Midtown)...', current_venue='Frames Bowling Lounge (Midtown)')
             
             slots_saved = run_scraper_and_save_to_db(
                 easybowl.scrape_easybowl,
-                'Easybowl (NYC)',
+                'Frames Bowling Lounge (Midtown)',
                 'NYC',
                 guests,
                 guests,
@@ -1626,15 +1626,15 @@ def scrape_easybowl_task(self, guests, target_date, task_id=None):
 
 @celery_app.task(bind=True, name='app.scrape_tsquaredsocial_task')
 def scrape_tsquaredsocial_task(self, guests, target_date, task_id=None, selected_time=None):
-    """T-Squared Social scraper as Celery task"""
+    """T-Squared Social (Midtown East) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape T-Squared Social...', current_venue='T-Squared Social')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape T-Squared Social (Midtown East)...', current_venue='T-Squared Social (Midtown East)')
             
             slots_saved = run_scraper_and_save_to_db(
                 tsquaredsocial.scrape_tsquaredsocial,
-                'T-Squared Social',
+                'T-Squared Social (Midtown East)',
                 'NYC',
                 guests,
                 guests,
@@ -1655,15 +1655,15 @@ def scrape_tsquaredsocial_task(self, guests, target_date, task_id=None, selected
 
 @celery_app.task(bind=True, name='app.scrape_hijingo_task')
 def scrape_hijingo_task(self, guests, target_date, task_id=None):
-    """Hijingo scraper as Celery task"""
+    """Hijingo (Shoreditch) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Hijingo...', current_venue='Hijingo')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Hijingo (Shoreditch)...', current_venue='Hijingo (Shoreditch)')
             
             slots_saved = run_scraper_and_save_to_db(
                 hijingo.scrape_hijingo,
-                'Hijingo',
+                'Hijingo (Shoreditch)',
                 'London',
                 guests,
                 guests,
@@ -1683,15 +1683,15 @@ def scrape_hijingo_task(self, guests, target_date, task_id=None):
 
 @celery_app.task(bind=True, name='app.scrape_pingpong_task')
 def scrape_pingpong_task(self, guests, target_date, task_id=None):
-    """Bounce scraper as Celery task"""
+    """Bounce (Farringdon) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Bounce...', current_venue='Bounce')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Bounce (Farringdon)...', current_venue='Bounce (Farringdon)')
             
             slots_saved = run_scraper_and_save_to_db(
                 pingpong.scrape_pingpong,
-                'Bounce',
+                'Bounce (Farringdon)',
                 'London',
                 guests,
                 guests,
@@ -1720,7 +1720,7 @@ def scrape_daysmart_chelsea_wrapper(guests, target_date):
 
 @celery_app.task(bind=True, name='app.scrape_daysmart_chelsea_task')
 def scrape_daysmart_chelsea_task(self, guests, target_date, task_id=None):
-    """DaySmart Chelsea scraper as Celery task - only works for 2 guests"""
+    """Chelsea Piers (Chelsea) scraper as Celery task - only works for 2 guests"""
     with app.app_context():
         try:
             logger = logging.getLogger(__name__)
@@ -1728,16 +1728,16 @@ def scrape_daysmart_chelsea_task(self, guests, target_date, task_id=None):
             # Check if guests is 2, if not skip gracefully
             if guests != 2:
                 if task_id:
-                    update_task_status(task_id, status='SUCCESS', progress=f'Skipped - Chelsea Piers Golf only supports 2 guests (requested: {guests})', total_slots=0)
+                    update_task_status(task_id, status='SUCCESS', progress=f'Skipped - Chelsea Piers (Chelsea) only supports 2 guests (requested: {guests})', total_slots=0)
                 logger.info(f"[DaySmart Chelsea] Skipping scrape - only supports 2 guests, got {guests}")
-                return {'status': 'success', 'slots_found': 0, 'message': f'Chelsea Piers Golf only supports 2 guests (requested: {guests})'}
+                return {'status': 'success', 'slots_found': 0, 'message': f'Chelsea Piers (Chelsea) only supports 2 guests (requested: {guests})'}
             
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Chelsea Piers Golf...', current_venue='Chelsea Piers Golf')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Chelsea Piers (Chelsea)...', current_venue='Chelsea Piers (Chelsea)')
             
             slots_saved = run_scraper_and_save_to_db(
                 scrape_daysmart_chelsea_wrapper,
-                'Chelsea Piers Golf',
+                'Chelsea Piers (Chelsea)',
                 'NYC',
                 guests,
                 guests,
@@ -1904,15 +1904,15 @@ def scrape_flight_club_darts_task(self, guests, target_date, venue_id=None, task
 
 @celery_app.task(bind=True, name='app.scrape_f1_arcade_task')
 def scrape_f1_arcade_task(self, guests, target_date, f1_experience, task_id=None):
-    """F1 Arcade scraper as Celery task"""
+    """F1 Arcade (St Paul's) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape F1 Arcade...', current_venue='F1 Arcade')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape F1 Arcade (St Paul\'s)...', current_venue='F1 Arcade (St Paul\'s)')
             
             slots_saved = run_scraper_and_save_to_db(
                 f1_arcade.scrape_f1_arcade,
-                'F1 Arcade',
+                'F1 Arcade (St Paul\'s)',
                 'London',
                 guests,
                 guests,
@@ -1933,15 +1933,15 @@ def scrape_f1_arcade_task(self, guests, target_date, f1_experience, task_id=None
 
 @celery_app.task(bind=True, name='app.scrape_topgolf_chigwell_task')
 def scrape_topgolf_chigwell_task(self, guests, target_date, task_id=None, start_time=None):
-    """Topgolf Chigwell scraper as Celery task"""
+    """Topgolf (Chigwell) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Topgolf Chigwell...', current_venue='Topgolf Chigwell')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Topgolf (Chigwell)...', current_venue='Topgolf (Chigwell)')
             
             slots_saved = run_scraper_and_save_to_db(
                 topgolfchigwell.scrape_topgolf_chigwell,
-                'Topgolf Chigwell',
+                'Topgolf (Chigwell)',
                 'London',
                 guests,
                 guests,
@@ -1962,15 +1962,15 @@ def scrape_topgolf_chigwell_task(self, guests, target_date, task_id=None, start_
 
 @celery_app.task(bind=True, name='app.scrape_puttery_task')
 def scrape_puttery_task(self, guests, target_date, task_id=None):
-    """Puttery NYC scraper as Celery task"""
+    """Puttery (Meatpacking) scraper as Celery task"""
     with app.app_context():
         try:
             if task_id:
-                update_task_status(task_id, status='STARTED', progress='Starting to scrape Puttery (NYC)...', current_venue='Puttery (NYC)')
+                update_task_status(task_id, status='STARTED', progress='Starting to scrape Puttery (Meatpacking)...', current_venue='Puttery (Meatpacking)')
             
             slots_saved = run_scraper_and_save_to_db(
                 puttery.scrape_puttery,
-                'Puttery (NYC)',
+                'Puttery (Meatpacking)',
                 'NYC',
                 guests,
                 guests,
@@ -2065,7 +2065,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'five_iron_golf_nyc_rockefeller_center': 'Five Iron Golf (Rockefeller Center)',
                 'lucky_strike_nyc': 'Lucky Strike (Chelsea Piers)',
                 'lucky_strike_nyc_times_square': 'Lucky Strike (Times Square)',
-                'easybowl_nyc': 'Easybowl (NYC)',
+                'easybowl_nyc': 'Frames Bowling Lounge (Midtown)',
                 'tsquaredsocial_nyc': 'T-Squared Social (Midtown East)',
                 'daysmart_chelsea': 'Chelsea Piers (Chelsea)',
                 'fair_game_canary_wharf': 'Fair Game (Canary Wharf)',
@@ -2103,15 +2103,15 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_swingers_uk_task(guests, target_date, task_id)
             elif website == 'electric_shuffle_nyc':
                 if not target_date:
-                    raise ValueError("Electric Shuffle NYC requires a specific target date")
+                    raise ValueError("Electric Shuffle (Nomad) requires a specific target date")
                 result = scrape_electric_shuffle_task(guests, target_date, task_id)
             elif website == 'electric_shuffle_london':
                 if not target_date:
-                    raise ValueError("Electric Shuffle London requires a specific target date")
+                    raise ValueError("Electric Shuffle (Canary Wharf) requires a specific target date")
                 result = scrape_electric_shuffle_london_task(guests, target_date, task_id)
             elif website.startswith('lawn_club_nyc_'):
                 if not target_date:
-                    raise ValueError("Lawn Club NYC requires a specific target date")
+                    raise ValueError("Lawn Club requires a specific target date")
                 # Extract option from website name (e.g., 'lawn_club_nyc_indoor_gaming' -> 'indoor_gaming')
                 option = website.replace('lawn_club_nyc_', '')
                 from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
@@ -2120,11 +2120,11 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_lawn_club_task(guests, target_date, option, task_id, lawn_club_time, lawn_club_duration)
             elif website == 'spin_nyc':
                 if not target_date:
-                    raise ValueError("SPIN NYC requires a specific target date")
+                    raise ValueError("SPIN requires a specific target date")
                 result = scrape_spin_task(guests, target_date, task_id, spin_time, location='flatiron')
             elif website.startswith('spin_nyc_'):
                 if not target_date:
-                    raise ValueError("SPIN NYC requires a specific target date")
+                    raise ValueError("SPIN requires a specific target date")
                 # Extract location from website name (e.g., 'spin_nyc_midtown' -> 'midtown')
                 location = website.replace('spin_nyc_', '')
                 from scrapers.spin import SPIN_VENUE_NAMES
@@ -2133,7 +2133,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_spin_task(guests, target_date, task_id, spin_time, location=location)
             elif website.startswith('five_iron_golf_nyc_'):
                 if not target_date:
-                    raise ValueError("Five Iron Golf NYC requires a specific target date")
+                    raise ValueError("Five Iron Golf requires a specific target date")
                 # Extract location from website name (e.g., 'five_iron_golf_nyc_fidi' -> 'fidi')
                 location = website.replace('five_iron_golf_nyc_', '')
                 from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
@@ -2156,15 +2156,15 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_lucky_strike_task(guests, target_date, task_id, location)
             elif website == 'easybowl_nyc':
                 if not target_date:
-                    raise ValueError("Easybowl NYC requires a specific target date")
+                    raise ValueError("Frames Bowling Lounge (Midtown) requires a specific target date")
                 result = scrape_easybowl_task(guests, target_date, task_id)
             elif website == 'tsquaredsocial_nyc':
                 if not target_date:
-                    raise ValueError("T-Squared Social requires a specific target date")
+                    raise ValueError("T-Squared Social (Midtown East) requires a specific target date")
                 result = scrape_tsquaredsocial_task(guests, target_date, task_id)
             elif website == 'daysmart_chelsea':
                 if not target_date:
-                    raise ValueError("Chelsea Piers Golf requires a specific target date")
+                    raise ValueError("Chelsea Piers (Chelsea) requires a specific target date")
                 result = scrape_daysmart_chelsea_task(guests, target_date, task_id)
             elif website == 'fair_game_canary_wharf':
                 if not target_date:
@@ -2192,24 +2192,24 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 result = scrape_flight_club_darts_task(guests, target_date, None, task_id)
             elif website == 'f1_arcade':
                 if not target_date:
-                    raise ValueError("F1 Arcade requires a specific target date")
+                    raise ValueError("F1 Arcade (St Paul's) requires a specific target date")
                 experience = f1_experience or "Team Racing"
                 result = scrape_f1_arcade_task(guests, target_date, experience, task_id)
             elif website == 'topgolf_chigwell':
                 if not target_date:
-                    raise ValueError("Topgolf Chigwell requires a specific target date")
+                    raise ValueError("Topgolf (Chigwell) requires a specific target date")
                 result = scrape_topgolf_chigwell_task(guests, target_date, task_id)
             elif website == 'hijingo':
                 if not target_date:
-                    raise ValueError("Hijingo requires a specific target date")
+                    raise ValueError("Hijingo (Shoreditch) requires a specific target date")
                 result = scrape_hijingo_task(guests, target_date, task_id)
             elif website == 'pingpong':
                 if not target_date:
-                    raise ValueError("Bounce requires a specific target date")
+                    raise ValueError("Bounce (Farringdon) requires a specific target date")
                 result = scrape_pingpong_task(guests, target_date, task_id)
             elif website == 'puttery_nyc':
                 if not target_date:
-                    raise ValueError("Puttery (NYC) requires a specific target date")
+                    raise ValueError("Puttery (Meatpacking) requires a specific target date")
                 result = scrape_puttery_task(guests, target_date, task_id)
             elif website == 'kick_axe_brooklyn':
                 if not target_date:

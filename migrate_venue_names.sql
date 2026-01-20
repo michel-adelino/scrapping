@@ -127,6 +127,11 @@ UPDATE availability_slots
 SET venue_name = 'Topgolf (Chigwell)' 
 WHERE venue_name = 'Topgolf Chigwell';
 
+-- Easybowl (renamed to Frames Bowling Lounge)
+UPDATE availability_slots 
+SET venue_name = 'Frames Bowling Lounge (Midtown)' 
+WHERE venue_name = 'Easybowl (NYC)';
+
 -- Lawn Club venues should be updated to "The Lawn Club (Financial District)"
 -- Based on the requirements, all Lawn Club venues should show as "The Lawn Club (Financial District)"
 -- with activities shown separately

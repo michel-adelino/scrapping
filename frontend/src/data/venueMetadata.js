@@ -127,7 +127,7 @@ const nycVenues = {
     venueName: 'Lucky Strike Bowling',
     location: 'Chelsea Piers',
     neighborhood: 'Midtown',
-    description: 'F1-themed racing simulators with elevated food and drink',
+    description: 'Bowling-based entertainment venue with arcade games and bar space',
     city: 'NYC'
   },
   'The Lawn Club (Financial District)': {
@@ -174,6 +174,13 @@ const nycVenues = {
     location: 'Chelsea',
     neighborhood: 'Midtown',
     description: 'Large-scale golf practice facility with river views',
+    city: 'NYC'
+  },
+  'Frames Bowling Lounge (Midtown)': {
+    venueName: 'Frames Bowling Lounge',
+    location: 'Midtown',
+    neighborhood: 'Midtown',
+    description: 'Boutique bowling and billiards venues oriented toward events and nightlife',
     city: 'NYC'
   }
 };
@@ -352,6 +359,13 @@ const londonVenues = {
     venueName: 'All Star Lanes',
     location: 'Stratford',
     neighborhood: null,
+    description: 'Boutique bowling concept combined with karaoke, dining, and bar space',
+    city: 'London'
+  },
+  'All Star Lanes (Brick Lane)': {
+    venueName: 'All Star Lanes',
+    location: 'Brick Lane',
+    neighborhood: 'The City',
     description: 'Boutique bowling concept combined with karaoke, dining, and bar space',
     city: 'London'
   },

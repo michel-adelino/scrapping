@@ -97,6 +97,7 @@ function SlotCard({ item }) {
   }
 
   const normalizedTime = normalizeTime(item.time)
+  const formattedPrice = formatPrice(item.price)
 
   return (
     <div
@@ -113,8 +114,8 @@ function SlotCard({ item }) {
       }}
     >
       <div className="slot-time">{normalizedTime}</div>
-      {item.price && item.price !== '-' && (
-        <div className="slot-price">{formatPrice(item.price)}</div>
+      {formattedPrice && (
+        <div className="slot-price">{formattedPrice}</div>
       )}
       <div className={`slot-status ${getStatusClass(item.status)}`}>
         {item.status || 'Available'}

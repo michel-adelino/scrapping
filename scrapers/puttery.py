@@ -464,7 +464,7 @@ class ExploretockAutomation:
                                 "time": time_text,
                                 "price": availability_text or "Available",
                                 "status": "Available",
-                                "website": "Puttery (NYC)",
+                                "website": "Puttery (Meatpacking)",
                                 "booking_url": booking_url
                             })
 
@@ -568,7 +568,7 @@ class ExploretockAutomation:
 
 def scrape_puttery(guests, target_date):
     """
-    Scrape Puttery NYC availability
+    Scrape Puttery (Meatpacking) availability
     
     Args:
         guests: Number of guests (integer)
@@ -576,7 +576,7 @@ def scrape_puttery(guests, target_date):
     
     Returns:
         List of availability slots with date, time, price, status
-        Format: [{"date": "YYYY-MM-DD", "time": "HH:MM", "price": "...", "status": "Available", "website": "Puttery (NYC)"}, ...]
+        Format: [{"date": "YYYY-MM-DD", "time": "HH:MM", "price": "...", "status": "Available", "website": "Puttery (Meatpacking)"}, ...]
     """
     results = []
     

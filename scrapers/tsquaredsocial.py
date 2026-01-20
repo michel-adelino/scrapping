@@ -151,7 +151,7 @@ def scrape_tsquaredsocial(guests, target_date, selected_time=None):
                     "description": aria,
                     "status": "Available",
                     "timestamp": datetime.now().isoformat(),
-                    "website": "T-Squared Social"
+                    "website": "T-Squared Social (Midtown East)"
                 })
 
             return results

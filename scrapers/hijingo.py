@@ -416,7 +416,7 @@ def scrape_hijingo(guests, target_date):
                 'time': slot.get('time', ''),
                 'price': slot.get('price', 'Price not available'),
                 'status': status,
-                'website': 'Hijingo',
+                'website': 'Hijingo (Shoreditch)',
                 'guests': guests,
                 'timestamp': datetime.now().isoformat(),
             }

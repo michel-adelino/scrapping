@@ -137,7 +137,7 @@ def scrape_pingpong(guests, target_date):
                     'time': time_str,
                     'price': 'Price not available',  # API doesn't provide price
                     'status': 'Available',
-                    'website': 'Bounce',
+                    'website': 'Bounce (Farringdon)',
                     'guests': guests,
                     'timestamp': datetime.now().isoformat(),
                     'booking_url': booking_url,

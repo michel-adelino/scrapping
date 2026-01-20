@@ -26,7 +26,7 @@ from scrapers.spin import scrape_spin, SPIN_VENUE_NAMES
 
 def test_spin_location(location, guests, target_date, selected_time=None):
     """Test the SPIN scraper for a specific location"""
-    location_name = SPIN_VENUE_NAMES.get(location, f'SPIN (NYC - {location.title()})')
+    location_name = SPIN_VENUE_NAMES.get(location, f'SPIN ({location.title()})')
     
     print(f"\n{'='*70}")
     print(f"Testing: {location_name}")
@@ -118,7 +118,7 @@ def test_spin_multiple_dates(location='flatiron'):
         (datetime.now() + timedelta(days=18)).strftime("%Y-%m-%d"),  # 18 days from now
     ]
     
-    location_name = SPIN_VENUE_NAMES.get(location, f'SPIN (NYC - {location.title()})')
+    location_name = SPIN_VENUE_NAMES.get(location, f'SPIN ({location.title()})')
     
     print(f"\n{'#'*70}")
     print(f"TESTING SPIN SCRAPER - MULTIPLE DATES")

@@ -135,11 +135,35 @@ function VenueDetail({ data, venueName, city = null }) {
       grouped[date].push(item)
     })
     
+    // Helper function to parse time string to minutes since midnight
+    const parseTimeToMinutes = (timeStr) => {
+      if (!timeStr) return 0
+      const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+      if (!match) return 0
+      
+      let hours = parseInt(match[1], 10)
+      const minutes = parseInt(match[2], 10)
+      const period = match[3].toUpperCase()
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        hours += 12
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0
+      }
+      
+      return hours * 60 + minutes
+    }
+    
     return Object.entries(grouped)
       .sort((a, b) => new Date(a[0]) - new Date(b[0])) // Sort dates ascending
       .map(([date, slots]) => ({
         date,
-        slots: slots.sort((a, b) => (a.time || '').localeCompare(b.time || '')) // Sort slots by time
+        slots: slots.sort((a, b) => {
+          const timeA = parseTimeToMinutes(a.time || '')
+          const timeB = parseTimeToMinutes(b.time || '')
+          return timeA - timeB
+        })
       }))
   }, [data])
 
@@ -196,7 +220,7 @@ function VenueDetail({ data, venueName, city = null }) {
   return (
     <div className="venue-detail-container">
       <div className="venue-detail-header">
-        <div className="venue-detail-name">{formattedName}</div>
+        {/* <div className="venue-detail-name">{formattedName}</div> */}
         {isLawnClub && activities.length > 0 && (
           <div className="venue-detail-activities">
             {activities.join(', ')}
