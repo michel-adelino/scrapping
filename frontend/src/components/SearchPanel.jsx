@@ -160,6 +160,7 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
   const [puttshackLocation, setPuttshackLocation] = useState("Bank");
   const [f1Experience, setF1Experience] = useState("Team Racing");
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState([]); // Array of selected neighborhoods
+  const [isMobile, setIsMobile] = useState(false); // Track if mobile view
 
   const venueInfo = VENUE_INFO[location] || VENUE_INFO["all_new_york"];
   const requiresDate = false; // Always false since we're only showing all_new_york or all_london
@@ -262,6 +263,19 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
   };
 
   const handleFlexibleRangeAdjust = (days) => {
+    // Define min and max dates (today to 30 days from today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30);
+    
+    // Helper function to clamp a date to the valid range
+    const clampDate = (date) => {
+      if (date < today) return today;
+      if (date > maxDate) return maxDate;
+      return date;
+    };
+    
     if (dateRangeStart && dateRangeEnd) {
       // Expand/contract existing range
       const newStart = new Date(dateRangeStart);
@@ -270,8 +284,12 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
       const newEnd = new Date(dateRangeEnd);
       newEnd.setDate(newEnd.getDate() + days);
       
-      setDateRangeStart(newStart);
-      setDateRangeEnd(newEnd);
+      // Clamp both dates to valid range
+      const clampedStart = clampDate(newStart);
+      const clampedEnd = clampDate(newEnd);
+      
+      setDateRangeStart(clampedStart);
+      setDateRangeEnd(clampedEnd);
     } else if (targetDate) {
       // If no range but single date selected, create range around it
       const start = new Date(targetDate);
@@ -280,18 +298,26 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
       const end = new Date(targetDate);
       end.setDate(end.getDate() + days);
       end.setHours(0, 0, 0, 0);
-      setDateRangeStart(start);
-      setDateRangeEnd(end);
+      
+      // Clamp both dates to valid range
+      const clampedStart = clampDate(start);
+      const clampedEnd = clampDate(end);
+      
+      setDateRangeStart(clampedStart);
+      setDateRangeEnd(clampedEnd);
     } else {
       // If no date selected, create range around today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const start = new Date(today);
       start.setDate(start.getDate() - days);
       const end = new Date(today);
       end.setDate(end.getDate() + days);
-      setDateRangeStart(start);
-      setDateRangeEnd(end);
+      
+      // Clamp both dates to valid range (start can't go before today)
+      const clampedStart = clampDate(start);
+      const clampedEnd = clampDate(end);
+      
+      setDateRangeStart(clampedStart);
+      setDateRangeEnd(clampedEnd);
     }
   };
 
@@ -315,15 +341,28 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
 
   // Get display text for When section
   const getWhenDisplayText = () => {
+    // Helper to format date as M/D
+    const formatMD = (date) => {
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return `${month}/${day}`;
+    };
+    
     if (dateSelectionMode === "months") {
       return "Next 30 days";
     }
     if (dateSelectionMode === "flexible" && dateRangeStart && dateRangeEnd) {
+      if (isMobile) {
+        return `${formatMD(dateRangeStart)}~${formatMD(dateRangeEnd)}`;
+      }
       const startStr = dateRangeStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       const endStr = dateRangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return `${startStr} - ${endStr}`;
     }
     if (dateSelectionMode === "dates" && targetDate) {
+      if (isMobile) {
+        return formatMD(targetDate);
+      }
       return targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
     return "Add dates";
@@ -340,6 +379,23 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
   useEffect(() => {
     setSelectedNeighborhoods([]);
   }, [location]);
+
+  // Track window size for mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Listen for resize events
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
   // Click outside detection to close overlays
   useEffect(() => {
@@ -812,6 +868,11 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
                       dateFormat="MMM dd, yyyy"
                       placeholderText="Select a date"
                       minDate={new Date()}
+                      maxDate={(() => {
+                        const maxDate = new Date();
+                        maxDate.setDate(maxDate.getDate() + 30);
+                        return maxDate;
+                      })()}
                       monthsShown={1}
                       className="form-control datepicker-input"
                       wrapperClassName="datepicker-wrapper"
@@ -865,6 +926,11 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
                       dateFormat="MMM dd, yyyy"
                       placeholderText="Select date range"
                       minDate={new Date()}
+                      maxDate={(() => {
+                        const maxDate = new Date();
+                        maxDate.setDate(maxDate.getDate() + 30);
+                        return maxDate;
+                      })()}
                       monthsShown={1}
                       className="form-control datepicker-input"
                       wrapperClassName="datepicker-wrapper"

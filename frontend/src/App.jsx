@@ -154,7 +154,7 @@ function App() {
         </div>
         <h1>Find group activity reservations in New York and London | Browse real-time
         availability and book directly on the company’s site.</h1>
-        <p>Choose a city, set your date and group size, and book directly with the company</p>
+        <p>Browse real-time availability and book directly on the company’s site.</p>
       </header>
 
       <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />
