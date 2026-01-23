@@ -5,21 +5,51 @@ import VenueCard from './VenueCard'
 import { formatVenueName, isLawnClubVenue, getLawnClubActivities } from '../utils/venueFormatting'
 import { getVenueMetadata } from '../data/venueMetadata'
 
-function DataSection({ data, isMultiVenueMode, isLoading = false }) {
+function DataSection({ data, isMultiVenueMode, isLoading = false, selectedNeighborhoods = [] }) {
   const [selectedVenue, setSelectedVenue] = useState(null)
+  const [isFiltering, setIsFiltering] = useState(false)
 
   // Reset selected venue when data changes (new search)
   useEffect(() => {
     setSelectedVenue(null)
   }, [data])
 
-  // Extract city from data (assume all items have same city)
-  const city = data.length > 0 ? (data[0]?.city || null) : null
+  // Show brief loading state when neighborhood filter changes
+  useEffect(() => {
+    if (selectedNeighborhoods && selectedNeighborhoods.length > 0) {
+      setIsFiltering(true)
+      const timer = setTimeout(() => {
+        setIsFiltering(false)
+      }, 150)
+      return () => clearTimeout(timer)
+    } else {
+      setIsFiltering(false)
+    }
+  }, [selectedNeighborhoods])
+
+  // Filter data by selected neighborhoods (client-side filtering)
+  const filteredData = useMemo(() => {
+    if (!selectedNeighborhoods || selectedNeighborhoods.length === 0) {
+      return data; // Show all if no filter
+    }
+    
+    return data.filter(item => {
+      const venueName = item.venue_name || item.website || 'Unknown Venue';
+      const metadata = getVenueMetadata(venueName);
+      const venueNeighborhood = metadata?.neighborhood;
+      
+      // Include item if its neighborhood is in the selected list
+      return venueNeighborhood && selectedNeighborhoods.includes(venueNeighborhood);
+    });
+  }, [data, selectedNeighborhoods]);
+
+  // Extract city from filtered data (assume all items have same city)
+  const city = filteredData.length > 0 ? (filteredData[0]?.city || null) : null
 
   // Group venues and calculate slot counts for list view
   const venueSummary = useMemo(() => {
     const grouped = {}
-    data.forEach(item => {
+    filteredData.forEach(item => {
       const venueName = item.venue_name || item.website || 'Unknown Venue'
       if (!grouped[venueName]) {
         grouped[venueName] = 0
@@ -30,16 +60,16 @@ function DataSection({ data, isMultiVenueMode, isLoading = false }) {
     return Object.entries(grouped)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([venueName, slotCount]) => ({ venueName, slotCount }))
-  }, [data])
+  }, [filteredData])
 
   // Filter data for selected venue in detail view
   const selectedVenueData = useMemo(() => {
     if (!selectedVenue) return []
-    return data.filter(item => {
+    return filteredData.filter(item => {
       const venueName = item.venue_name || item.website || 'Unknown Venue'
       return venueName === selectedVenue
     })
-  }, [data, selectedVenue])
+  }, [filteredData, selectedVenue])
 
   const handleVenueClick = (venueName) => {
     setSelectedVenue(venueName)
@@ -83,12 +113,12 @@ function DataSection({ data, isMultiVenueMode, isLoading = false }) {
       </div>
 
       <div className="auto-scroll">
-        {isLoading && (
+        {(isLoading || isFiltering) && (
           <div className="loading-overlay">
             <div className="spinner"></div>
           </div>
         )}
-        {data.length === 0 ? (
+        {filteredData.length === 0 ? (
           <div className="no-data">
             No data available. Use the search panel to find available slots.
           </div>
@@ -97,7 +127,7 @@ function DataSection({ data, isMultiVenueMode, isLoading = false }) {
         ) : isMultiVenueMode && selectedVenue ? (
           <VenueDetail data={selectedVenueData} venueName={selectedVenue} city={city} />
         ) : (
-          <DataTable data={data} />
+          <DataTable data={filteredData} />
         )}
       </div>
     </div>

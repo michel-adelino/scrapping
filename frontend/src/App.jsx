@@ -22,6 +22,7 @@ function App() {
   const [isMultiVenueMode, setIsMultiVenueMode] = useState(false)
   const [currentFilters, setCurrentFilters] = useState({})
   const [currentGuestsFilter, setCurrentGuestsFilter] = useState(null)
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState([])
   const [toasts, setToasts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -119,10 +120,15 @@ function App() {
     }
   }, [buildQueryUrl, showToast])
 
-  const handleSearch = useCallback((filters, guests, isMultiVenue) => {
+  const handleSearch = useCallback((filters, guests, isMultiVenue, neighborhoods = []) => {
     setIsMultiVenueMode(isMultiVenue)
+    setSelectedNeighborhoods(neighborhoods)
     fetchData(filters, guests)
   }, [fetchData])
+
+  const handleNeighborhoodsChange = useCallback((neighborhoods) => {
+    setSelectedNeighborhoods(neighborhoods)
+  }, [])
 
   const handleClearData = useCallback(async () => {
     // Use a simple confirmation without blocking alert
@@ -157,12 +163,18 @@ function App() {
         <p>Browse real-time availability and book directly on the company’s site.</p>
       </header>
 
-      <SearchPanel onSearch={handleSearch} onClear={handleClearData} isLoading={isLoading} />
+      <SearchPanel 
+        onSearch={handleSearch} 
+        onClear={handleClearData} 
+        isLoading={isLoading}
+        onNeighborhoodsChange={handleNeighborhoodsChange}
+      />
 
       <DataSection
         data={tableData}
         isMultiVenueMode={isMultiVenueMode}
         isLoading={isLoading}
+        selectedNeighborhoods={selectedNeighborhoods}
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -135,7 +135,7 @@ const VENUE_NAME_MAP = {
   f1_arcade: "F1 Arcade (St Paul's)",
 };
 
-function SearchPanel({ onSearch, onClear, isLoading = false }) {
+function SearchPanel({ onSearch, onClear, isLoading = false, onNeighborhoodsChange }) {
   const [location, setLocation] = useState("all_london"); // 'all_new_york' or 'all_london'
   const [guests, setGuests] = useState(2);
   const [targetDate, setTargetDate] = useState(null); // Date object or null for DatePicker
@@ -234,17 +234,12 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
       delete filters.venue_name;
     }
 
-    // Add neighborhood filter (only if neighborhoods are selected)
-    if (selectedNeighborhoods.length > 0) {
-      // For now, we'll pass the first selected neighborhood
-      // The backend can be updated to handle multiple neighborhoods if needed
-      filters.neighborhood = selectedNeighborhoods[0];
-    }
+    // Note: Neighborhood filtering is now done on the frontend, not sent to API
 
     // Add guests filter
     filters.guests = guests;
 
-    onSearch(filters, guests, isMultiVenue);
+    onSearch(filters, guests, isMultiVenue, selectedNeighborhoods);
   };
 
   const handleToday = () => {
@@ -1123,11 +1118,16 @@ function SearchPanel({ onSearch, onClear, isLoading = false }) {
                   className={`neighborhood-filter-tag ${selectedNeighborhoods.includes(neighborhood) ? "active" : ""}`}
                   onClick={() => {
                     setSelectedNeighborhoods(prev => {
-                      if (prev.includes(neighborhood)) {
-                        return prev.filter(n => n !== neighborhood);
-                      } else {
-                        return [...prev, neighborhood];
+                      const newNeighborhoods = prev.includes(neighborhood)
+                        ? prev.filter(n => n !== neighborhood)
+                        : [...prev, neighborhood];
+                      
+                      // Notify parent immediately when neighborhoods change
+                      if (onNeighborhoodsChange) {
+                        onNeighborhoodsChange(newNeighborhoods);
                       }
+                      
+                      return newNeighborhoods;
                     });
                   }}
                 >
