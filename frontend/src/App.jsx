@@ -158,8 +158,7 @@ function App() {
           <span>🍽️</span>
           <span>Live Availability</span>
         </div>
-        <h1>Find group activity reservations in New York and London | Browse real-time
-        availability and book directly on the company’s site.</h1>
+        <h1>Find group activity reservations in New York and London</h1>
         <p>Browse real-time availability and book directly on the company’s site.</p>
       </header>
 
