@@ -15,9 +15,9 @@ LAWN_CLUB_OPTIONS = {
 
 # Venue name mappings for each option
 LAWN_CLUB_VENUE_NAMES = {
-    'indoor_gaming': 'Lawn Club (Indoor Gaming)',
-    'curling_lawns': 'Lawn Club (Curling Lawns)',
-    'croquet_lawns': 'Lawn Club (Croquet Lawns)'
+    'indoor_gaming': 'The Lawn Club (Indoor Gaming)',
+    'curling_lawns': 'The Lawn Club (Curling Lawns)',
+    'croquet_lawns': 'The Lawn Club (Croquet Lawns)'
 }
 
 
@@ -281,7 +281,7 @@ def scrape_lawn_club(guests, target_date, option='indoor_gaming', selected_time=
     
     # Get option display name and venue name
     option_display = LAWN_CLUB_OPTIONS.get(option, 'Indoor Gaming Lawns')
-    venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+    venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'The Lawn Club (Indoor Gaming)')
     
     # Import helper functions from app (lazy import to avoid circular dependency)
     try:

@@ -9,18 +9,6 @@
 export const formatVenueName = (venueName, city = null) => {
   if (!venueName) return '';
   
-  // Handle Lawn Club special case - extract activity
-  if (venueName.includes('Lawn Club')) {
-    const activityMatch = venueName.match(/\(([^)]+)\)/);
-    if (activityMatch) {
-      const activity = activityMatch[1];
-      // If it's an activity name, return base name with location
-      if (activity.includes('Croquet') || activity.includes('Curling') || activity.includes('Indoor Gaming')) {
-        return 'The Lawn Club (Financial District)';
-      }
-    }
-  }
-  
   // Remove city prefix from patterns like "(NYC - Location)" or "(London - Location)"
   let formatted = venueName.replace(/\s*\(NYC\s*-\s*/gi, ' (');
   formatted = formatted.replace(/\s*\(London\s*-\s*/gi, ' (');

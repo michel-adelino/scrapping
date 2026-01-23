@@ -138,7 +138,7 @@ const nycVenues = {
     city: 'NYC',
     activities: ['Croquet Lawns', 'Curling Lawns', 'Indoor Gaming']
   },
-  'Lawn Club (Croquet Lawns)': {
+  'The Lawn Club (Croquet Lawns)': {
     venueName: 'The Lawn Club',
     location: 'Financial District',
     neighborhood: 'Downtown',
@@ -146,7 +146,7 @@ const nycVenues = {
     city: 'NYC',
     activities: ['Croquet Lawns', 'Curling Lawns', 'Indoor Gaming']
   },
-  'Lawn Club (Curling Lawns)': {
+  'The Lawn Club (Curling Lawns)': {
     venueName: 'The Lawn Club',
     location: 'Financial District',
     neighborhood: 'Downtown',
@@ -154,7 +154,7 @@ const nycVenues = {
     city: 'NYC',
     activities: ['Croquet Lawns', 'Curling Lawns', 'Indoor Gaming']
   },
-  'Lawn Club (Indoor Gaming)': {
+  'The Lawn Club (Indoor Gaming)': {
     venueName: 'The Lawn Club',
     location: 'Financial District',
     neighborhood: 'Downtown',

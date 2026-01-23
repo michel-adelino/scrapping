@@ -170,6 +170,10 @@ VENUE_BOOKING_URLS = {
     'Electric Shuffle (London Bridge)': 'https://electricshuffle.com/uk/london/book',
     'Electric Shuffle (King\'s Cross)': 'https://electricshuffle.com/uk/london/book',
     'The Lawn Club (Financial District)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'The Lawn Club (Indoor Gaming)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'The Lawn Club (Curling Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    'The Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
+    # Keep old format for backward compatibility during migration
     'Lawn Club (Indoor Gaming)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Curling Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
     'Lawn Club (Croquet Lawns)': 'https://www.sevenrooms.com/landing/lawnclubnyc',
@@ -675,9 +679,9 @@ def run_scraper():
         website_names = {
             'electric_shuffle_nyc': 'Electric Shuffle (Nomad)',
             'electric_shuffle_london': 'Electric Shuffle (Canary Wharf)',
-            'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
-            'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
-            'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
+            'lawn_club_nyc_indoor_gaming': 'The Lawn Club (Indoor Gaming)',
+            'lawn_club_nyc_curling_lawns': 'The Lawn Club (Curling Lawns)',
+            'lawn_club_nyc_croquet_lawns': 'The Lawn Club (Croquet Lawns)',
             'spin_nyc': 'SPIN (Flatiron)',
             'spin_nyc_midtown': 'SPIN (Midtown East)',
             'five_iron_golf_nyc_fidi': 'Five Iron Golf (Financial District)',
@@ -708,7 +712,7 @@ def run_scraper():
         elif website.startswith('lawn_club_nyc_'):
             from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
             option = website.replace('lawn_club_nyc_', '')
-            venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+            venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'The Lawn Club (Indoor Gaming)')
         elif website.startswith('spin_nyc'):
             from scrapers.spin import SPIN_VENUE_NAMES
             location = 'flatiron' if website == 'spin_nyc' else website.replace('spin_nyc_', '')
@@ -1153,9 +1157,9 @@ def get_data():
                 'Lucky Strike (Times Square)': 'Midtown',
                 'Lucky Strike (Chelsea Piers)': 'Midtown',
                 'The Lawn Club (Financial District)': 'Downtown',
-                'Lawn Club (Croquet Lawns)': 'Downtown',
-                'Lawn Club (Curling Lawns)': 'Downtown',
-                'Lawn Club (Indoor Gaming)': 'Downtown',
+                'The Lawn Club (Croquet Lawns)': 'Downtown',
+                'The Lawn Club (Curling Lawns)': 'Downtown',
+                'The Lawn Club (Indoor Gaming)': 'Downtown',
                 'Kick Axe (Brooklyn)': 'Brooklyn/Queens',
                 'Chelsea Piers (Chelsea)': 'Midtown',
                 # London venues
@@ -2051,9 +2055,9 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 'swingers_london': 'Swingers (Oxford Circus)',
                 'electric_shuffle_nyc': 'Electric Shuffle (Nomad)',
                 'electric_shuffle_london': 'Electric Shuffle (Canary Wharf)',
-                'lawn_club_nyc_indoor_gaming': 'Lawn Club (Indoor Gaming)',
-                'lawn_club_nyc_curling_lawns': 'Lawn Club (Curling Lawns)',
-                'lawn_club_nyc_croquet_lawns': 'Lawn Club (Croquet Lawns)',
+                'lawn_club_nyc_indoor_gaming': 'The Lawn Club (Indoor Gaming)',
+                'lawn_club_nyc_curling_lawns': 'The Lawn Club (Curling Lawns)',
+                'lawn_club_nyc_croquet_lawns': 'The Lawn Club (Croquet Lawns)',
                 'spin_nyc': 'SPIN (Flatiron)',
                 'spin_nyc_midtown': 'SPIN (Midtown East)',
                 'five_iron_golf_nyc_fidi': 'Five Iron Golf (Financial District)',
@@ -2085,7 +2089,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
             if website.startswith('lawn_club_nyc_'):
                 from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
                 option = website.replace('lawn_club_nyc_', '')
-                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'The Lawn Club (Indoor Gaming)')
             elif website.startswith('five_iron_golf_nyc_'):
                 from scrapers.five_iron_golf import FIVE_IRON_VENUE_NAMES
                 location = website.replace('five_iron_golf_nyc_', '')
@@ -2115,7 +2119,7 @@ def scrape_venue_task(self, guests, target_date, website, task_id=None, lawn_clu
                 # Extract option from website name (e.g., 'lawn_club_nyc_indoor_gaming' -> 'indoor_gaming')
                 option = website.replace('lawn_club_nyc_', '')
                 from scrapers.lawn_club import LAWN_CLUB_VENUE_NAMES
-                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'Lawn Club (Indoor Gaming)')
+                venue_name = LAWN_CLUB_VENUE_NAMES.get(option, 'The Lawn Club (Indoor Gaming)')
                 logger.info(f"[VENUE_TASK] {website}: Calling scrape_lawn_club_task with option {option}")
                 result = scrape_lawn_club_task(guests, target_date, option, task_id, lawn_club_time, lawn_club_duration)
             elif website == 'spin_nyc':
