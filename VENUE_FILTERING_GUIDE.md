@@ -96,8 +96,8 @@ def refresh_filtered():
 - `easybowl_nyc`
 - `tsquaredsocial_nyc`
 - `daysmart_chelsea`
-- `puttery_nyc` ⭐
-- `kick_axe_brooklyn` ⭐
+- `puttery_nyc`
+- `kick_axe_brooklyn`
 
 ### London Venues:
 - `swingers_london`

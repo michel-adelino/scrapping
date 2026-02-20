@@ -233,3 +233,4 @@ sudo journalctl -u backend-scraper-celery-beat -n 20
    # Linux - run directly to test
    CELERY_VENUES_FILTER="puttery_nyc,kick_axe_brooklyn" celery -A celery_app beat --loglevel=info
    ```
+   
